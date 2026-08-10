@@ -1,0 +1,27 @@
+# Context: EdTech Live Virtual Classroom SaaS (Next.js App Router)
+
+## Core System Architecture & Rules
+- ALWAYS read and analyze existing codebase context before generating modifications.
+- NEVER delete, overwrite, or break working functionality unless explicitly instructed.
+- Strictly enforce Role-Based Access Control (RBAC): MANAGER, TEACHER, STUDENT.
+- Strict Privacy Rule: NEVER expose user email addresses or phone numbers between Teachers and Students. All interaction must be masked using internal User_IDs.
+
+## Tech Stack Requirements
+- Framework: Next.js (App Router), TypeScript, Tailwind CSS
+- Database & ORM: Prisma ORM (PostgreSQL/Supabase)
+- Video Engine: Daily.co (@daily-co/daily-react)
+  - Video streams inside the app portal.
+  - Automatic background recording enabled on server.
+  - NO recording buttons or controls allowed for teachers or students.
+- Collaborative Canvas: Excalidraw (@excalidraw/excalidraw)
+  - Loaded dynamically client-side (`ssr: false`).
+  - Image drag-and-drop enabled.
+  - Expose `exportBoardToPdf()` utility to render board state into a PDF Blob upon lesson completion.
+- In-App Chat: Stream Chat (`stream-chat-react`)
+  - Auto-moderation filters enabled to censor phone numbers and emails.
+  - Allow PDF, DOC, and image file attachments.
+  - Access restricted exclusively to lesson's Student, Teacher, and Manager.
+- WhatsApp & Notifications:
+  - Send lesson end summary via WhatsApp API.
+  - Attach board PDF directly as a document.
+  - Include secure streaming link for video recording (do NOT send video raw files).

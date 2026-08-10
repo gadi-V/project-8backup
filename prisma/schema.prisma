@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  TEACHER
+  STUDENT
+}
+
+model User {
+  id        String  @id @default(uuid())
+  name      String
+  phone     String  @unique
+  email     String? @unique
+  password  String
+  role      Role    @default(STUDENT)
+
+  lessonCredits Int     @default(0)
+  isApproved    Boolean @default(false)
+
+  resetPasswordToken   String?   @unique
+  resetPasswordExpires DateTime?
+
+  givenLessons        Lesson[]              @relation("TeacherLessons")
+  takenLessons        Lesson[]              @relation("StudentLessons")
+  availabilities      TeacherAvailability[]
+  diagnosticQuizzes   DiagnosticQuiz[]
+  payments            Payment[]
+  teacherProfile      TeacherProfile?
+  auditLogs           AuditLog[]
+  referralsAsTeacher  TeacherReferral[]     @relation("TeacherReferrals")
+  referralsAsStudent  TeacherReferral[]     @relation("StudentReferrals")
+
+  createdAt DateTime @default(now())
+}
+
+model TeacherProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  subjects        String[] // מקצועות: מתמטיקה, פיזיקה, אינפי...
+  ageGroups       String[] @default([]) // יסודי / חטיבה / תיכון / אקדמיה
+  bio             String?
+  profileImageUrl String?
+
+  // מדדי חלוקה שוויונית
+  referralCount       Int       @default(0)
+  activeStudentsCount Int       @default(0)
+  lastReferralAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeacherReferral {
+  id           String  @id @default(uuid())
+  teacherId    String
+  studentId    String
+  diagnosticId String?
+  matchScore   Int     @default(0)
+  reason       String?
+
+  teacher User @relation("TeacherReferrals", fields: [teacherId], references: [id], onDelete: Cascade)
+  student User @relation("StudentReferrals", fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([teacherId, createdAt])
+  @@index([studentId, createdAt])
+}
+
+model TeacherAvailability {
+  id        String   @id @default(uuid())
+  teacherId String
+  teacher   User     @relation(fields: [teacherId], references: [id])
+
+  startTime DateTime
+  endTime   DateTime
+
+  isBooked Boolean @default(false)
+}
+
+model Lesson {
+  id String @id @default(uuid())
+
+  title       String?
+  startTime   DateTime?
+  endTime     DateTime?
+
+  teacherId String
+  teacher   User   @relation("TeacherLessons", fields: [teacherId], references: [id])
+
+  studentId String
+  student   User   @relation("StudentLessons", fields: [studentId], references: [id])
+
+  scheduledAt DateTime
+  status      String   @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED
+  zoomLink    String?
+
+  excalidrawPdfUrl  String?
+  videoRecordingUrl String?
+
+  chatChannel ChatChannel?
+
+  createdAt DateTime @default(now())
+}
+
+model ChatChannel {
+  id              String @id @default(uuid())
+  lessonId        String @unique
+  lesson          Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  streamChannelId String @unique
+
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id            String @id @default(uuid())
+  studentId     String
+  student       User   @relation(fields: [studentId], references: [id])
+  packageType   String
+  amountPaid    Int
+  creditsAdded  Int
+  transactionId String
+
+  createdAt DateTime @default(now())
+}
+
+model FallbackLead {
+  id             String  @id @default(uuid())
+  name           String
+  phone          String
+  grade          String
+  requestedHours String
+  isHandled      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model DiagnosticQuiz {
+  id        String @id @default(uuid())
+  studentId String
+
+  ageGroup  String
+  subject   String
+  challenge String
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id         String  @id @default(uuid())
+  actorId    String?
+  actor      User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+
+  createdAt DateTime @default(now())
+}
+
+model WebhookEvent {
+  id          String    @id @default(uuid())
+  provider    String
+  eventType   String
+  externalId  String    @unique
+  payload     Json
+  processed   Boolean   @default(false)
+  processedAt DateTime?
+  error       String?
+
+  createdAt DateTime @default(now())
+}
+
+model OtpCode {
+  id        String   @id @default(uuid())
+  phone     String
+  codeHash  String
+  purpose   String   @default("PASSWORD_RESET")
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int      @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([phone, purpose, createdAt])
+}

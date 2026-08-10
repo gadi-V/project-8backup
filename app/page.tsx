@@ -1,0 +1,291 @@
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import { toast } from "react-hot-toast";
+
+export default function HomePage() {
+  const [activeFaq, setActiveFaq] = useState<number | null>(null);
+  const [leadForm, setLeadForm] = useState({ name: "", phone: "", grade: "" });
+  const [leadLoading, setLeadLoading] = useState(false);
+  const [leadSent, setLeadSent] = useState(false);
+
+  const toggleFaq = (index: number) => {
+    setActiveFaq(activeFaq === index ? null : index);
+  };
+
+  const handleLeadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leadForm.name.trim() || !leadForm.phone.trim()) {
+      toast.error("שם וטלפון הם שדות חובה");
+      return;
+    }
+
+    setLeadLoading(true);
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: leadForm.name.trim(),
+          phone: leadForm.phone.trim(),
+          grade: leadForm.grade.trim() || "לא צוין",
+          notes: leadForm.grade.trim() || "פנייה מדף הנחיתה",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "שליחת הפרטים נכשלה");
+      setLeadSent(true);
+      toast.success("הפרטים נקלטו! נחזור אליכם בהקדם");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "שגיאה בשליחה");
+    } finally {
+      setLeadLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#fbfbfd] text-[#1d1d1f] font-sans antialiased" dir="rtl">
+      
+      {/* 1. חלק הגיבור (Hero Section) - כותרת עבה וממוקדת פלטפורמה */}
+      <section className="max-w-5xl mx-auto px-6 pt-24 pb-16 grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
+        <div className="md:col-span-7 space-y-6 text-right">
+          <span className="text-xs font-black tracking-widest text-[#0071e3] uppercase block">סוף לחיפוש מורים</span>
+          <h1 className="text-4xl sm:text-6xl font-black text-[#1d1d1f] tracking-tight leading-none">
+            התאמה חכמה.
+            <br />
+            קצה לקצה.
+          </h1>
+          <h2 className="text-2xl sm:text-3xl font-bold text-[#6e6e73] tracking-tight leading-tight">
+            פלטפורמה אדפטיבית המאתרת את המורה המדויק ביותר עבורך – לפי הדרישות, היעדים והלו"ז שלך.
+          </h2>
+          <div className="pt-4 flex flex-col sm:flex-row gap-4">
+            <Link href="/register" className="inline-block text-center bg-[#1d1d1f] hover:bg-[#2d2d2f] text-white font-black text-xs py-3.5 px-8 rounded-full transition-all shadow-md">
+              הרשמה לפלטפורמה
+            </Link>
+            <Link href="/register/student" className="inline-block text-center bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] font-black text-xs py-3.5 px-8 rounded-full transition-all border border-[#e5e5e7]">
+              אבחון לתלמיד
+            </Link>
+          </div>
+        </div>
+        
+        {/* מדיה ומכשיר אינטראקטיבי */}
+        <div className="md:col-span-5 flex justify-center">
+          <div className="w-[280px] aspect-[9/18] bg-white rounded-[48px] p-3 border border-slate-200 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-4 bg-slate-200 rounded-b-2xl z-20" />
+            <div className="w-full h-full rounded-[36px] overflow-hidden bg-slate-100">
+              <video className="w-full h-full object-cover" src="https://haformula.co.il/wp-content/uploads/2026/02/תדמית-לדף-נחיתה-1-1-1.mp4" autoPlay loop muted playsInline />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. גריד היתרונות הטכנולוגיים (Platform Capabilities Grid) */}
+      {/* 2. גריד היתרונות הטכנולוגיים במבנה Bento של Apple */}
+      <section id="features" className="bg-[#f5f5f7] py-24 border-t border-b border-[#e5e5e7]">
+        <div className="max-w-5xl mx-auto px-6 space-y-16">
+          
+          <div className="text-right space-y-3">
+            <span className="text-xs font-black tracking-widest text-[#6e6e73] uppercase block">חוויית משתמש מבוקרת</span>
+            <h2 className="text-4xl sm:text-5xl font-black text-[#1d1d1f] tracking-tight">הטכנולוגיה בשירות הפדגוגיה.</h2>
+          </div>
+
+          {/* ארכיטקטורת בנטו (Bento Layout) - שילוב טקסט ומדיה גבוהה */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 text-right">
+            
+            {/* קוביה 1: גדולה ומרכזית (רוחב 7 מתוך 12) - משלבת טקסט וצילום ממשק */}
+            <div className="md:col-span-7 bg-white rounded-3xl border border-[#e5e5e7] overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md transition-all group">
+              <div className="p-8 space-y-2">
+                <span className="text-[11px] font-black text-[#0071e3] tracking-wider uppercase">המערכת האדפטיבית</span>
+                <h4 className="text-xl font-black text-[#1d1d1f]">בגרות ואקדמיה תחת קורת גג אחת</h4>
+                <p className="text-xs font-bold text-[#6e6e73] max-w-md leading-relaxed">
+                  מענה שלם לכל מקצועות הבגרות ולכל התארים האקדמיים. התמחות מיוחדת בעולמות ההנדסה והמדעים המדויקים, המותאמת לקצב ההבנה האישי שלך.
+                </p>
+              </div>
+              {/* מקום לצילום באיכות גבוהה / UI גראפי של הפלטפורמה */}
+              <div className="px-8 bg-slate-50 border-t border-slate-100 aspect-[16/7] flex items-center justify-center overflow-hidden">
+                <div className="w-full h-full bg-[#1d1d1f] rounded-t-xl mt-4 p-4 shadow-2xl transition-transform group-hover:scale-[1.02] duration-300">
+                  {/* כאן תשתול תמונת מסך מלוטשת של לוח הניהול הכהה שלך */}
+                  <div className="text-[10px] font-mono text-slate-500">// צילום מסך: חלון שיבוץ השיעורים הדינמי באזור האישי</div>
+                </div>
+              </div>
+            </div>
+
+            {/* קוביה 2: צרה וגבוהה (רוחב 5 מתוך 12) - ממוקדת לו"ז */}
+            <div className="md:col-span-5 bg-white rounded-3xl border border-[#e5e5e7] p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all">
+              <div className="space-y-2">
+                <span className="text-[11px] font-black text-[#0071e3] tracking-wider uppercase">מטריצת שעות חיה</span>
+                <h4 className="text-xl font-black text-[#1d1d1f]">גישה ישירה ללו"ז המורה</h4>
+                <p className="text-xs font-bold text-[#6e6e73] leading-relaxed">
+                  מערכת קביעת שיעורים עצמאית לחלוטין. רואים חלונות זמן פנויים, בוחרים קליק, ומשריינים מפגש בלייב – ללא טלפונים וללא מתווכחים.
+                </p>
+              </div>
+              {/* אלמנט ויזואלי מינימליסטי - הדמיית קלנדר של אפל */}
+              <div className="mt-6 grid grid-cols-4 gap-2 opacity-60">
+                {[8, 10, 12, 14].map((hour) => (
+                  <div key={hour} className="border border-slate-200 p-3 rounded-xl text-center font-mono text-xs font-black text-[#6e6e73] bg-[#fbfbfd]">
+                    {hour}:00
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* קוביה 3: צרה (רוחב 5 מתוך 12) - קבוצות ווטסאפ */}
+            <div className="md:col-span-5 bg-white rounded-3xl border border-[#e5e5e7] p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all">
+              <div className="space-y-2">
+                <span className="text-[11px] font-black text-[#0071e3] tracking-wider uppercase">בקרת איכות עליונה</span>
+                <h4 className="text-xl font-black text-[#1d1d1f]">קבוצות ווטסאפ משולשות</h4>
+                <p className="text-xs font-bold text-[#6e6e73] leading-relaxed">
+                  כל שיבוץ פותח אוטומטית ערוץ תקשורת מבוקר הכולל את המורה, ההורה או הסטודנט, ונציג מלווה קבוע מטעמנו כדי לוודא שאף אחד לא הולך לאיבוד.
+                </p>
+              </div>
+              <div className="mt-4 flex gap-2 justify-end">
+                <span className="bg-emerald-50 text-emerald-700 text-[10px] font-black py-1 px-3 rounded-full border border-emerald-200">צ'אט בקרה פעיל</span>
+              </div>
+            </div>
+
+            {/* קוביה 4: רחבה (רוחב 7 מתוך 12) - ממוקדת בנבחרת המורים המנוסה */}
+            <div className="md:col-span-7 bg-white rounded-3xl border border-[#e5e5e7] overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md transition-all group">
+              <div className="p-8 space-y-2">
+                <span className="text-[11px] font-black text-[#0071e3] tracking-wider uppercase">הון אנושי עילית</span>
+                <h4 className="text-xl font-black text-[#1d1d1f]">כל המורים עברו תהליך הכשרה פדגוגי קשיח</h4>
+                <p className="text-xs font-bold text-[#6e6e73] leading-relaxed">
+                  אנחנו לא אינדקס פתוח לכל אחד. נבחרת המרצים שלנו מורכבת מאנשי מקצוע שעברו סינון קפדני בן 7 שלבים, מבחני מומחיות והסמכה מקיפה בארגון.
+                </p>
+              </div>
+              {/* הדמיית צילום מקרו ברזולוציה גבוהה */}
+              <div className="h-32 bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs relative overflow-hidden">
+                {/* כאן תבוא תמונת קלוז-אפ איכותית (למשל עט דיגיטלי כותב על מסך אייפד בתוכנת GoodNotes) */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-200/50 to-transparent" />
+                <span className="z-10 text-[10px] text-slate-500 font-mono">// צילום מאקרו: כתיבה פדגוגית חכמה על טאבלט דיגיטלי</span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* 3. שלושת מוקדי המומחיות + חשיפת הכרטיסיות האינטראקטיביות (Flip Cards) */}
+      <section id="method" className="max-w-5xl mx-auto px-6 py-24 space-y-16">
+        <div className="text-right space-y-3">
+          <span className="text-xs font-bold tracking-widest text-[#6e6e73] uppercase block">נבחרת המרצים</span>
+          <h2 className="text-4xl font-black text-[#1d1d1f] tracking-tight">מורים בעלי תוצאות מוכחות בשטח</h2>
+          <p className="text-xs font-bold text-[#6e6e73] max-w-xl">
+            כל המורים בפלטפורמה נבחרו בקפידה ועברו תהליך סינון קשוח ומסלול הכשרה פדגוגי מקיף בארגון. הם מתמחים ב-3 נתיבי פעולה ברורים:
+          </p>
+        </div>
+
+        {/* חמשת הכרטיסים האינטראקטיביים המשקפים שקיפות ומבנה כרטיסיות */}
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+          {[
+            { step: "A", title: "סגירת פערים", desc: "איתור חורים לימודיים ופערי עבר מהיסוד, ובניית הבסיס הפדגוגי הדרוש להתקדמות." },
+            { step: "B", title: "הכנה למבחנים", desc: "מרתונים ממוקדים, פתרון מבחני עבר וטקטיקות עבודה ייעודיות להעלאת הציון בטווח קצר." },
+            { step: "C", title: "ליווי שוטף", desc: "ליווי עקבי לאורך כל הסמסטר או שנת הלימודים לשמירה על יציבות, משמעת עצמית והבנה עמוקה." },
+            { step: "D", title: "מערכת כרטיסיות", desc: "שקיפות מלאה. טוענים חבילת מפגשים מוגדרת (1, 3 או 5 שיעורים). אין התחייבויות ארוכות טווח או קנסות." },
+            { step: "E", title: "חופש בחירה", desc: "המערכת מאפשרת לכם להישאר עם המורה שלכם או להחליף למרצה אחר בנבחרת בכל רגע, בהתאם לזמינות הלוז." }
+          ].map((item, idx) => (
+            <div key={idx} className="group w-full h-72 [perspective:1000px] cursor-pointer">
+              <div className="relative w-full h-full duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)] shadow-sm hover:shadow-md transition-all rounded-2xl">
+                
+                {/* צד קדמי */}
+                <div className="absolute inset-0 w-full h-full bg-[#ffffff] border border-[#e5e5e7] rounded-2xl p-6 flex flex-col justify-between [backface-visibility:hidden]">
+                  <span className="text-5xl font-black text-[#e5e5e7] font-mono block text-right">{item.step}</span>
+                  <h4 className="font-extrabold text-sm text-[#1d1d1f] leading-snug">{item.title}</h4>
+                </div>
+
+                {/* צד אחורי */}
+                <div className="absolute inset-0 w-full h-full bg-[#1d1d1f] rounded-2xl p-6 flex flex-col justify-center text-right [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                  <p className="text-xs font-bold text-[#f5f5f7] leading-relaxed">{item.desc}</p>
+                </div>
+
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* הבלטת שיטת הכרטיסיות הגלויה באתר לפי בקשתך */}
+        <div className="text-center pt-6">
+          <p className="text-xs font-bold text-[#6e6e73]">
+            * רכישת החבילות מתבצעת ככרטיסיית מפגשים דיגיטלית שקופה. ניכוי שעות מבוצע אך ורק לאחר קיום המפגש בפועל. 
+            <span className="text-[#0071e3] block sm:inline sm:mr-1 font-black">קיימות אופציות ומסלולי ליווי מורחבים בהתאמה אישית.</span>
+          </p>
+        </div>
+      </section>
+
+      {/* 4. שאלות נפוצות (FAQ) - מעודכן לשאלות שקיפות וכרטיסיות */}
+      <section id="faq" className="bg-[#f5f5f7] py-24 border-t border-b border-[#e5e5e7]">
+        <div className="max-w-3xl mx-auto px-6 space-y-12">
+          <h2 className="text-3xl font-black text-[#1d1d1f] tracking-tight text-center">נעים להכיר, בגובה העיניים</h2>
+          
+          <div className="border-t border-slate-300 divide-y divide-slate-300">
+            {[
+              { q: "כיצד המערכת מתאימה לי את המורה?", a: "מנוע האבחון הדינמי שלנו משקלל את המקצוע או הקורס האקדמי הספציפי, רמת הלימוד, סוג הקושי (פערי עבר, חרדת בחינות) והשעות הפנויות שלך, ומציג לך את המורים המנוסים והרלוונטיים ביותר שעונים על הדרישה המדויקת הזו." },
+              { q: "איך עובד מנגנון החיוב והכרטיסיות?", a: "הכול שקוף ומנוהל באזור האישי. אתם בוחרים כרטיסיית מפגשים מוגדרת מראש. השעות נשארות בחשבון שלכם ואינן פוקעות, וניכוי השיעור מתבצע מתוך הכרטיסייה אך ורק לאחר שהמפגש התקיים בפועל במערכת." },
+              { q: "האם אני יכול להחליף מורה במהלך הדרך?", a: "בוודאי. הפלטפורמה מעניקה חופש בחירה מוחלט. אם אתם מרגישים צורך לרענן, לעבור למורה אחר או לשלב מורה נוסף לקורס אחר – אתם חופשיים לעשות זאת ישירות מתוך המערכת על בסיס זמינות הלו\"ז שלו, ללא בירוקרטיה." }
+            ].map((item, idx) => (
+              <div key={idx} className="py-5">
+                <button onClick={() => toggleFaq(idx)} className="w-full flex justify-between items-center text-right text-sm font-black text-[#1d1d1f] hover:text-[#0071e3] transition-colors focus:outline-none">
+                  <span>{item.q}</span>
+                  <span className={`text-[#0071e3] font-bold text-xl transition-transform duration-200 ${activeFaq === idx ? "rotate-45" : ""}`}>+</span>
+                </button>
+                <div className={`overflow-hidden transition-all duration-300 text-xs font-bold text-[#6e6e73] leading-relaxed ${activeFaq === idx ? "max-h-32 mt-3" : "max-h-0"}`}>
+                  {item.a}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 5. טופס פרימיום מהיר להשארת פרטים */}
+      <section id="contact" className="max-w-md mx-auto px-6 py-24">
+        <div className="bg-white border border-[#e5e5e7] p-8 rounded-3xl space-y-6 shadow-md">
+          <div className="text-center space-y-2">
+            <h3 className="text-2xl font-black text-[#1d1d1f] tracking-tight">מתחילים לשפר את הציונים</h3>
+            <p className="text-xs font-bold text-[#6e6e73]">השאירו פרטים ונציג לימודי יחזור אליכם להתאמה מיידית.</p>
+          </div>
+          
+          {leadSent ? (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-center text-xs font-bold p-4 rounded-xl">
+              הפרטים נקלטו בהצלחה. נציג לימודי יחזור אליכם בקרוב.
+            </div>
+          ) : (
+            <form className="space-y-4" onSubmit={handleLeadSubmit}>
+              <input
+                type="text"
+                required
+                value={leadForm.name}
+                onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
+                placeholder="שם מלא"
+                className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none transition-all"
+              />
+              <input
+                type="tel"
+                required
+                value={leadForm.phone}
+                onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
+                placeholder="מספר טלפון"
+                className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none text-right"
+              />
+              <input
+                type="text"
+                value={leadForm.grade}
+                onChange={(e) => setLeadForm({ ...leadForm, grade: e.target.value })}
+                placeholder="מה המקצוע או הקורס שבו נדרש עזרה?"
+                className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={leadLoading}
+                className="w-full bg-[#0071e3] hover:bg-[#0077ed] text-white font-black py-3.5 rounded-xl text-xs transition-all shadow-md disabled:opacity-50"
+              >
+                {leadLoading ? "שולח..." : "שליחת פרטים להתאמה קבועה"}
+              </button>
+            </form>
+          )}
+        </div>
+      </section>
+
+    </div>
+  );
+}
