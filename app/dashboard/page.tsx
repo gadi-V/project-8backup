@@ -8,7 +8,7 @@ import type { TeacherOnboardingStatus } from "../../lib/teacher-onboarding";
 interface LoggedInUser {
   id: string;
   name: string;
-  role: "STUDENT" | "TEACHER" | "ADMIN";
+  role: "STUDENT" | "TEACHER" | "ADMIN" | "MANAGER";
   lessonCredits: number;
   isApproved: boolean;
 }
@@ -466,7 +466,7 @@ export default function DashboardPage() {
     }
   };
 
-  // מנגנון רכישת חבילות ועדכון קרדיטים בזמן אמת לסטודנטים
+  // מנגנון רכישת חבילות — מפנה ל-Stripe Checkout; זיכוי קרדיטים רק אחרי Webhook
   const handlePurchase = async (packageType: "SINGLE" | "TRIO" | "MULTI") => {
     if (!user) return;
     setPurchaseLoading(true);
@@ -482,8 +482,13 @@ export default function DashboardPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "הרכישה נכשלה");
 
-      setUser({ ...user, lessonCredits: data.newCredits });
-      toast.success(`החבילה נטענה בהצלחה! יתרתך הנוכחית: ${data.newCredits} שיעורים 🎉`, { id: purchaseToast });
+      if (data.checkoutUrl) {
+        toast.success("מעבירים לתשלום מאובטח...", { id: purchaseToast });
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+
+      throw new Error("לא התקבל קישור לתשלום");
     } catch (err: any) {
       toast.error(err.message, { id: purchaseToast });
     } finally {
@@ -559,8 +564,10 @@ export default function DashboardPage() {
         <div className="flex justify-between items-center bg-slate-800/30 border border-slate-800 p-6 rounded-2xl backdrop-blur-md">
           <div>
             <span className="text-xs font-bold text-blue-400 block mb-1">
-              {user.role === "ADMIN"
-                ? "🛡️ מנהל מערכת"
+              {user.role === "ADMIN" || user.role === "MANAGER"
+                ? user.role === "MANAGER"
+                  ? "📋 מנהל תפעול"
+                  : "🛡️ מנהל מערכת"
                 : user.role === "TEACHER"
                   ? "👨‍🏫 מורה פרימיום - יומן עבודה"
                   : "🎓 אזור סטודנטים והורים"}
@@ -568,7 +575,7 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-black">שלום, {user.name} 👋</h1>
           </div>
           <div className="flex items-center gap-3">
-            {user.role === "ADMIN" && (
+            {(user.role === "ADMIN" || user.role === "MANAGER") && (
               <a
                 href="/admin"
                 className="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white py-2 px-4 rounded-xl"
@@ -582,10 +589,12 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* אדמין */}
-        {user.role === "ADMIN" && (
+        {/* אדמין / מנהל */}
+        {(user.role === "ADMIN" || user.role === "MANAGER") && (
           <div className="bg-violet-500/10 border border-violet-500/40 p-8 rounded-2xl text-right space-y-4">
-            <h2 className="text-xl font-black text-violet-300">ממשק מנהל מערכת</h2>
+            <h2 className="text-xl font-black text-violet-300">
+              {user.role === "MANAGER" ? "ממשק מנהל תפעול" : "ממשק מנהל מערכת"}
+            </h2>
             <p className="text-sm text-slate-300 leading-relaxed">
               כאן תוכלו לאשר מורים, לטפל בלידים ולצפות באבחונים של תלמידים.
             </p>

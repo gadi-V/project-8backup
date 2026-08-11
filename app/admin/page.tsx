@@ -144,7 +144,7 @@ export default function AdminPage() {
         const me = await meRes.json();
         if (cancelled) return;
 
-        if (me.user.role !== "ADMIN") {
+        if (me.user.role !== "ADMIN" && me.user.role !== "MANAGER") {
           toast.error("אין הרשאת מנהל");
           router.replace("/dashboard");
           return;
@@ -346,7 +346,7 @@ export default function AdminPage() {
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 p-6 rounded-2xl">
           <div>
-            <span className="text-xs font-bold text-violet-400 block mb-1">לוח בקרה · ADMIN</span>
+            <span className="text-xs font-bold text-violet-400 block mb-1">לוח בקרה · ADMIN / MANAGER</span>
             <h1 className="text-2xl font-black">שלום, {adminName}</h1>
           </div>
           <div className="flex gap-3">

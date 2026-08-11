@@ -5,8 +5,10 @@ import {
   generateOtpCode,
   normalizePhone,
   OTP_TTL_MS,
-  sendMockSmsOtp,
+  sendSmsOtp,
 } from "../../../../lib/otp";
+
+const UNIFORM_MESSAGE = "אם המספר רשום במערכת, נשלח אליו קוד אימות.";
 
 export async function POST(request: Request) {
   try {
@@ -19,11 +21,12 @@ export async function POST(request: Request) {
 
     const user = await prisma.user.findUnique({ where: { phone } });
 
-    // Generic response to avoid account enumeration; still no OTP if missing
+    // Uniform response — never reveal whether the phone exists (anti user-enumeration).
     if (!user) {
       return NextResponse.json({
-        message: "אם המספר רשום במערכת, נשלח אליו קוד אימות.",
-        sent: false,
+        message: UNIFORM_MESSAGE,
+        sent: true,
+        expiresInMinutes: 10,
       });
     }
 
@@ -31,7 +34,6 @@ export async function POST(request: Request) {
     const codeHash = await bcrypt.hash(code, 10);
     const expiresAt = new Date(Date.now() + OTP_TTL_MS);
 
-    // Invalidate previous unused reset OTPs for this phone
     await prisma.otpCode.updateMany({
       where: {
         phone,
@@ -50,15 +52,20 @@ export async function POST(request: Request) {
       },
     });
 
-    sendMockSmsOtp(phone, code);
+    try {
+      await sendSmsOtp(phone, code);
+    } catch (smsError) {
+      console.error("Forgot password SMS delivery failed");
+      // Still return uniform success to avoid enumeration / probing via error differences.
+    }
 
     return NextResponse.json({
-      message: "קוד אימות נשלח לטלפון (בדיקה: ראו את הקוד בטרמינל השרת).",
+      message: UNIFORM_MESSAGE,
       sent: true,
       expiresInMinutes: 10,
     });
   } catch (error: unknown) {
-    console.error("Forgot password error:", error);
+    console.error("Forgot password error");
     return NextResponse.json({ error: "שגיאה בשליחת קוד האימות" }, { status: 500 });
   }
 }

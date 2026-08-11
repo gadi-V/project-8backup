@@ -25,9 +25,6 @@ model User {
   lessonCredits Int     @default(0)
   isApproved    Boolean @default(false)
 
-  resetPasswordToken   String?   @unique
-  resetPasswordExpires DateTime?
-
   givenLessons        Lesson[]              @relation("TeacherLessons")
   takenLessons        Lesson[]              @relation("StudentLessons")
   availabilities      TeacherAvailability[]
@@ -103,7 +100,8 @@ model Lesson {
 
   scheduledAt DateTime
   status      String   @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED
-  zoomLink    String?
+  /// Daily.co room URL for the virtual classroom (DB column retained as zoomLink for compatibility).
+  dailyRoomUrl String? @map("zoomLink")
 
   excalidrawPdfUrl  String?
   videoRecordingUrl String?

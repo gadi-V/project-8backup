@@ -4,7 +4,7 @@ import { requireAuth } from "../../../../lib/api-auth";
 
 export async function GET() {
   try {
-    const auth = await requireAuth(["ADMIN"]);
+    const auth = await requireAuth(["ADMIN", "MANAGER"]);
     if (auth.error) return auth.error;
 
     const diagnostics = await prisma.diagnosticQuiz.findMany({

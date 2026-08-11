@@ -12,12 +12,13 @@ function parseStringArray(value: unknown): string[] {
 
 export async function PUT(request: Request) {
   try {
-    const auth = await requireAuth(["ADMIN", "TEACHER"]);
+    const auth = await requireAuth(["ADMIN", "MANAGER", "TEACHER"]);
     if (auth.error) return auth.error;
 
     const body = await request.json();
     const teacherId =
-      auth.user.role === "ADMIN" && typeof body.teacherId === "string"
+      (auth.user.role === "ADMIN" || auth.user.role === "MANAGER") &&
+      typeof body.teacherId === "string"
         ? body.teacherId
         : auth.user.id;
 
@@ -81,14 +82,14 @@ export async function PUT(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const auth = await requireAuth(["ADMIN", "TEACHER"]);
+    const auth = await requireAuth(["ADMIN", "MANAGER", "TEACHER"]);
     if (auth.error) return auth.error;
 
     const { searchParams } = new URL(request.url);
     const teacherIdParam = searchParams.get("teacherId");
 
     const teacherId =
-      auth.user.role === "ADMIN" && teacherIdParam
+      (auth.user.role === "ADMIN" || auth.user.role === "MANAGER") && teacherIdParam
         ? teacherIdParam
         : auth.user.id;
 

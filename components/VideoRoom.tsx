@@ -11,34 +11,11 @@ import {
   useDaily,
 } from "@daily-co/daily-react";
 
-/**
- * ---------------------------------------------------------------------------------
- * הערה חשובה למפתח השרת (API):
- * חדר ה-Daily אמור להיווצר בצד השרת עם מאפייני ההקלטה הבאים:
- * 
- * const room = await fetch('https://api.daily.co/v1/rooms', {
- *   method: 'POST',
- *   headers: {
- *     'Content-Type': 'application/json',
- *     Authorization: `Bearer ${process.env.DAILY_API_KEY}`,
- *   },
- *   body: JSON.stringify({
- *     properties: {
- *       // 4. הקלטה אוטומטית: הגדרה שגורמת לשיעור להיות מוקלט ישירות בענן של Daily
- *       enable_recording: "cloud",
- *       auto_start_recording: true,
- *     },
- *   }),
- * });
- * ---------------------------------------------------------------------------------
- */
-
 type VideoRoomProps = {
   roomUrl: string;
-  token?: string;
+  token: string;
 };
 
-// רכיב פנימי המציג וידאו של משתתף אחד בשיחה
 const ParticipantTile = ({ id }: { id: string }) => {
   const videoTrack = useVideoTrack(id);
   const audioTrack = useAudioTrack(id);
@@ -75,7 +52,7 @@ const ParticipantTile = ({ id }: { id: string }) => {
   );
 };
 
-// רכיב לשליטה על בקרות הווידאו והשמע (מיקרופון/מצלמה בלבד)
+/** Mic / camera only — never expose recording start/stop controls. */
 const Controls = () => {
   const localParticipant = useLocalParticipant();
   const daily = useDaily();
@@ -90,9 +67,8 @@ const Controls = () => {
 
   return (
     <div className="p-4 bg-slate-900 border-t border-slate-700 flex justify-center gap-4">
-      {/* 2 + 3. בקרות מותרות: כפתורי מיקרופון ומצלמה בלבד. 
-          אין כאן שום כפתור להתחלה/הפסקה של הקלטה! */}
       <button
+        type="button"
         onClick={toggleAudio}
         className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
           isAudioEnabled
@@ -104,6 +80,7 @@ const Controls = () => {
       </button>
 
       <button
+        type="button"
         onClick={toggleVideo}
         className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
           isVideoEnabled
@@ -117,7 +94,6 @@ const Controls = () => {
   );
 };
 
-// הרכיב הראשי המנהל את השיחה
 const CallContainer = () => {
   const participantIds = useParticipantIds();
 
@@ -140,35 +116,46 @@ const CallContainer = () => {
 
 export default function VideoRoom({ roomUrl, token }: VideoRoomProps) {
   const [callObject, setCallObject] = useState<DailyCall | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   useEffect(() => {
-    // 1. בקשת הרשאות מצלמה ומיקרופון עם טעינת הרכיב (מניעת שגיאות שמע/וידאו כבויים בהמשך)
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .catch((err) => {
         console.warn("User denied or browser blocked media permissions:", err);
       });
 
-    if (!roomUrl) return;
+    if (!roomUrl || !token) {
+      setJoinError("חסרים פרטי חדר הווידאו");
+      return;
+    }
 
-    // יצירת אובייקט השיחה של Daily.co
     const newCallObject = DailyIframe.createCallObject();
     setCallObject(newCallObject);
-    
-    // התחברות לחדר בצורה בטוחה (אם יש טוקן תקין נעביר אותו, אחרת נתחבר כמשתמש רגיל)
-    const joinOptions = typeof token === "string" && token.length > 0 ? { url: roomUrl, token } : { url: roomUrl };
-    newCallObject.join(joinOptions);
+    setJoinError(null);
+
+    newCallObject.join({ url: roomUrl, token }).catch((err) => {
+      console.error("Daily join failed:", err);
+      setJoinError("התחברות לחדר הווידאו נכשלה");
+    });
 
     return () => {
-      // עזיבה וניקוי המשאבים עם פירוק הרכיב
-      newCallObject.leave();
+      newCallObject.leave().catch(() => undefined);
       newCallObject.destroy();
     };
   }, [roomUrl, token]);
 
+  if (joinError) {
+    return (
+      <div className="flex h-full min-h-[200px] w-full items-center justify-center bg-slate-900 border border-slate-700 rounded-xl px-4">
+        <span className="text-red-400 font-bold text-sm text-center">{joinError}</span>
+      </div>
+    );
+  }
+
   if (!callObject) {
     return (
-      <div className="flex h-[600px] w-full items-center justify-center bg-slate-50 border border-slate-200 rounded-xl">
+      <div className="flex h-full min-h-[200px] w-full items-center justify-center bg-slate-900 border border-slate-700 rounded-xl">
         <span className="text-slate-500 font-bold text-sm animate-pulse">
           טוען ממשק וידאו...
         </span>
@@ -178,8 +165,7 @@ export default function VideoRoom({ roomUrl, token }: VideoRoomProps) {
 
   return (
     <DailyProvider callObject={callObject}>
-      {/* 1. לשונית קבועה של שיחת וידאו (האבא יעטוף ויתאים ב-Grid לצד הלוח המחיק) */}
-      <div className="h-[600px] w-full max-w-xl mx-auto">
+      <div className="h-full w-full min-h-[200px]">
         <CallContainer />
       </div>
     </DailyProvider>

@@ -76,8 +76,6 @@ export async function POST(request: Request) {
         where: { id: user.id },
         data: {
           password: hashedPassword,
-          resetPasswordToken: null,
-          resetPasswordExpires: null,
         },
       }),
       prisma.otpCode.update({

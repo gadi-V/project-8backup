@@ -1,52 +1,99 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
+import { requireAuth } from "../../../../lib/api-auth";
+import { writeAuditLog } from "../../../../lib/audit";
+import { uploadLessonPdf } from "../../../../lib/storage";
+import { sendLessonSummaryNotification } from "../../../../lib/whatsapp";
 
-/**
- * פונקציית עזר (Mock) לשליחת הודעות ווטסאפ דרך Green API.
- * במערכת אמיתית נשתמש ב-fetch ל-API של Green API עם waInstance ו-Token.
- */
-async function sendGreenApiWhatsApp(phone: string, caption: string, fileUrl?: string) {
-  // סימולציה של בקשה ל-Green API
-  console.log("================== MOCK WHATSAPP (Green API) ==================");
-  console.log(`To: ${phone}`);
-  if (fileUrl) {
-    console.log(`Type: Document (sendFileByUrl)`);
-    console.log(`File URL: ${fileUrl}`);
-  } else {
-    console.log(`Type: Text (sendMessage)`);
-  }
-  console.log(`Message/Caption:\n${caption}`);
-  console.log("===============================================================");
+function appBaseUrl(): string {
+  return (
+    process.env.APP_URL?.replace(/\/$/, "") ||
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    "https://app.project8.co.il"
+  );
+}
+
+/** Strip contact fields so phones/emails are never returned to callers. */
+function publicUser<T extends { phone?: string; email?: string | null }>(
+  user: T
+): Omit<T, "phone" | "email"> {
+  const { phone: _phone, email: _email, ...safe } = user;
+  return safe;
 }
 
 export async function POST(request: Request) {
   try {
-    // 1. קבלת הנתונים מהבקשה
-    // מאחר ואנו מצפים גם לקובץ (PDF) וגם לנתוני טקסט, נשתמש ב-FormData
+    const auth = await requireAuth(["TEACHER", "MANAGER", "ADMIN"]);
+    if (auth.error) return auth.error;
+
     const formData = await request.formData();
     const lessonId = formData.get("lessonId") as string;
-    const videoRecordingUrl = formData.get("videoRecordingUrl") as string; // הלינק מ-Daily.co Webhook
+    // Intentionally ignore any client-supplied videoRecordingUrl —
+    // recording URLs come exclusively from the Daily webhook.
     const pdfFile = formData.get("pdfFile") as File | null;
 
     if (!lessonId) {
       return NextResponse.json({ error: "lessonId is required" }, { status: 400 });
     }
 
-    // סימולציה של העלאת קובץ ה-PDF לשרת אחסון (כגון AWS S3 / Cloudinary)
-    let uploadedPdfUrl = "";
-    if (pdfFile) {
-      // כאן היה מגיע קוד העלאה אמיתי (upload to S3, etc.)
-      // נשתמש בכתובת דמי (Mock URL) לצורך המשימה
-      uploadedPdfUrl = `https://storage.project8.co.il/lessons/${lessonId}/board-summary.pdf`;
+    const lesson = await prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { id: true, teacherId: true, status: true },
+    });
+
+    if (!lesson) {
+      return NextResponse.json({ error: "השיעור לא נמצא" }, { status: 404 });
     }
 
-    // 2. עדכון במסד הנתונים: שמירת קישור ה-PDF וקישור הווידאו, ועדכון הסטטוס ל-COMPLETED
+    const isPrivileged = auth.user.role === "MANAGER" || auth.user.role === "ADMIN";
+    const isLessonTeacher =
+      auth.user.role === "TEACHER" && lesson.teacherId === auth.user.id;
+
+    if (!isPrivileged && !isLessonTeacher) {
+      return NextResponse.json(
+        { error: "אין לך הרשאה לסיים שיעור זה" },
+        { status: 403 }
+      );
+    }
+
+    // Idempotent: already completed — return success without re-sending notifications.
+    if (lesson.status === "COMPLETED") {
+      const existing = await prisma.lesson.findUnique({
+        where: { id: lessonId },
+        include: { student: true, teacher: true },
+      });
+      return NextResponse.json({
+        success: true,
+        message: "השיעור כבר סומן כהושלם.",
+        alreadyCompleted: true,
+        lesson: existing
+          ? {
+              ...existing,
+              student: publicUser(existing.student),
+              teacher: publicUser(existing.teacher),
+            }
+          : null,
+      });
+    }
+
+    let uploadedPdfUrl: string | null = null;
+    let pdfBuffer: Buffer | null = null;
+    if (pdfFile) {
+      pdfBuffer = Buffer.from(await pdfFile.arrayBuffer());
+      try {
+        uploadedPdfUrl = await uploadLessonPdf(lessonId, pdfBuffer);
+      } catch (uploadError) {
+        console.error("Board PDF upload failed:", uploadError);
+        uploadedPdfUrl = null;
+      }
+    }
+
     const updatedLesson = await prisma.lesson.update({
       where: { id: lessonId },
       data: {
         status: "COMPLETED",
-        excalidrawPdfUrl: uploadedPdfUrl || null,
-        videoRecordingUrl: videoRecordingUrl || null,
+        ...(uploadedPdfUrl ? { excalidrawPdfUrl: uploadedPdfUrl } : {}),
+        // Never write videoRecordingUrl from the client — Daily webhook owns that field.
       },
       include: {
         student: true,
@@ -54,33 +101,58 @@ export async function POST(request: Request) {
       },
     });
 
-    // 3. שליחת ווטסאפ למנהל המערכת ולתלמיד
+    const videoStreamingUrl = `${appBaseUrl()}/dashboard/lessons/${lessonId}/recording`;
 
-    // מציאת כל המנהלים במערכת (ROLE = MANAGER או ADMIN)
     const managers = await prisma.user.findMany({
-      where: {
-        role: { in: ["MANAGER", "ADMIN"] },
+      where: { role: { in: ["MANAGER", "ADMIN"] } },
+      select: { id: true, name: true, phone: true },
+    });
+
+    const summaryRecipients = [
+      { phone: updatedLesson.student.phone, userName: updatedLesson.student.name },
+      ...managers.map((manager) => ({ phone: manager.phone, userName: manager.name })),
+    ];
+
+    const notificationResults = await Promise.allSettled(
+      summaryRecipients.map((recipient) =>
+        sendLessonSummaryNotification({
+          phone: recipient.phone,
+          userName: recipient.userName,
+          pdfBuffer,
+          videoStreamingUrl,
+        })
+      )
+    );
+
+    const failedNotifications = notificationResults.filter(
+      (r) => r.status === "rejected"
+    ).length;
+    if (failedNotifications > 0) {
+      console.error(
+        `WhatsApp summary: ${failedNotifications}/${summaryRecipients.length} notifications failed`
+      );
+    }
+
+    await writeAuditLog({
+      actorId: auth.user.id,
+      action: "LESSON_COMPLETED",
+      entityType: "Lesson",
+      entityId: lessonId,
+      metadata: {
+        pdfStored: Boolean(uploadedPdfUrl),
+        recipients: summaryRecipients.length,
+        failedNotifications,
       },
     });
 
-    // שליחה למנהלים: קובץ PDF + קישור להורדת/צפיית הווידאו של Daily
-    const managerMessage = `השיעור של ${updatedLesson.student.name} עם המורה ${updatedLesson.teacher.name} הסתיים בהצלחה.\nקישור להקלטת הוידאו מ-Daily.co:\n${videoRecordingUrl || "לא זמין"}`;
-    for (const manager of managers) {
-      await sendGreenApiWhatsApp(manager.phone, managerMessage, uploadedPdfUrl);
-    }
-
-    // שליחה לתלמיד: הודעה אישית + קובץ PDF + קישור מוגן לנגן הווידאו בתוך ה-SaaS (Streaming Link)
-    // הקישור המוגן יפנה את התלמיד לאזור האישי שלו במערכת לצפייה מאובטחת
-    const studentStreamingLink = `https://app.project8.co.il/dashboard/lessons/${lessonId}/recording`;
-    
-    const studentMessage = `היי ${updatedLesson.student.name}, סיכום השיעור שלך מוכן! 🎓\nקובץ ה-PDF מצורף להודעה זו.\nלצפייה בהקלטת השיעור באיכות גבוהה: ${studentStreamingLink}`;
-    
-    await sendGreenApiWhatsApp(updatedLesson.student.phone, studentMessage, uploadedPdfUrl);
-
     return NextResponse.json({
       success: true,
-      message: "השיעור הסתיים, הנתונים נשמרו והודעות הווטסאפ נשלחו בהצלחה.",
-      lesson: updatedLesson,
+      message: "השיעור הסתיים, הנתונים נשמרו והודעות הווטסאפ נשלחו.",
+      lesson: {
+        ...updatedLesson,
+        student: publicUser(updatedLesson.student),
+        teacher: publicUser(updatedLesson.teacher),
+      },
     });
   } catch (error) {
     console.error("Complete Lesson Error:", error);

@@ -5,7 +5,7 @@ import { writeAuditLog } from "../../../../lib/audit";
 
 export async function GET() {
   try {
-    const auth = await requireAuth(["ADMIN"]);
+    const auth = await requireAuth(["ADMIN", "MANAGER"]);
     if (auth.error) return auth.error;
 
     const teachers = await prisma.user.findMany({
@@ -47,7 +47,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    const auth = await requireAuth(["ADMIN"]);
+    const auth = await requireAuth(["ADMIN", "MANAGER"]);
     if (auth.error) return auth.error;
 
     const body = await request.json();

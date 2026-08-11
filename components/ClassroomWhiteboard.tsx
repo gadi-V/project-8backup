@@ -1,30 +1,55 @@
 "use client";
 
-import React, { forwardRef, useImperativeHandle, useState } from "react";
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import dynamic from "next/dynamic";
 import jsPDF from "jspdf";
+import type { Channel } from "stream-chat";
 
-// 1. טעינה דינמית של הלוח כדי למנוע שגיאות SSR (Server-Side Rendering)
 const Excalidraw = dynamic(
   () => import("@excalidraw/excalidraw").then((mod) => mod.Excalidraw),
   { ssr: false }
 );
 
 export type ClassroomWhiteboardRef = {
-  /**
-   * ממיר את הלוח הנוכחי לקובץ PDF (כ-Blob)
-   */
   exportBoardToPdf: () => Promise<Blob | null>;
 };
 
-const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, {}>((props, ref) => {
-  // שמירת ה-API של אקסקלידרו כדי להשתמש בו בייצוא ובשליטה בלוח
+type BoardRole = "STUDENT" | "TEACHER" | "ADMIN" | "MANAGER";
+
+type ClassroomWhiteboardProps = {
+  /** Single-writer: only TEACHER (and privileged roles) may edit; students receive sync. */
+  role: BoardRole;
+  /** Stream Chat channel used as a live broadcast bus for board elements. */
+  streamChannel?: Channel | null;
+};
+
+const BOARD_EVENT = "board_sync";
+const SYNC_DEBOUNCE_MS = 400;
+
+const ClassroomWhiteboard = forwardRef<
+  ClassroomWhiteboardRef,
+  ClassroomWhiteboardProps
+>(function ClassroomWhiteboard({ role, streamChannel = null }, ref) {
   const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
+  const [syncStatus, setSyncStatus] = useState<"idle" | "live" | "error">("idle");
+  const applyingRemote = useRef(false);
+  const lastSentHash = useRef("");
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const canWrite =
+    role === "TEACHER" || role === "MANAGER" || role === "ADMIN";
 
   useImperativeHandle(ref, () => ({
     exportBoardToPdf: async () => {
       if (!excalidrawAPI) return null;
-      
+
       const elements = excalidrawAPI.getSceneElements();
       if (!elements || elements.length === 0) return null;
 
@@ -32,10 +57,8 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, {}>((props, ref) 
       const files = excalidrawAPI.getFiles();
 
       try {
-        // טעינת פונקציית הייצוא באופן אסינכרוני
         const { exportToCanvas } = await import("@excalidraw/excalidraw");
-        
-        // יצירת קנבס מאלמנטי הלוח
+
         const canvas = await exportToCanvas({
           elements,
           appState: {
@@ -46,10 +69,8 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, {}>((props, ref) 
           files,
         });
 
-        // המרת הקנבס לתמונה
         const imgData = canvas.toDataURL("image/jpeg", 1.0);
 
-        // יצירת מסמך PDF מותאם למידות הקנבס
         const pdf = new jsPDF({
           orientation: canvas.width > canvas.height ? "landscape" : "portrait",
           unit: "px",
@@ -57,8 +78,6 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, {}>((props, ref) 
         });
 
         pdf.addImage(imgData, "JPEG", 0, 0, canvas.width, canvas.height);
-        
-        // 3. החזרת Blob של ה-PDF המוכן להעלאה/שמירה
         return pdf.output("blob");
       } catch (error) {
         console.error("Error exporting board to PDF:", error);
@@ -67,21 +86,121 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, {}>((props, ref) 
     },
   }));
 
+  const broadcastScene = useCallback(async () => {
+    if (!canWrite || !streamChannel || !excalidrawAPI || applyingRemote.current) {
+      return;
+    }
+
+    try {
+      const elements = excalidrawAPI.getSceneElements();
+      const payload = JSON.stringify(elements);
+      if (payload === lastSentHash.current) return;
+      lastSentHash.current = payload;
+
+      await streamChannel.sendEvent({
+        type: BOARD_EVENT,
+        // Custom payload for Excalidraw scene sync
+        elements,
+      } as unknown as Parameters<Channel["sendEvent"]>[0]);
+      setSyncStatus("live");
+    } catch (error) {
+      console.error("Board sync broadcast failed:", error);
+      setSyncStatus("error");
+    }
+  }, [canWrite, streamChannel, excalidrawAPI]);
+
+  const handleChange = useCallback(() => {
+    if (!canWrite) return;
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      void broadcastScene();
+    }, SYNC_DEBOUNCE_MS);
+  }, [canWrite, broadcastScene]);
+
+  // Listen for remote board updates (students + other viewers)
+  useEffect(() => {
+    if (!streamChannel || !excalidrawAPI) return;
+
+    const handler = (event: {
+      type?: string;
+      user?: { id?: string };
+      elements?: unknown;
+    }) => {
+      if (event.type !== BOARD_EVENT) return;
+      if (!Array.isArray(event.elements)) return;
+
+      applyingRemote.current = true;
+      try {
+        excalidrawAPI.updateScene({ elements: event.elements });
+        setSyncStatus("live");
+      } catch (error) {
+        console.error("Failed to apply remote board scene:", error);
+        setSyncStatus("error");
+      } finally {
+        setTimeout(() => {
+          applyingRemote.current = false;
+        }, 50);
+      }
+    };
+
+    // Stream custom events — cast listener registration for custom event name
+    const unbound = streamChannel.on(BOARD_EVENT as "message.new", handler as never);
+    setSyncStatus("live");
+
+    return () => {
+      if (typeof unbound === "object" && unbound && "unsubscribe" in unbound) {
+        (unbound as { unsubscribe: () => void }).unsubscribe();
+      } else {
+        streamChannel.off(BOARD_EVENT as "message.new", handler as never);
+      }
+    };
+  }, [streamChannel, excalidrawAPI, canWrite]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
+
   return (
     <div className="w-full h-full relative overflow-hidden flex-1 border border-slate-200 rounded-xl shadow-sm">
-      {/* 
-        2. תמיכה בתמונות: Excalidraw תומך כברירת מחדל ב-Drag & Drop של תמונות (PNG, JPG)
-        כולל שינוי גודל וסיבוב שלהן. 
-      */}
+      <div className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs font-bold shadow border border-slate-200">
+        <span
+          className={`inline-block h-2 w-2 rounded-full ${
+            syncStatus === "live"
+              ? "bg-emerald-500"
+              : syncStatus === "error"
+                ? "bg-red-500"
+                : "bg-slate-400"
+          }`}
+        />
+        <span className="text-slate-700">
+          {syncStatus === "live"
+            ? "הלוח מסונכרן בלייב"
+            : syncStatus === "error"
+              ? "שגיאת סנכרון לוח"
+              : canWrite
+                ? "ממתין לסנכרון..."
+                : "צפייה בלבד — ממתין למורה"}
+        </span>
+      </div>
+
+      {!canWrite && (
+        <div className="absolute top-3 right-3 z-10 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 border border-amber-200 shadow">
+          כתיבה למורה בלבד
+        </div>
+      )}
+
       <Excalidraw
         excalidrawAPI={(api) => setExcalidrawAPI(api)}
-        langCode="he-IL" // ממשק בעברית במידת האפשר
+        langCode="he-IL"
+        viewModeEnabled={!canWrite}
+        onChange={canWrite ? handleChange : undefined}
       />
     </div>
   );
 });
 
-// הגדרת שם רכיב לתצוגת React DevTools
 ClassroomWhiteboard.displayName = "ClassroomWhiteboard";
 
 export default ClassroomWhiteboard;

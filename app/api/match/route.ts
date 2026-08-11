@@ -9,14 +9,14 @@ import {
 
 export async function GET(request: Request) {
   try {
-    const auth = await requireAuth(["STUDENT", "ADMIN"]);
+    const auth = await requireAuth(["STUDENT", "ADMIN", "MANAGER"]);
     if (auth.error) return auth.error;
 
     const { searchParams } = new URL(request.url);
     const requestedStudentId = searchParams.get("studentId");
 
     let studentId = auth.user.id;
-    if (auth.user.role === "ADMIN") {
+    if (auth.user.role === "ADMIN" || auth.user.role === "MANAGER") {
       if (!requestedStudentId) {
         return NextResponse.json(
           { error: "לאדמין חובה לציין studentId" },
@@ -112,12 +112,13 @@ export async function GET(request: Request) {
 /** Assign / record a fair referral to the chosen (or auto-picked) teacher */
 export async function POST(request: Request) {
   try {
-    const auth = await requireAuth(["STUDENT", "ADMIN"]);
+    const auth = await requireAuth(["STUDENT", "ADMIN", "MANAGER"]);
     if (auth.error) return auth.error;
 
     const body = await request.json();
     const studentId =
-      auth.user.role === "ADMIN" && typeof body.studentId === "string"
+      (auth.user.role === "ADMIN" || auth.user.role === "MANAGER") &&
+      typeof body.studentId === "string"
         ? body.studentId
         : auth.user.id;
 
