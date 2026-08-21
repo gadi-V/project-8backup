@@ -34,6 +34,8 @@ model User {
   auditLogs           AuditLog[]
   referralsAsTeacher  TeacherReferral[]     @relation("TeacherReferrals")
   referralsAsStudent  TeacherReferral[]     @relation("StudentReferrals")
+  payouts             TeacherPayout[]
+  ledgerEntries       BillingLedger[]
 
   createdAt DateTime @default(now())
 }
@@ -98,15 +100,19 @@ model Lesson {
   studentId String
   student   User   @relation("StudentLessons", fields: [studentId], references: [id])
 
-  scheduledAt DateTime
-  status      String   @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED
+  scheduledAt    DateTime
+  status         String   @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED
+  reminderSent   Boolean  @default(false)
+  /// Planned duration in minutes (null = fallback to 60). Room `exp` = scheduledAt + duration + 10%.
+  durationMinutes Int?   @default(60)
   /// Daily.co room URL for the virtual classroom (DB column retained as zoomLink for compatibility).
-  dailyRoomUrl String? @map("zoomLink")
+  dailyRoomUrl    String? @map("zoomLink")
 
   excalidrawPdfUrl  String?
   videoRecordingUrl String?
 
   chatChannel ChatChannel?
+  payouts     TeacherPayout[]
 
   createdAt DateTime @default(now())
 }
@@ -194,4 +200,63 @@ model OtpCode {
   createdAt DateTime @default(now())
 
   @@index([phone, purpose, createdAt])
+}
+
+// ─── Financial Models (Immutable Ledger + Payouts) ───
+
+enum PayoutStatus {
+  SCHEDULED
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum LedgerEntryType {
+  CHARGE
+  PAYOUT
+  REFUND
+  PLATFORM_FEE
+  ADJUSTMENT
+}
+
+model TeacherPayout {
+  id              String       @id @default(uuid())
+  teacherId       String
+  teacher         User         @relation(fields: [teacherId], references: [id])
+  amount          Decimal      @db.Decimal(19, 4)
+  currency        String       @default("ILS")
+  status          PayoutStatus @default(SCHEDULED)
+  periodStart     DateTime
+  periodEnd       DateTime
+  idempotencyKey  String       @unique
+  metadata        Json?
+  lessonId        String?
+  lesson          Lesson?      @relation(fields: [lessonId], references: [id])
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([teacherId])
+  @@index([status])
+  @@index([periodEnd])
+}
+
+model BillingLedger {
+  id            String         @id @default(uuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  entryType     LedgerEntryType
+  amount        Decimal        @db.Decimal(19, 4)
+  currency      String         @default("ILS")
+  description   String?
+  relatedId     String?        // paymentId, payoutId, lessonId
+  transactionId String?        @unique
+  metadata      Json?
+
+  createdAt     DateTime       @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entryType])
+  @@index([relatedId])
 }

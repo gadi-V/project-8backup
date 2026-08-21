@@ -119,16 +119,16 @@ export default function VideoRoom({ roomUrl, token }: VideoRoomProps) {
   const [joinError, setJoinError] = useState<string | null>(null);
 
   useEffect(() => {
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .catch((err) => {
-        console.warn("User denied or browser blocked media permissions:", err);
-      });
-
     if (!roomUrl || !token) {
       setJoinError("חסרים פרטי חדר הווידאו");
       return;
     }
+
+    navigator.mediaDevices
+      ?.getUserMedia({ video: true, audio: true })
+      ?.catch((err) => {
+        console.warn("User denied or browser blocked media permissions:", err);
+      });
 
     const newCallObject = DailyIframe.createCallObject();
     setCallObject(newCallObject);

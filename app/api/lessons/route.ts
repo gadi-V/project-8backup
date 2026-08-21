@@ -170,7 +170,14 @@ export async function POST(request: Request) {
     }
 
     // Atomic: credit check, overlap check, slot lock, lesson create
-    let result: { lessonId: string; teacherId: string; studentId: string; newCredits: number };
+    let result: {
+      lessonId: string;
+      teacherId: string;
+      studentId: string;
+      newCredits: number;
+      scheduledAt: Date;
+      durationMinutes: number;
+    };
     try {
       result = await prisma.$transaction(async (tx) => {
         const slot = await tx.teacherAvailability.findUnique({
@@ -227,6 +234,11 @@ export async function POST(request: Request) {
             scheduledAt: slot.startTime,
             status: "SCHEDULED",
             dailyRoomUrl: null,
+            // Real duration from the teacher's availability slot (minutes).
+            durationMinutes: Math.max(
+              1,
+              Math.round((slot.endTime.getTime() - slot.startTime.getTime()) / 60000)
+            ),
           },
         });
 
@@ -235,6 +247,8 @@ export async function POST(request: Request) {
           teacherId: newLesson.teacherId,
           studentId: newLesson.studentId,
           newCredits: updatedStudent.lessonCredits,
+          scheduledAt: newLesson.scheduledAt,
+          durationMinutes: newLesson.durationMinutes ?? 60,
         };
       });
     } catch (txError: unknown) {
@@ -266,10 +280,13 @@ export async function POST(request: Request) {
 
     const roomName = dailyRoomNameForLesson(result.lessonId);
 
-    // 1) Daily room — compensate fully on failure
+    // 1) Daily room — compensate fully on failure. `exp` = scheduledAt + duration + 10%.
     let roomUrl: string | null = null;
     try {
-      const room = await createDailyRoom(result.lessonId);
+      const room = await createDailyRoom(result.lessonId, {
+        scheduledAt: result.scheduledAt,
+        durationMinutes: result.durationMinutes,
+      });
       roomUrl = room.url;
 
       await prisma.lesson.update({

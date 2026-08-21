@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "../../../../../lib/session";
 import { getAuthorizedLessonById } from "../../../../../lib/lessons";
+import RecordingPlayer from "./RecordingPlayer";
 
 export default async function LessonRecordingPage(props: {
   params: Promise<{ id: string }> | { id: string };
@@ -19,7 +20,7 @@ export default async function LessonRecordingPage(props: {
     redirect("/dashboard");
   }
 
-  const recordingUrl = lesson.videoRecordingUrl;
+  const hasRecording = Boolean(lesson.videoRecordingUrl);
   const title = lesson.title || "הקלטת שיעור";
 
   return (
@@ -43,18 +44,8 @@ export default async function LessonRecordingPage(props: {
           </Link>
         </div>
 
-        {recordingUrl ? (
-          <div className="overflow-hidden rounded-2xl border border-slate-800 bg-black shadow-xl">
-            <video
-              className="aspect-video w-full bg-black"
-              controls
-              playsInline
-              preload="metadata"
-              src={recordingUrl}
-            >
-              הדפדפן שלך אינו תומך בנגן וידאו HTML5.
-            </video>
-          </div>
+        {hasRecording ? (
+          <RecordingPlayer lessonId={lesson.id} />
         ) : (
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-6 py-12 text-center">
             <p className="text-lg font-bold text-amber-200">

@@ -77,26 +77,63 @@ async function dailyFetch<T>(
 }
 
 /**
- * Create a private Daily room for a lesson with cloud recording enabled.
- * Auto-start happens via the teacher (owner) meeting token (`start_cloud_recording`).
+ * Create a private Daily room for a lesson.
  *
- * Note: Daily expects `enable_recording: "cloud"` on the room (not
- * `auto_start_recording: "cloud"` — that value is invalid on the REST API).
+ * Room properties are kept to the intersection supported on all Daily plans
+ * (including Free): `exp`, `eject_at_room_exp`, `enable_chat` (in-app chat is
+ * handled by Stream), and `enable_screenshare`.
+ *
+ * `exp` is computed as `scheduledAt + durationMinutes + 10%` by default:
+ * e.g. a 60-minute lesson gets 60 + 6 minutes = 66 total minutes of room
+ * availability from the scheduled start. `eject_at_room_exp: true` makes Daily
+ * kick everyone out and close the room automatically when `exp` passes.
+ *
+ * Cloud recording is a paid feature — it is only sent when the plan/organization
+ * opts in via `DAILY_ENABLE_CLOUD_RECORDING=true`. Otherwise the property is
+ * omitted entirely so Free accounts are not blocked from creating rooms.
  */
-export async function createDailyRoom(lessonId: string): Promise<DailyRoom> {
+export async function createDailyRoom(
+  lessonId: string,
+  options: {
+    /** Lesson scheduled start. When absent, falls back to Date.now(). */
+    scheduledAt?: Date;
+    /** Planned lesson duration in minutes. Defaults to 60. */
+    durationMinutes?: number;
+    /** Explicit expiry override — takes precedence over duration-based calc. */
+    expiresAt?: Date;
+  } = {}
+): Promise<DailyRoom> {
   const name = dailyRoomNameForLesson(lessonId);
+
+  const DEFAULT_DURATION_MINUTES = 60;
+  const durationMinutes = options.durationMinutes ?? DEFAULT_DURATION_MINUTES;
+  const scheduledAt = options.scheduledAt ?? new Date();
+
+  // Total room lifetime = lesson duration + 10% buffer (rounded up to a minute).
+  const bufferMinutes = Math.ceil(durationMinutes * 0.1);
+  const totalMinutes = durationMinutes + bufferMinutes;
+
+  const expiresAt =
+    options.expiresAt ??
+    new Date(scheduledAt.getTime() + totalMinutes * 60 * 1000);
+
+  const properties: Record<string, unknown> = {
+    exp: Math.floor(expiresAt.getTime() / 1000),
+    eject_at_room_exp: true,
+    enable_chat: false,
+    enable_screenshare: true,
+  };
+
+  if (process.env.DAILY_ENABLE_CLOUD_RECORDING === "true") {
+    properties.enable_recording = "cloud";
+  }
 
   const room = await dailyFetch<DailyRoom>("/rooms", {
     method: "POST",
     body: JSON.stringify({
       name,
       privacy: "private",
-      properties: {
-        // Cloud recording enabled at room level; auto-start via owner meeting token.
-        enable_recording: "cloud",
-        eject_at_room_exp: true,
-        enable_chat: false,
-      },
+      properties,
     }),
   });
 

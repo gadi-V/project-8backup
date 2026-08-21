@@ -12,6 +12,7 @@ const PUBLIC_API_ROUTES = new Set([
   "/api/auth/reset-password",
   "/api/webhooks/daily",
   "/api/webhooks/stripe",
+  "/api/cron/lesson-reminders",
 ]);
 
 const AUTH_PAGES = new Set(["/login", "/register", "/forgot-password"]);

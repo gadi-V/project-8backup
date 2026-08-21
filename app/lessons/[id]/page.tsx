@@ -64,7 +64,10 @@ export default async function LessonPage(props: {
         dailyToken,
         streamToken,
         streamApiKey,
+        scheduledAt: lesson.scheduledAt.toISOString(),
+        createdAt: lesson.createdAt.toISOString(),
         chatChannel: lesson.chatChannel,
+        durationMinutes: lesson.durationMinutes,
       }}
       user={{
         id: user.id,
