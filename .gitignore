@@ -47,3 +47,6 @@ coverage/
 
 # Misc
 *.pem
+agents_hive/venv/
+venv/
+**/__pycache__/
