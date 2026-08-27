@@ -1,0 +1,55 @@
+---
+description: "Stripe integration, immutable billing ledger, and tutor payouts"
+globs:
+  - "app/api/stripe/**"
+  - "app/api/payments/**"
+  - "app/api/webhooks/stripe/**"
+  - "lib/payouts.ts"
+  - "lib/services/LedgerService.ts"
+  - "lib/services/PayoutService.ts"
+  - "prisma/schema.prisma"
+---
+
+# Fintech & Immutable Ledger Rules
+
+- Immutable Ledger: Financial records cannot be deleted (`DELETE` is prohibited). All changes must be recorded as status transitions (`pending` -> `paid` -> `refunded`).
+- Explicit Fee Breakdown:
+  - `student_charge`: Total amount paid by the student.
+  - `platform_fee`: SaaS commission.
+  - `tutor_payout`: Net payout to the tutor.
+
+## Payment model (Prisma)
+
+Supported `Payment` fields (create only with these):
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `String` (uuid) | Auto |
+| `studentId` | `String` | FK → User |
+| `packageType` | `String` | e.g. `SINGLE` / `TRIO` / `MULTI` |
+| `amountPaid` | `Int` | ILS whole currency units |
+| `creditsAdded` | `Int` | Credits granted |
+| `transactionId` | `String` | Stripe payment_intent / session id, or `mock_*` |
+| `status` | `String` | Default `"COMPLETED"`. Allowed: `PENDING` \| `COMPLETED` \| `REFUNDED` |
+| `createdAt` | `DateTime` | Auto |
+
+After any schema change to `Payment`, run `npx prisma generate` and apply migrations (`npx prisma migrate deploy`) before relying on new fields in `tx.payment.create`.
+
+## Production Stripe (mandatory)
+
+- In **production**, a real `STRIPE_SECRET_KEY` is required.
+- Credits and `Payment` rows must be granted **only** after a verified Stripe webhook (`checkout.session.completed` with signature check via `STRIPE_WEBHOOK_SECRET`).
+- Never grant `lessonCredits` from the Checkout Session create endpoint in production.
+- Missing or `mock` Stripe keys in production must fail closed (e.g. 503) — do not silently mock charges.
+
+## Dev Mock Payments (local development only)
+
+- When `STRIPE_SECRET_KEY` is unset or equal to `'mock'`, and `NODE_ENV !== 'production'`:
+  - Do **not** return 503 for missing Stripe.
+  - Allow a **mock purchase** on `POST /api/payments` that still performs a full financial write path for E2E / local testing:
+    1. Create `Payment` with supported fields only, including `status: "COMPLETED"`.
+    2. Increment `User.lessonCredits` immediately (+1 / +3 / +5 by package).
+    3. Append an immutable `BillingLedger` row with `entryType: CHARGE` (via `LedgerService`).
+  - Response shape: `{ success: true, isMock: true, newCredits, message }`.
+- Client (`/pricing`): on `isMock: true`, show a clear success toast and navigate to `/dashboard` with refreshed user data.
+- Mock mode exists solely for local Dev / E2E; it must never ship as a production payment path.

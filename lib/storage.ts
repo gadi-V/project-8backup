@@ -113,3 +113,52 @@ export async function uploadLessonPdf(
     ? publicObjectUrl(cfg, objectPath)
     : createSignedUrl(cfg, objectPath);
 }
+
+/**
+ * Upload a whiteboard image (webp/jpeg/png) and return a resolvable URL.
+ * Falls back to a local `/uploads/board/…` path when Supabase is not configured.
+ */
+export async function uploadBoardImage(
+  imageId: string,
+  imageBuffer: Buffer,
+  contentType: string,
+): Promise<string> {
+  const ext =
+    contentType.includes("webp") ? "webp" : contentType.includes("png") ? "png" : "jpg";
+  const objectPath = `board-images/${imageId}.${ext}`;
+  const cfg = getSupabaseStorageConfig();
+
+  if (!cfg) {
+    const { mkdir, writeFile } = await import("fs/promises");
+    const path = await import("path");
+    const dir = path.join(process.cwd(), "public", "uploads", "board");
+    await mkdir(dir, { recursive: true });
+    const filename = `${imageId}.${ext}`;
+    await writeFile(path.join(dir, filename), imageBuffer);
+    console.log(`[storage] mock board image saved: /uploads/board/${filename}`);
+    return `/uploads/board/${filename}`;
+  }
+
+  const uploadResponse = await fetch(
+    `${cfg.url}/storage/v1/object/${cfg.bucket}/${objectPath}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${cfg.serviceKey}`,
+        "Content-Type": contentType,
+        "x-upsert": "true",
+        "cache-control": "3600",
+      },
+      body: new Uint8Array(imageBuffer),
+    },
+  );
+
+  if (!uploadResponse.ok) {
+    const detail = await uploadResponse.text().catch(() => uploadResponse.statusText);
+    throw new Error(`Supabase image upload failed (${uploadResponse.status}): ${detail}`);
+  }
+
+  return cfg.publicBucket
+    ? publicObjectUrl(cfg, objectPath)
+    : createSignedUrl(cfg, objectPath);
+}

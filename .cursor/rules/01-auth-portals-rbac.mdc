@@ -1,0 +1,23 @@
+---
+description: "Custom JWT Authentication, Unified Role-Based Dashboard, and Strict RBAC isolation"
+globs:
+  - "app/{admin,dashboard}/**"
+  - "app/api/**"
+  - "lib/auth.ts"
+  - "lib/session.ts"
+---
+
+# Authentication & RBAC Rules
+
+- Custom JWT Auth (NOT NextAuth):
+  - Sessions are signed JWTs created with `jose` (`SignJWT` / `jwtVerify`, HS256) using `AUTH_SECRET`. See `lib/auth.ts`.
+  - Passwords are hashed and verified with `bcrypt`.
+  - The session token is stored in an `httpOnly`, `sameSite=lax`, `secure`-in-production cookie (`project8_session`).
+  - Resolve the current user server-side via `getCurrentUser()` / `getSessionPayload()` in `lib/session.ts`. Do NOT reintroduce NextAuth, `getServerSession()`, or any NextAuth provider.
+- Unified Role-Based Dashboard:
+  - There is a single portal at `/dashboard`. It renders role-adaptive UI based on the authenticated user's role (`STUDENT`, `TEACHER`, `ADMIN`, `MANAGER`).
+  - Do NOT create separate `/tutor` or `/student` portal routes. Role-specific views live inside `/dashboard` via conditional rendering.
+- Admin Route Guard:
+  - `/admin` is a privileged route restricted to admin roles (`ADMIN` / `MANAGER`). Every entry point must verify the role and redirect non-admins away.
+- Server / Route Security: Every mutation and protected API route MUST resolve the session via `getCurrentUser()` and validate the user's role against the Prisma database before acting.
+- Data Response Pattern: Always return `{ success: boolean, data?: T, error?: string }`.

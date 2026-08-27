@@ -123,12 +123,3 @@ export async function sendSmsOtp(phone: string, code: string): Promise<void> {
 
   throw new Error("No SMS provider configured for production");
 }
-
-/** @deprecated Use sendSmsOtp — kept for any residual imports during migration */
-export function sendMockSmsOtp(phone: string, code: string): void {
-  if (!isDevelopment()) {
-    console.error("sendMockSmsOtp called in non-development environment — blocked");
-    return;
-  }
-  void sendSmsOtp(phone, code);
-}

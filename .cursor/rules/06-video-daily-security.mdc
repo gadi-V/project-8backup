@@ -1,0 +1,20 @@
+---
+description: "Daily.co video integration, dynamic lesson time-boxing, and private recordings"
+globs:
+  - "app/api/daily/**"
+  - "components/VideoRoom*"
+  - "lib/daily.ts"
+---
+
+# Daily.co & image.pngRecording Security
+
+- Dynamic Meeting Tokens:
+  - Meeting tokens must be time-boxed dynamically to the lesson schedule:
+    * `nbf` (Not Before): `scheduledAt` minus 10 minutes.
+    * `exp` (Expiration): `scheduledAt` + `durationMinutes` + 10% grace buffer (no rigid 2-hour cap to support 60/120/180 min lessons).
+- Tutor vs Student Permissions:
+  - Tutor / Manager / Admin token: `is_owner: true` (screen sharing, auto cloud recording).
+  - Student token: `is_owner: false` (join-only participant).
+- Recording Privacy:
+  - Video recordings must NEVER be publicly accessible.
+  - Access is granted exclusively via short-lived Presigned URLs (maximum 2-hour TTL).

@@ -1,0 +1,15 @@
+---
+description: "Multi-page A4 Canvas-to-PDF compilation via pdf-lib"
+globs:
+  - "app/api/excalidraw/export/**"
+  - "components/*Whiteboard*"
+---
+
+# PDF Export Engine Rules
+
+- Canvas Source (NO SVG / vector engine): The PDF is built from the whiteboard's own A4 canvases. Do NOT use `@excalidraw/utils`, SVG rendering, or any external vector export engine.
+- Page-by-Page Rendering: On export, render each A4 page canvas to a high-resolution PNG DataURL (ordered by page number).
+- Server Compilation via pdf-lib:
+  - The export route (`app/api/excalidraw/export`) authenticates the user, then for each page embeds the PNG with `PDFDocument.embedPng` onto its own page sized to the A4 frame dimensions.
+  - Compile all pages into a single multi-page PDF with `pdf-lib` and stream it back as `application/pdf`.
+- Keep the request payload shape `{ frames: { pageNumber, width, height, dataUrl }[] }` and validate each `dataUrl` is a `data:image/png;base64,` string.

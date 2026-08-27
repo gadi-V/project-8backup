@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 
-type Tab = "overview" | "teachers" | "leads" | "diagnostics";
+type Tab = "overview" | "teachers" | "leads" | "diagnostics" | "payouts" | "appeals";
 
 type Stats = {
   studentsCount: number;
@@ -24,6 +24,41 @@ type TeacherProfileData = {
   referralCount: number;
   activeStudentsCount: number;
   lastReferralAt: string | null;
+};
+
+type PayoutBank = {
+  bankName: string | null;
+  bankBranch: string | null;
+  accountNumber: string | null;
+  accountHolderName: string | null;
+};
+
+type PayoutQueueItem = {
+  id: string;
+  amount: string;
+  currency: string;
+  status: string;
+  createdAt: string;
+  lessonId: string | null;
+  lesson: { id: string; title: string | null; scheduledAt: string } | null;
+  teacher: {
+    id: string;
+    name: string;
+    phone: string;
+    email: string | null;
+    bank: PayoutBank | null;
+  };
+};
+
+type AppealItem = {
+  id: string;
+  title: string | null;
+  scheduledAt: string;
+  status: string;
+  appealStatus: string;
+  canceledAt: string | null;
+  teacher: { id: string; name: string; phone: string };
+  student: { id: string; name: string; phone: string };
 };
 
 type Teacher = {
@@ -98,6 +133,8 @@ export default function AdminPage() {
   });
   const [profileSaving, setProfileSaving] = useState(false);
   const [matchPreview, setMatchPreview] = useState<Record<string, MatchPreview | null>>({});
+  const [payouts, setPayouts] = useState<PayoutQueueItem[]>([]);
+  const [appeals, setAppeals] = useState<AppealItem[]>([]);
 
   const loadOverview = useCallback(async () => {
     const res = await fetch("/api/admin/overview");
@@ -127,6 +164,20 @@ export default function AdminPage() {
     setDiagnostics(data.diagnostics);
   }, []);
 
+  const loadPayouts = useCallback(async () => {
+    const res = await fetch("/api/admin/payouts");
+    if (!res.ok) throw new Error("שגיאה בטעינת תשלומים");
+    const data = (await res.json()) as { payouts: PayoutQueueItem[] };
+    setPayouts(data.payouts);
+  }, []);
+
+  const loadAppeals = useCallback(async () => {
+    const res = await fetch("/api/admin/appeals");
+    if (!res.ok) throw new Error("שגיאה בטעינת ערעורים");
+    const data = (await res.json()) as { appeals: AppealItem[] };
+    setAppeals(data.appeals);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const redirected = { current: false };
@@ -150,7 +201,13 @@ export default function AdminPage() {
           return;
         }
         setAdminName(me.user.name);
-        await Promise.all([loadOverview(), loadTeachers(), loadLeads()]);
+        await Promise.all([
+          loadOverview(),
+          loadTeachers(),
+          loadLeads(),
+          loadPayouts(),
+          loadAppeals(),
+        ]);
       } catch {
         if (!cancelled && !redirected.current) {
           redirected.current = true;
@@ -173,7 +230,56 @@ export default function AdminPage() {
     if (tab === "diagnostics" && diagnostics.length === 0) {
       loadDiagnostics().catch(() => toast.error("שגיאה בטעינת אבחונים"));
     }
-  }, [tab, diagnostics.length, loadDiagnostics]);
+    if (tab === "payouts") {
+      loadPayouts().catch(() => toast.error("שגיאה בטעינת תשלומים"));
+    }
+    if (tab === "appeals") {
+      loadAppeals().catch(() => toast.error("שגיאה בטעינת ערעורים"));
+    }
+  }, [tab, diagnostics.length, loadDiagnostics, loadPayouts, loadAppeals]);
+
+  const markPayoutAsPaid = async (payoutId: string) => {
+    setActionLoading(payoutId);
+    const t = toast.loading("מסמן כשולם...");
+    try {
+      const res = await fetch("/api/admin/payouts/settle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payoutId }),
+      });
+      const data = (await res.json()) as { error?: string; transactionId?: string };
+      if (!res.ok) throw new Error(data.error || "סימון נכשל");
+      toast.success(
+        data.transactionId ? `סומן כשולם · ${data.transactionId}` : "סומן כשולם",
+        { id: t }
+      );
+      await loadPayouts();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "שגיאה", { id: t });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const resolveAppeal = async (lessonId: string, action: "APPROVE" | "REJECT") => {
+    setActionLoading(`${action}-${lessonId}`);
+    const t = toast.loading(action === "APPROVE" ? "מאשר ערעור..." : "דוחה ערעור...");
+    try {
+      const res = await fetch("/api/admin/appeals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonId, action }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "עדכון נכשל");
+      toast.success(action === "APPROVE" ? "הערעור אושר" : "הערעור נדחה", { id: t });
+      await loadAppeals();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "שגיאה", { id: t });
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const toggleTeacher = async (teacherId: string, isApproved: boolean) => {
     setActionLoading(teacherId);
@@ -339,6 +445,8 @@ export default function AdminPage() {
     { id: "teachers", label: "מורים", badge: stats?.pendingTeachers },
     { id: "leads", label: "לידים", badge: stats?.openLeads },
     { id: "diagnostics", label: "אבחונים" },
+    { id: "payouts", label: "תשלומי מורים", badge: payouts.length || undefined },
+    { id: "appeals", label: "ערעורים", badge: appeals.length || undefined },
   ];
 
   return (
@@ -699,6 +807,183 @@ export default function AdminPage() {
                   </div>
                 );
               })
+            )}
+          </div>
+        )}
+
+        {tab === "payouts" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-black text-white">Payout Queue</h2>
+                <p className="text-xs text-slate-400">
+                  מורים עם יתרה לתשלום ופרטי בנק — סמן כשולם לאחר העברה ידנית.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  loadPayouts().catch(() => toast.error("שגיאה בטעינת תשלומים"))
+                }
+                className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-xl border border-slate-700"
+              >
+                רענון
+              </button>
+            </div>
+            {payouts.length === 0 ? (
+              <p className="text-sm text-slate-400">אין תשלומים ממתינים.</p>
+            ) : (
+              <div className="overflow-x-auto border border-slate-800 rounded-2xl">
+                <table className="w-full text-right text-xs min-w-[720px]">
+                  <thead className="bg-slate-900/80 text-slate-400">
+                    <tr>
+                      <th className="p-3 font-bold">מורה</th>
+                      <th className="p-3 font-bold">סכום</th>
+                      <th className="p-3 font-bold">פרטי בנק</th>
+                      <th className="p-3 font-bold">שיעור</th>
+                      <th className="p-3 font-bold">סטטוס</th>
+                      <th className="p-3 font-bold">פעולה</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {payouts.map((p) => (
+                      <tr key={p.id} className="bg-slate-900/40">
+                        <td className="p-3">
+                          <div className="font-bold text-white">{p.teacher.name}</div>
+                          <div className="text-slate-500" dir="ltr">
+                            {p.teacher.phone}
+                          </div>
+                        </td>
+                        <td className="p-3 font-black text-emerald-400">
+                          ₪{p.amount}
+                          {p.currency !== "ILS" ? ` ${p.currency}` : ""}
+                        </td>
+                        <td className="p-3 text-slate-300">
+                          {p.teacher.bank &&
+                          (p.teacher.bank.bankName || p.teacher.bank.accountNumber) ? (
+                            <div className="space-y-0.5">
+                              <div>
+                                {p.teacher.bank.bankName ?? "—"}
+                                {p.teacher.bank.bankBranch
+                                  ? ` · סניף ${p.teacher.bank.bankBranch}`
+                                  : ""}
+                              </div>
+                              <div dir="ltr">{p.teacher.bank.accountNumber ?? "—"}</div>
+                              <div className="text-slate-500">
+                                {p.teacher.bank.accountHolderName ?? "—"}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-amber-400">חסרים פרטי בנק</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-slate-400">
+                          {p.lesson
+                            ? `${p.lesson.title ?? "שיעור"} · ${new Date(
+                                p.lesson.scheduledAt
+                              ).toLocaleDateString("he-IL")}`
+                            : "—"}
+                        </td>
+                        <td className="p-3">
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <button
+                            type="button"
+                            disabled={actionLoading === p.id}
+                            onClick={() => markPayoutAsPaid(p.id)}
+                            className="text-[11px] font-bold py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
+                          >
+                            {actionLoading === p.id ? "..." : "סמן כשולם"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "appeals" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-black text-white">ערעורים ממתינים</h2>
+                <p className="text-xs text-slate-400">
+                  Approve מזכה תלמיד ומבטל קנס מורה · Reject משאיר את הקנס בתוקף.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  loadAppeals().catch(() => toast.error("שגיאה בטעינת ערעורים"))
+                }
+                className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-xl border border-slate-700"
+              >
+                רענון
+              </button>
+            </div>
+            {appeals.length === 0 ? (
+              <p className="text-sm text-slate-400">אין ערעורים ממתינים.</p>
+            ) : (
+              <div className="overflow-x-auto border border-slate-800 rounded-2xl">
+                <table className="w-full text-right text-xs min-w-[720px]">
+                  <thead className="bg-slate-900/80 text-slate-400">
+                    <tr>
+                      <th className="p-3 font-bold">שיעור</th>
+                      <th className="p-3 font-bold">מורה</th>
+                      <th className="p-3 font-bold">תלמיד</th>
+                      <th className="p-3 font-bold">מועד</th>
+                      <th className="p-3 font-bold">סטטוס</th>
+                      <th className="p-3 font-bold">פעולות</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {appeals.map((a) => (
+                      <tr key={a.id} className="bg-slate-900/40">
+                        <td className="p-3">
+                          <div className="font-bold text-white">{a.title ?? "שיעור פרטי"}</div>
+                          <div className="text-slate-500 font-mono text-[10px]">{a.id}</div>
+                        </td>
+                        <td className="p-3 text-slate-300">{a.teacher.name}</td>
+                        <td className="p-3 text-slate-300">{a.student.name}</td>
+                        <td className="p-3 text-slate-400">
+                          {new Date(a.scheduledAt).toLocaleString("he-IL")}
+                        </td>
+                        <td className="p-3">
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            {a.appealStatus}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex flex-wrap gap-2 justify-end">
+                            <button
+                              type="button"
+                              disabled={actionLoading !== null}
+                              onClick={() => resolveAppeal(a.id, "APPROVE")}
+                              className="text-[11px] font-bold py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              disabled={actionLoading !== null}
+                              onClick={() => resolveAppeal(a.id, "REJECT")}
+                              className="text-[11px] font-bold py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white disabled:opacity-50"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}

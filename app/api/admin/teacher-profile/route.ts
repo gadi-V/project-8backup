@@ -10,6 +10,14 @@ function parseStringArray(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function parseOptionalString(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export async function PUT(request: Request) {
   try {
     const auth = await requireAuth(["ADMIN", "MANAGER", "TEACHER"]);
@@ -41,9 +49,21 @@ export async function PUT(request: Request) {
     const profileImageUrl =
       typeof body.profileImageUrl === "string" ? body.profileImageUrl.trim() || null : null;
 
+    const bankName = parseOptionalString(body.bankName);
+    const bankBranch = parseOptionalString(body.bankBranch);
+    const accountNumber = parseOptionalString(body.accountNumber);
+    const accountHolderName = parseOptionalString(body.accountHolderName);
+
     if (subjects.length === 0) {
       return NextResponse.json({ error: "יש להזין לפחות מקצוע התמחות אחד" }, { status: 400 });
     }
+
+    const bankFields = {
+      ...(bankName !== undefined ? { bankName } : {}),
+      ...(bankBranch !== undefined ? { bankBranch } : {}),
+      ...(accountNumber !== undefined ? { accountNumber } : {}),
+      ...(accountHolderName !== undefined ? { accountHolderName } : {}),
+    };
 
     const profile = await prisma.teacherProfile.upsert({
       where: { userId: teacherId },
@@ -53,12 +73,17 @@ export async function PUT(request: Request) {
         ageGroups,
         bio,
         profileImageUrl,
+        bankName: bankName ?? null,
+        bankBranch: bankBranch ?? null,
+        accountNumber: accountNumber ?? null,
+        accountHolderName: accountHolderName ?? null,
       },
       update: {
         subjects,
         ageGroups,
         bio,
         profileImageUrl,
+        ...bankFields,
       },
     });
 
@@ -67,7 +92,7 @@ export async function PUT(request: Request) {
       action: "TEACHER_PROFILE_UPSERT",
       entityType: "TeacherProfile",
       entityId: profile.id,
-      metadata: { teacherId, subjects, ageGroups },
+      metadata: { teacherId, subjects, ageGroups, bankUpdated: Object.keys(bankFields).length > 0 },
     });
 
     return NextResponse.json({

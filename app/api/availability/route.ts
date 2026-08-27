@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { requireAuth } from "../../../lib/api-auth";
+import {
+  computeSlotBounds,
+  overlappingAvailabilityWhere,
+} from "../../../lib/scheduling";
 
 export async function GET(request: Request) {
   try {
@@ -46,13 +50,49 @@ export async function GET(request: Request) {
         },
       },
       orderBy: { startTime: "asc" },
-      take: 50,
+      take: 200,
     });
 
     return NextResponse.json(slots, { status: 200 });
   } catch (error) {
     console.error("Availability GET Error:", error);
     return NextResponse.json({ error: "שגיאה בשליפת השעות" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const auth = await requireAuth(["TEACHER"]);
+    if (auth.error) return auth.error;
+
+    const { searchParams } = new URL(request.url);
+    const slotId = searchParams.get("id");
+
+    if (!slotId) {
+      return NextResponse.json({ error: "מזהה חלון הזמן חסר" }, { status: 400 });
+    }
+
+    const slot = await prisma.teacherAvailability.findFirst({
+      where: { id: slotId, teacherId: auth.user.id },
+    });
+
+    if (!slot) {
+      return NextResponse.json({ error: "חלון הזמן לא נמצא" }, { status: 404 });
+    }
+
+    if (slot.isBooked) {
+      return NextResponse.json(
+        { error: "לא ניתן להסיר שעה שכבר שובצה לשיעור" },
+        { status: 409 }
+      );
+    }
+
+    await prisma.teacherAvailability.delete({ where: { id: slotId } });
+
+    return NextResponse.json({ message: "חלון הזמן הוסר מהיומן" }, { status: 200 });
+  } catch (error) {
+    console.error("Availability DELETE Error:", error);
+    return NextResponse.json({ error: "שגיאה בהסרת השעה" }, { status: 500 });
   }
 }
 
@@ -73,20 +113,22 @@ export async function POST(request: Request) {
     }
 
     const start = new Date(startTime);
-    const end = new Date(start.getTime() + 50 * 60 * 1000);
+    // Lesson content is 50 minutes; calendar block lock is 60 minutes (anti-collision).
+    const { contentEnd, blockEnd } = computeSlotBounds(start);
 
     const overlappingSlot = await prisma.teacherAvailability.findFirst({
-      where: {
+      where: overlappingAvailabilityWhere({
         teacherId: auth.user.id,
-        AND: [{ startTime: { lt: end } }, { endTime: { gt: start } }],
-      },
+        start,
+        blockEnd,
+      }),
     });
 
     if (overlappingSlot) {
       return NextResponse.json(
         {
           error:
-            "כבר הגדרת חלון זמן חופף ביומן בשעות אלו. אנא בחר שעה אחרת (מינימום 50 דקות לשיעור).",
+            "כבר הגדרת חלון זמן חופף ביומן בשעות אלו. אנא בחר שעה אחרת (נעילת 60 דקות למשבצת).",
         },
         { status: 400 }
       );
@@ -96,7 +138,7 @@ export async function POST(request: Request) {
       data: {
         teacherId: auth.user.id,
         startTime: start,
-        endTime: end,
+        endTime: contentEnd,
         isBooked: false,
       },
     });

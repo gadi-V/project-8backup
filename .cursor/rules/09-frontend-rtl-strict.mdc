@@ -1,0 +1,14 @@
+---
+description: "Tailwind RTL logical properties, Shadcn/UI standards, and strict TypeScript"
+globs:
+  - "components/**/*.tsx"
+  - "app/**/*.tsx"
+---
+
+# Frontend RTL & Typing Rules
+
+- RTL Logical Properties:
+  - Margins: `ms-*` (start), `me-*` (end).
+  - Padding: `ps-*` (start), `pe-*` (end).
+  - Positions: `start-*`, `end-*`.
+- Strict TypeScript: No `any` or `@ts-ignore`. Explicitly type all component props and hook returns.

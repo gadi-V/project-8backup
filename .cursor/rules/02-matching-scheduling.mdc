@@ -1,0 +1,116 @@
+---
+description: "Fair tutor-student matching algorithms, scheduling, and UTC integrity"
+globs:
+  - "lib/matching.ts"
+  - "lib/ics.ts"
+  - "app/api/match/**"
+  - "app/api/lessons/**"
+  - "app/api/availability/**"
+  - "app/api/calendar/**"
+  - "components/WeeklyScheduleBoard.tsx"
+  - "app/dashboard/**"
+  - "prisma/schema.prisma"
+---
+
+# Matching & Scheduling Invariants
+
+- Fair Tutor Allocation: The matching engine must distribute student leads equitably based on:
+  1. Active workload / weekly capacity.
+  2. Subject expertise match score.
+  3. Weighted round-robin index among qualified tutors.
+- Anti-Collision: Before confirming a booking, run a concurrency check in Prisma to ensure neither tutor nor student has an overlapping active session.
+- 60-Minute Slot Locking: A lesson is 50 minutes long but MUST reserve a 60-minute slot in the tutor's calendar (50 min lesson + 10 min break). Overlap/double-booking checks are computed against the full 60-minute block, never the 50-minute duration.
+- Reschedule Policy:
+  - A lesson may be rescheduled ONLY if it is more than 24 hours before its `scheduledAt` time.
+  - Reschedule is limited to a single time per lesson; a lesson that has already been rescheduled once cannot be rescheduled again.
+  - The new slot must pass the same 60-minute anti-collision check as a fresh booking.
+- Time Integrity: All timestamps stored in UTC (`TIMESTAMPTZ`), rendered in `Asia/Jerusalem`. Lesson timers must rely on server timestamps (`scheduledAt`), never client intervals.
+
+## Smart Matching (שידוך חכם)
+
+Matching ranks approved tutors for a student from their latest diagnostic. Primary signals (in order of product intent):
+
+1. **Subject & material relevance** — subject overlap plus challenge/topics text against the tutor's subjects and bio.
+2. **Level / age-group fit** — diagnostic `ageGroup` mapped to canonical buckets (`יסודי` / `חטיבה` / `תיכון` / `אקדמיה`) vs `TeacherProfile.ageGroups`.
+3. **Availability overlap** — count of future unbooked `TeacherAvailability` rows (60-minute calendar units).
+
+### Soft Recommendation
+If a tutor has **high subject/material fit** but **zero overlapping open slots**, still surface them as a leading recommendation (`isSoftRecommendation: true`). The parties then agree on a time via the interactive weekly board once the tutor opens availability — do NOT hide strong material matches solely for lack of slots.
+
+### Fairness within the quality band
+Among tutors in the top score band, prefer lower `referralCount`, then lower `activeStudentsCount`, then older/never `lastReferralAt` (weighted round-robin). Always return a **ranked list** plus an explicit `recommended` top pick.
+
+### Strict no-regression on money / cancel paths
+Dashboard / calendar UI must call existing APIs only. Do **not** modify, simplify, or reimplement:
+- `app/api/lessons/[id]/cancel/route.ts`
+- `app/api/lessons/[id]/reschedule/route.ts`
+- Ledger / `BillingLedger` write paths (`lib/services/LedgerService.ts` and related)
+
+## Weekly Calendar Board (לוח השעות האינטראקטיבי)
+
+Mandatory visual weekly schedule board for both roles inside `/dashboard`. Do NOT replace this board with native date/time selects, `<input type="date|time|datetime-local">`, or simple picker lists as the primary scheduling UX.
+
+### Required surfaces
+- **Teacher**: full graphical weekly grid for defining/managing availability in **60-minute** units (open slots + booked lessons), with click toggle and Drag & Drop.
+- **Student**: full graphical weekly grid of the **matched / selected** teacher's open slots for book-by-click or Drag & Drop, plus the student's upcoming lessons.
+
+### Interaction invariants
+- Drag & Drop moves or places slots in 60-minute increments on the weekly grid.
+- Every scheduled lesson on the board MUST expose a gear control (⚙️) whose quick menu calls the **existing** APIs only:
+  - Reschedule → `POST /api/lessons/[id]/reschedule`
+  - Cancel → `POST /api/lessons/[id]/cancel`
+- Export / sync buttons are mandatory:
+  - Google Calendar (template deep-link and/or `.ics` import)
+  - Apple Calendar (`.ics` download and/or `webcal://` subscription to `/api/calendar/export`)
+- Absolute ban: substituting the visual weekly board with native select/pickers as the main booking or availability UI.
+
+## Slot Selection — בחירת שעה אינטראקטיבית בלוח התלמיד
+
+- The student weekly board MUST allow clear click targets on **open** 60-minute availability cells (visible hover / active states).
+- Clicking an open slot MUST open a **BookingModal** with lesson details (date, time, teacher name) and a primary confirm action ("קבע שיעור").
+- Confirming the modal MUST call the existing `POST /api/lessons` booking path (via the dashboard handler) and refresh the board in real time.
+- Do NOT book silently on first click without confirmation.
+
+## Teacher Fallback & Search — חלופת מורים בהיעדר זמינות
+
+- When the selected / matched teacher has **0 open slots in the displayed week**, the student UI MUST surface a ranked list of alternative relevant tutors (from `/api/match`, same subject / match score order).
+- Provide an explicit **"החלף מורה"** control so the student can open the fallback switcher even when some slots exist.
+- Selecting an alternate teacher MUST immediately reload that teacher's `TeacherAvailability` into the weekly board.
+- Soft recommendations (high subject fit, no slots) remain valid; fallback is the path to book sooner with another ranked tutor.
+
+## Student-Driven Availability Search — חיפוש מורים מונחה זמינות תלמיד
+
+- A student MAY enter preferred day(s) and time / time-range ("מתי נוח לך ללמוד?").
+- The matching API filters tutors who have unbooked `TeacherAvailability` overlapping that window (60-minute units), while still requiring subject/material relevance.
+- Selecting a filtered tutor MUST open their interactive weekly board with the requested hour **highlighted**.
+- Interactive slot click → BookingModal → `POST /api/lessons` and gear ⚙️ cancel/reschedule invariants remain mandatory.
+
+## Fair Dispatch Sorting — דירוג לפי שוויון והוגנות
+
+- Among tutors who match subject **and** the requested time window, sort by **Fair Dispatch**:
+  1. Fewer scheduled lessons in the current calendar week (`weeklyLessonCount`).
+  2. Lower `referralCount` / `activeStudentsCount` (anti-concentration).
+  3. Older / never `lastReferralAt` (round-robin).
+- If **no** tutor is free at the exact requested time: return the best subject/material matches with their **nearest** open slot (proximity), still Fair-Dispatch-sorted within equal proximity bands.
+- Do not let a single popular tutor monopolize leads when equally qualified peers have capacity.
+
+## Multi-Day & Multi-Hour Student Search — בחירה מרובה של זמנים
+
+- Student UI and `/api/match` MUST support **multi-select days** (pills/checkboxes: א'–ש') and **multi-select hours / time windows** (e.g. morning / noon / evening chips, or multiple discrete hours).
+- Filtering uses **OR logic**: a tutor matches if they have open `TeacherAvailability` in **any** of the selected day×hour combinations.
+- Ranking among matches:
+  1. Higher **overlap count** (more matching open slots across the selected options).
+  2. Then Fair Dispatch (weekly load balancing).
+- Opening a tutor's weekly board MUST highlight **all** open cells that match the selected days/hours/windows.
+
+## בחירה מרובה של ימים ושעות מפורטות (Granular Multi-Hour Filter)
+
+- The student MAY mark **multiple weekdays** (א'–ש') and, in parallel, select **individual 60-minute hour slots** from the full activity range **08:00–22:00**:
+  `08:00-09:00`, `09:00-10:00`, `10:00-11:00`, `11:00-12:00`, `12:00-13:00`, `13:00-14:00`, `14:00-15:00`, `15:00-16:00`, `16:00-17:00`, `17:00-18:00`, `18:00-19:00`, `19:00-20:00`, `20:00-21:00`, `21:00-22:00`.
+- API inputs: `requestedDays: number[]` (0=Sun … 6=Sat) and `requestedSlots` / `requestedTimes: string[]` (slot start labels, e.g. `["08:00","09:00","18:00"]`).
+- A tutor matches if they have **active unbooked** `TeacherAvailability` at **at least one** selected Day × Hour Slot intersection (OR across intersections).
+- Ranking:
+  1. **Matching Score** — higher overlap count (more matching open hours) first.
+  2. **Fair Dispatch** — fewer weekly lessons, then lower referral / active-student load.
+- Selecting a tutor card MUST open their weekly board and **boldly highlight every open cell** that intersects the student's current day/slot filter.
+- Day chips MUST include a **"בחר הכל"** control; toggling days/slots MUST refresh the ranked tutor list immediately.

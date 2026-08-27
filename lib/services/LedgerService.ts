@@ -1,6 +1,6 @@
 import { prisma } from "../prisma";
 import { LedgerEntryType } from "@prisma/client";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 export type LedgerEntryInput = {
   userId: string;
@@ -20,7 +20,27 @@ export type LedgerEntryInput = {
 export async function writeLedgerEntry(
   input: LedgerEntryInput
 ): Promise<string> {
-  const entry = await prisma.billingLedger.create({
+  return writeLedgerEntryInClient(prisma, input);
+}
+
+/**
+ * Transaction-scoped variant for embedding ledger writes inside a caller's own
+ * atomic transaction (e.g. lesson completion pays out the tutor and books the
+ * platform fee in the same unit of work).
+ */
+export async function writeLedgerEntryInTransaction(
+  tx: Prisma.TransactionClient,
+  input: LedgerEntryInput
+): Promise<string> {
+  return writeLedgerEntryInClient(tx, input);
+}
+
+/** Core implementation shared by both entry points. */
+async function writeLedgerEntryInClient(
+  client: PrismaClient | Prisma.TransactionClient,
+  input: LedgerEntryInput
+): Promise<string> {
+  const entry = await client.billingLedger.create({
     data: {
       userId: input.userId,
       entryType: input.entryType,

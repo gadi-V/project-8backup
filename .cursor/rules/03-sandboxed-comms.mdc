@@ -1,0 +1,13 @@
+---
+description: "In-platform sandboxed chat, Stream Chat security, and anti-bypass guardrails"
+globs:
+  - "components/ClassroomChat*"
+  - "lib/stream.ts"
+  - "app/api/chat/**"
+---
+
+# Sandboxed Communication Rules
+
+- Platform-Only Communication: All interactions between tutors and students must occur strictly within the platform.
+- Anti-Bypass Guardrails: Prevent sharing of raw external contact info (phone numbers, external links) inside the Stream Chat channels.
+- Private Channels: Each lesson room must have an isolated Stream Chat channel scoped strictly to the assigned tutor and student ID.

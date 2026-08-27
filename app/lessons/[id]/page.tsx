@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../../lib/session";
 import { getAuthorizedLessonById } from "../../../lib/lessons";
+import { prisma } from "../../../lib/prisma";
 import {
   dailyRoomNameForLesson,
+  ensureDailyRoom,
   generateDailyToken,
   roomNameFromDailyUrl,
 } from "../../../lib/daily";
@@ -26,7 +28,26 @@ export default async function LessonPage(props: {
     redirect("/dashboard");
   }
 
-  const roomUrl = lesson.dailyRoomUrl;
+  // Ensure an active Daily room exists (provisioning / re-provisioning via the
+  // REST API if it is missing or expired). Returns null when the key is unset in
+  // dev so the client shows a clean placeholder instead of a red error screen.
+  const roomUrl = await ensureDailyRoom(lesson.id, {
+    scheduledAt: lesson.scheduledAt,
+    durationMinutes: lesson.durationMinutes ?? 60,
+    existingRoomUrl: lesson.dailyRoomUrl,
+  });
+
+  if (roomUrl !== lesson.dailyRoomUrl) {
+    try {
+      await prisma.lesson.update({
+        where: { id: lesson.id },
+        data: { dailyRoomUrl: roomUrl },
+      });
+    } catch (error) {
+      console.error("Failed to persist Daily room URL for lesson:", error);
+    }
+  }
+
   let dailyToken: string | null = null;
   let streamToken: string | null = null;
 

@@ -97,7 +97,8 @@ async function sendWhatsAppDocument(
 
 export type LessonReminderNotificationInput = {
   phone: string;
-  studentName: string;
+  /** Display name of the recipient (student or teacher). */
+  recipientName: string;
   lessonId: string;
   startTime: Date | string;
 };
@@ -105,16 +106,17 @@ export type LessonReminderNotificationInput = {
 /**
  * Unidirectional reminder ~15 minutes before lesson start.
  * Deep-links into the in-app virtual classroom (not a WhatsApp chat thread).
+ * Sent to both student and teacher by the cron scheduler.
  */
 export async function sendLessonReminderNotification({
   phone,
-  studentName,
+  recipientName,
   lessonId,
   startTime,
 }: LessonReminderNotificationInput): Promise<void> {
   const classroomUrl = `${getAppUrl()}/lessons/${lessonId}`;
   const message =
-    `היי ${studentName}, השיעור שלך מתחיל בעוד 15 דקות! 🎓\n` +
+    `היי ${recipientName}, השיעור שלך מתחיל בעוד 15 דקות! 🎓\n` +
     `לחץ כאן לכניסה ישירה לכיתה הווירטואלית: ${classroomUrl}`;
 
   // startTime reserved for schedulers / audit; message copy is fixed at T-15.
@@ -123,31 +125,104 @@ export async function sendLessonReminderNotification({
   await sendWhatsAppText(phone, message);
 }
 
+/** Sender branding — all outbound notifications originate from the business account. */
+const BRAND_NAME = "Project8";
+const BRAND_SIGNATURE = `צוות ${BRAND_NAME}`;
+
 export type LessonSummaryNotificationInput = {
   phone: string;
   userName: string;
   pdfBuffer: Buffer | null;
+  pdfSecureUrl: string | null;
   videoStreamingUrl: string;
+  /** Short, non-sensitive summary details shown in the message body. */
+  lessonSummary?: string;
 };
 
 /**
- * Lesson-end summary: PDF as document attachment, recording as secure streaming URL only.
+ * Lesson-end summary, sent as the official business sender (never the tutor's
+ * personal number): secure PDF link + recording streaming link.
+ * Falls back to raw text when no PDF is available.
  */
 export async function sendLessonSummaryNotification({
   phone,
   userName,
   pdfBuffer,
+  pdfSecureUrl,
   videoStreamingUrl,
+  lessonSummary,
 }: LessonSummaryNotificationInput): Promise<void> {
+  const summaryLine = lessonSummary?.trim()
+    ? `\nפרטי השיעור: ${lessonSummary.trim()}\n`
+    : "\n";
+
+  const pdfLine = pdfSecureUrl
+    ? `\nקישור מאובטח לקובץ ה-PDF של הלוח: ${pdfSecureUrl}\n`
+    : pdfBuffer && pdfBuffer.length > 0
+      ? "\nמצורף קובץ ה-PDF של הלוח המחיק.\n"
+      : "";
+
   const message =
-    `היי ${userName}, סיכום השיעור שלך מוכן! 📄\n` +
-    `מצורף קובץ ה-PDF של הלוח המחיק.\n` +
-    `לצפייה בהקלטת השיעור באיכות גבוהה: ${videoStreamingUrl}`;
+    `היי ${userName},\n` +
+    `השיעור שלך הושלם והסיכום מוכן! ✅${summaryLine}` +
+    pdfLine +
+    `לצפייה בהקלטת השיעור באיכות גבוהה: ${videoStreamingUrl}\n\n` +
+    `${BRAND_SIGNATURE}`;
 
   if (pdfBuffer && pdfBuffer.length > 0) {
-    await sendWhatsAppDocument(phone, message, pdfBuffer);
+    await sendWhatsAppDocument(
+      phone,
+      message,
+      pdfBuffer
+    );
     return;
   }
 
+  await sendWhatsAppText(phone, message);
+}
+
+/** ISO-8601 date+time in the local (Israel) timezone, stable for message copy. */
+function formatLocalDateTime(date: Date): string {
+  return new Intl.DateTimeFormat("he-IL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Jerusalem",
+  }).format(date);
+}
+
+export type LessonCancellationNotificationInput = {
+  /** Recipient phone (student or teacher). */
+  phone: string;
+  recipientName: string;
+  lessonId: string;
+  subject: string;
+  scheduledAt: Date;
+  /** Outcome copy: "בוטל", "בוטל באיחור", "הוחלף במורה חלוף" etc. */
+  outcome: string;
+  extra?: string;
+};
+
+/**
+ * Notification about a cancelled / late-cancelled / substituted lesson.
+ * Sent from the official business account to the affected party.
+ */
+export async function sendLessonCancellationNotification({
+  phone,
+  recipientName,
+  lessonId,
+  subject,
+  scheduledAt,
+  outcome,
+  extra,
+}: LessonCancellationNotificationInput): Promise<void> {
+  const classroomUrl = `${getAppUrl()}/lessons/${lessonId}`;
+  const message =
+    `היי ${recipientName},\n` +
+    `${subject} המתוכנן ל-${formatLocalDateTime(scheduledAt)} — ${outcome}.\n` +
+    (extra ? `${extra}\n` : "") +
+    `לפרטים נוספים: ${classroomUrl}\n\n${BRAND_SIGNATURE}`;
   await sendWhatsAppText(phone, message);
 }

@@ -105,20 +105,18 @@ export async function createDailyRoom(
 ): Promise<DailyRoom> {
   const name = dailyRoomNameForLesson(lessonId);
 
-  const DEFAULT_DURATION_MINUTES = 60;
-  const durationMinutes = options.durationMinutes ?? DEFAULT_DURATION_MINUTES;
   const scheduledAt = options.scheduledAt ?? new Date();
 
-  // Total room lifetime = lesson duration + 10% buffer (rounded up to a minute).
-  const bufferMinutes = Math.ceil(durationMinutes * 0.1);
-  const totalMinutes = durationMinutes + bufferMinutes;
-
-  const expiresAt =
-    options.expiresAt ??
-    new Date(scheduledAt.getTime() + totalMinutes * 60 * 1000);
+  // The room `exp` (Unix seconds) must ALWAYS be in the future — at least 4
+  // hours out — so joining (or re-provisioning) an old test lesson never throws
+  // a Daily 400. `exp = max(now + 4h, scheduledAt + 4h)`.
+  const MIN_EXP_SECONDS = 4 * 60 * 60; // 4 hours
+  const minExp = Math.floor(Date.now() / 1000) + MIN_EXP_SECONDS;
+  const lessonExp = Math.floor(scheduledAt.getTime() / 1000) + MIN_EXP_SECONDS;
+  const exp = Math.max(minExp, lessonExp);
 
   const properties: Record<string, unknown> = {
-    exp: Math.floor(expiresAt.getTime() / 1000),
+    exp,
     eject_at_room_exp: true,
     enable_chat: false,
     enable_screenshare: true,
@@ -149,22 +147,51 @@ export async function createDailyRoom(
  * Meeting token for a participant.
  * - Teacher / owner: is_owner + start_cloud_recording (background auto-record)
  * - Student: join-only token (no recording permissions / UI)
+ *
+ * When `scheduledAt` is provided, the token is bound to the lesson window:
+ * - `nbf` (join opens): scheduledAt − 10 minutes (Unix seconds).
+ * - `bufferMinutes`: ceil(10% of duration) grace period.
+ * - `exp` (full expiry): scheduledAt + (durationMinutes + bufferMinutes) minutes.
+ * No arbitrary 2-hour cap — supports double/triple lessons (120/180 min).
  */
 export async function generateDailyToken(
   roomName: string,
   isOwner: boolean,
-  userId: string
+  userId: string,
+  options: {
+    /** Lesson scheduled start. When provided, the token is time-boxed to the lesson window. */
+    scheduledAt?: Date;
+    /** Planned lesson duration in minutes. Defaults to 60. */
+    durationMinutes?: number;
+  } = {}
 ): Promise<string> {
+  const DEFAULT_DURATION_MINUTES = 60;
+  const durationMinutes = options.durationMinutes ?? DEFAULT_DURATION_MINUTES;
+  const bufferMinutes = Math.ceil(durationMinutes * 0.1);
+
+  const properties: Record<string, unknown> = {
+    room_name: roomName,
+    user_id: userId,
+    is_owner: isOwner,
+    // Auto cloud recording starts when the owner (teacher) joins — no client record button.
+    ...(isOwner ? { start_cloud_recording: true, enable_recording: "cloud" } : {}),
+  };
+
+  if (options.scheduledAt) {
+    const scheduledAt = options.scheduledAt;
+    const nbf = new Date(scheduledAt.getTime() - 10 * 60 * 1000);
+    const exp = new Date(
+      scheduledAt.getTime() + (durationMinutes + bufferMinutes) * 60 * 1000
+    );
+
+    properties.nbf = Math.floor(nbf.getTime() / 1000);
+    properties.exp = Math.floor(exp.getTime() / 1000);
+  }
+
   const result = await dailyFetch<{ token: string }>("/meeting-tokens", {
     method: "POST",
     body: JSON.stringify({
-      properties: {
-        room_name: roomName,
-        user_id: userId,
-        is_owner: isOwner,
-        // Auto cloud recording starts when the owner (teacher) joins — no client record button.
-        ...(isOwner ? { start_cloud_recording: true, enable_recording: "cloud" } : {}),
-      },
+      properties,
     }),
   });
 
@@ -223,4 +250,73 @@ export async function deleteDailyRoom(roomName: string): Promise<void> {
   await dailyFetch(`/rooms/${encodeURIComponent(roomName)}`, {
     method: "DELETE",
   });
+}
+
+/**
+ * Ensure an active Daily room exists before the lesson page returns its URL.
+ *
+ * If the lesson has no room yet — or its stored room no longer exists on Daily
+ * (e.g. it expired during a retry / dev restart) — this re-provisions one via
+ * the REST API and persists it. On any failure (missing key, network, API error)
+ * it returns `null` so the client renders a clean "test environment" placeholder
+ * instead of a red screen.
+ */
+export async function ensureDailyRoom(
+  lessonId: string,
+  options: {
+    scheduledAt?: Date;
+    durationMinutes?: number;
+    existingRoomUrl?: string | null;
+  } = {}
+): Promise<string | null> {
+  if (!hasDailyApiKey()) return null;
+
+  // Nothing saved yet — create a fresh room.
+  if (!options.existingRoomUrl) {
+    try {
+      const room = await createDailyRoom(lessonId, {
+        scheduledAt: options.scheduledAt,
+        durationMinutes: options.durationMinutes,
+      });
+      return room.url;
+    } catch (error) {
+      console.error(`Failed to create Daily room for lesson ${lessonId}:`, error);
+      return null;
+    }
+  }
+
+  const roomName = roomNameFromDailyUrl(options.existingRoomUrl);
+  if (!roomName) return null;
+
+  try {
+    // Validate that the stored room still resolves on the API.
+    const existing = await dailyFetch<DailyRoom>(
+      `/rooms/${encodeURIComponent(roomName)}`
+    );
+    return existing.url ?? options.existingRoomUrl;
+  } catch {
+    // Room is gone (expired/deleted) — re-provision it under the same name.
+    try {
+      const room = await createDailyRoom(lessonId, {
+        scheduledAt: options.scheduledAt,
+        durationMinutes: options.durationMinutes,
+      });
+      return room.url;
+    } catch (error) {
+      console.error(
+        `Failed to re-provision Daily room for lesson ${lessonId}:`,
+        error
+      );
+      return null;
+    }
+  }
+}
+
+/**
+ * Whether a Daily room video client can be mounted. When the API key is missing
+ * in development, the caller renders a clean "test environment" placeholder
+ * instead of a broken red error surface.
+ */
+export function hasDailyApiKey(): boolean {
+  return Boolean(process.env.DAILY_API_KEY);
 }

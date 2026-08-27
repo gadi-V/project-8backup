@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "agents-hive": {
+      "command": "/Users/gaditzumi/project8/agents_hive/venv/bin/python3",
+      "args": [
+        "/Users/gaditzumi/project8/agents_hive/hive_mcp.py"
+      ]
+    }
+  }
+}

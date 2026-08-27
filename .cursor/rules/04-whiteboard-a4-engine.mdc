@@ -1,0 +1,18 @@
+---
+description: "Self-contained Canvas whiteboard with discrete A4 pages, touch UI, and RTL isolation"
+globs:
+  - "components/*Whiteboard*"
+  - "app/lessons/**"
+alwaysApply: false
+---
+
+# Whiteboard & Discrete A4 Pages Rules
+
+- Self-Contained Canvas Engine (NO Excalidraw): The whiteboard is a custom `<canvas>` renderer with our own tools, elements, and hit-testing. Do NOT add or depend on `@excalidraw/*` or any external whiteboard library.
+- Discrete A4 Pages:
+  - Each page is an independent A4 canvas of `794px × 1123px` (CSS pixels), stacked vertically as discrete pages.
+  - Canvases are DPR-aware: back the canvas at `PAGE_W * dpr` × `PAGE_H * dpr` and `ctx.scale(dpr, dpr)` so drawing stays sharp on high-density / iPad screens.
+  - The drawing canvas is transparent and layered on top of a squared grid background (the grid is the page background, strokes render above it).
+- Touch & Tablet UI: Custom toolbars must be draggable floating panels with a toggle button so they do not block iPad writing.
+- Image Pasting: Convert pasted/uploaded files to a Base64 DataURL via `FileReader` and draw them onto the canvas. Never use the native File System Access API.
+- RTL Isolation: The surrounding UI stays RTL; the canvas drawing surface operates in its own coordinate space independent of text direction.

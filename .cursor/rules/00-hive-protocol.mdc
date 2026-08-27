@@ -1,0 +1,25 @@
+---
+description: Mandatory development workflow and protected domain boundaries
+globs: *
+---
+# MANDATORY DEVELOPMENT PROTOCOL
+
+You must strictly adhere to the following 4-step workflow on EVERY interaction:
+
+## 1. PRE-FLIGHT (Plan Verification)
+- Before implementing major changes, check `agents_hive/HIVE_SPRINT_OUTPUT.md` or invoke the `run_orchestration` MCP tool.
+- Identify protected files and do not touch them unless explicitly instructed.
+
+## 2. PROTECTED DOMAINS (DO NOT TOUCH)
+- **Fintech & Ledger**: Any ledger, wallet, balance, or payment processing logic.
+- **Fair Dispatch Engine**: Teacher assignment and student queue fairness algorithms.
+- **Cancellation & Reschedule**: Business logic governing lesson cancellations and refund policies.
+
+## 3. UI & ENVIRONMENT RULES
+- Whiteboard & Vector Canvas must strictly reside inside `<div dir="ltr">`.
+- General UI is strictly RTL (Hebrew first).
+
+## 4. POST-FLIGHT (Compulsory Verification)
+- Every coding task MUST conclude by running the `run_typecheck` MCP tool (or `npx tsc --noEmit`).
+- If TypeScript errors exist (Exit Code != 0), resolve them immediately before reporting completion to the user.
+- Never declare a task complete with pending compile/type errors.

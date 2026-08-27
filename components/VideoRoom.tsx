@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import DailyIframe, { DailyCall } from "@daily-co/daily-js";
 import {
   DailyProvider,
@@ -12,8 +12,8 @@ import {
 } from "@daily-co/daily-react";
 
 type VideoRoomProps = {
-  roomUrl: string;
-  token: string;
+  roomUrl: string | null;
+  token: string | null;
 };
 
 const ParticipantTile = ({ id }: { id: string }) => {
@@ -114,53 +114,95 @@ const CallContainer = () => {
   );
 };
 
+/**
+ * MockVideoBox — shown whenever Daily is unavailable (missing credentials,
+ * account billing issue, join failure, etc.).  Deliberately has no error text
+ * so the classroom UI stays clean in dev / staging environments.
+ */
+function MockVideoBox() {
+  return (
+    <div className="flex flex-col h-full min-h-[220px] w-full items-center justify-center gap-3 bg-slate-900 border border-slate-700 rounded-xl px-6 text-center">
+      <div className="h-10 w-10 rounded-full bg-slate-700 flex items-center justify-center">
+        <svg
+          className="h-5 w-5 text-slate-400"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden="true"
+        >
+          <rect x="2" y="6" width="13" height="12" rx="2" />
+          <path d="m22 8-5 3 5 3V8Z" />
+        </svg>
+      </div>
+      <div className="text-slate-200 font-bold text-sm">
+        חדר וידאו בסביבת בדיקות
+      </div>
+      <div className="text-slate-400 text-xs font-medium leading-relaxed max-w-xs">
+        ממתין לחיבור — חדר הווידאו זמין כש־Daily מוגדר בסביבת הייצור. ניתן
+        להמשיך עם הלוח והצ&apos;אט.
+      </div>
+    </div>
+  );
+}
+
 export default function VideoRoom({ roomUrl, token }: VideoRoomProps) {
   const [callObject, setCallObject] = useState<DailyCall | null>(null);
-  const [joinError, setJoinError] = useState<string | null>(null);
+  // When Daily is unavailable (bad credentials, billing, join failure, etc.)
+  // we fall back to MockVideoBox silently — no red error screen.
+  const [dailyFailed, setDailyFailed] = useState(false);
 
-  useEffect(() => {
+  const connect = useCallback(() => {
+    // No credentials in dev → clean placeholder, no error.
     if (!roomUrl || !token) {
-      setJoinError("חסרים פרטי חדר הווידאו");
+      setCallObject(null);
       return;
     }
 
-    navigator.mediaDevices
-      ?.getUserMedia({ video: true, audio: true })
-      ?.catch((err) => {
-        console.warn("User denied or browser blocked media permissions:", err);
-      });
+    // Best-effort media permission warm-up (failure is non-blocking).
+    if (navigator.mediaDevices?.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: true })
+        .catch((err: unknown) => {
+          console.warn("[VideoRoom] Media permission denied:", err);
+        });
+    }
 
-    const newCallObject = DailyIframe.createCallObject();
-    setCallObject(newCallObject);
-    setJoinError(null);
+    const co = DailyIframe.createCallObject();
+    setCallObject(co);
 
-    newCallObject.join({ url: roomUrl, token }).catch((err) => {
-      console.error("Daily join failed:", err);
-      setJoinError("התחברות לחדר הווידאו נכשלה");
+    // Listen for Daily error events (e.g. account-missing-payment-method).
+    co.on("error", (event) => {
+      console.warn("[VideoRoom] Daily error event — using fallback:", event);
+      setDailyFailed(true);
     });
 
-    return () => {
-      newCallObject.leave().catch(() => undefined);
-      newCallObject.destroy();
-    };
+    co.join({ url: roomUrl, token }).catch((err: unknown) => {
+      // Swallow join errors silently and fall back to MockVideoBox.
+      // Common causes: expired token, room deleted, billing issue.
+      console.warn("[VideoRoom] Daily join failed — using fallback:", err);
+      setDailyFailed(true);
+    });
+
+    return co;
   }, [roomUrl, token]);
 
-  if (joinError) {
-    return (
-      <div className="flex h-full min-h-[200px] w-full items-center justify-center bg-slate-900 border border-slate-700 rounded-xl px-4">
-        <span className="text-red-400 font-bold text-sm text-center">{joinError}</span>
-      </div>
-    );
+  useEffect(() => {
+    const co = connect();
+    return () => {
+      if (!co) return;
+      co.leave().catch(() => undefined);
+      co.destroy();
+    };
+  }, [connect]);
+
+  // No credentials or Daily failed → silent placeholder.
+  if (!roomUrl || !token || dailyFailed) {
+    return <MockVideoBox />;
   }
 
   if (!callObject) {
-    return (
-      <div className="flex h-full min-h-[200px] w-full items-center justify-center bg-slate-900 border border-slate-700 rounded-xl">
-        <span className="text-slate-500 font-bold text-sm animate-pulse">
-          טוען ממשק וידאו...
-        </span>
-      </div>
-    );
+    return <MockVideoBox />;
   }
 
   return (

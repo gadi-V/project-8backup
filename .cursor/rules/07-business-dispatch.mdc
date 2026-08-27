@@ -1,0 +1,26 @@
+---
+description: "Business-branded WhatsApp automation, PDF dispatch, fair tutor dispatch, and cron jobs"
+globs:
+  - "lib/whatsapp.ts"
+  - "lib/matching.ts"
+  - "app/api/match/**"
+  - "app/api/cron/**"
+  - "lib/storage.ts"
+---
+
+# Business Dispatch & Automation Rules
+
+- Official Business Sender: All WhatsApp messages (summaries, recording links, PDF files) must originate strictly from the SaaS official business account, never from the tutor's personal phone number.
+- Automated Lesson Summaries: Upon lesson completion, the system uploads the vector PDF to S3/R2 and triggers the WhatsApp notification.
+- Automated Reminders: The `/api/cron/reminders` endpoint must run every 5 minutes and send alerts for lessons starting in the next 15 minutes.
+
+## Student-Driven Availability Search (חיפוש מורים מונחה זמינות תלמיד)
+
+- Students can declare preferred days and hours (including **multi-select** days and time windows); matching MUST filter tutors with open `TeacherAvailability` in those windows (OR across selections) before presenting Fair Dispatch rankings.
+- Exact window matches are preferred and ranked by **overlap count**, then Fair Dispatch; otherwise return nearest open slots for high subject-fit tutors.
+
+## Fair Dispatch Sorting (דירוג שוויון והוגנות)
+
+- When multiple tutors satisfy subject + time constraints, dispatch order favors lower weekly lesson load, then lower referral / active-student counts, then round-robin by `lastReferralAt`.
+- Goal: prevent lead concentration on a small set of popular tutors while keeping quality (subject/material) thresholds.
+- UI cards and `/api/match` rankings must reflect this order when an availability preference is active.

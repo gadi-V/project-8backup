@@ -4,25 +4,25 @@ import { prisma } from "../../../../lib/prisma";
 import { sendLessonReminderNotification } from "../../../../lib/whatsapp";
 
 /**
- * Cron endpoint: sends WhatsApp reminders for lessons starting in ~15 minutes.
+ * Cron endpoint: sends WhatsApp reminders for lessons starting in 15–20 minutes.
  * Called by Vercel Cron, external scheduler, or manual trigger.
- * Protected by a constant-time API key check.
+ * Protected by Authorization: Bearer <CRON_API_KEY> (constant-time compare).
  */
 export async function GET(request: Request) {
-  const apiKey = request.headers.get("x-api-key");
-  if (!validateCronApiKey(apiKey)) {
+  if (!validateCronAuthorization(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const now = new Date();
     const fifteenMinutesFromNow = new Date(now.getTime() + 15 * 60 * 1000);
+    const twentyMinutesFromNow = new Date(now.getTime() + 20 * 60 * 1000);
 
     const upcomingLessons = await prisma.lesson.findMany({
       where: {
-        startTime: {
-          gte: now,
-          lte: fifteenMinutesFromNow,
+        scheduledAt: {
+          gte: fifteenMinutesFromNow,
+          lte: twentyMinutesFromNow,
         },
         reminderSent: false,
         status: "SCHEDULED",
@@ -30,9 +30,15 @@ export async function GET(request: Request) {
       select: {
         id: true,
         title: true,
-        startTime: true,
         scheduledAt: true,
         student: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+        teacher: {
           select: {
             id: true,
             name: true,
@@ -48,15 +54,22 @@ export async function GET(request: Request) {
 
     const results = await Promise.allSettled(
       upcomingLessons.map(async (lesson) => {
-        // Masked logging — never log phone numbers
         console.log(`[Cron] Sending reminder for lesson ${lesson.id}`);
 
-        await sendLessonReminderNotification({
-          phone: lesson.student.phone,
-          studentName: lesson.student.name,
-          lessonId: lesson.id,
-          startTime: lesson.startTime ?? lesson.scheduledAt,
-        });
+        await Promise.all([
+          sendLessonReminderNotification({
+            phone: lesson.student.phone,
+            recipientName: lesson.student.name,
+            lessonId: lesson.id,
+            startTime: lesson.scheduledAt,
+          }),
+          sendLessonReminderNotification({
+            phone: lesson.teacher.phone,
+            recipientName: lesson.teacher.name,
+            lessonId: lesson.id,
+            startTime: lesson.scheduledAt,
+          }),
+        ]);
 
         await prisma.lesson.update({
           where: { id: lesson.id },
@@ -93,18 +106,23 @@ export async function GET(request: Request) {
 }
 
 /**
- * Constant-time API key validation to prevent timing attacks.
+ * Constant-time API key validation via Authorization Bearer header.
  */
-function validateCronApiKey(input: string | null): boolean {
+function validateCronAuthorization(request: Request): boolean {
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) return false;
+
+  const input = authHeader.slice("Bearer ".length).trim();
   if (!input) return false;
+
   const secret = process.env.CRON_API_KEY;
   if (!secret) {
-    // In development without CRON_API_KEY, allow access for manual testing
     console.warn(
       "[Cron] CRON_API_KEY not set — allowing request in dev mode"
     );
     return process.env.NODE_ENV === "development";
   }
+
   const validKey = Buffer.from(secret);
   const testKey = Buffer.from(input);
   if (validKey.length !== testKey.length) return false;

@@ -161,6 +161,3 @@ export async function createStreamChannel(
   return channelId;
 }
 
-/** Custom event type used to broadcast Excalidraw scene updates over Stream. */
-export const BOARD_SYNC_EVENT = "board_sync";
-

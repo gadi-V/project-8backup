@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Python virtualenv (agents tooling — never commit)
+agents_hive/venv/
+
 # Next.js
 .next/
 out/

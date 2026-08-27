@@ -3,7 +3,34 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import TeacherOnboardingTimeline from "../../components/TeacherOnboardingTimeline";
+import LessonRow from "../../components/LessonRow";
+import WeeklyScheduleBoard from "../../components/WeeklyScheduleBoard";
+import StudentTimePreferenceBar, {
+  type StudentTimePreference,
+  hasActiveTimePreference,
+} from "../../components/StudentTimePreferenceBar";
+import { ACTIVITY_HOUR_SLOTS } from "../../lib/matching";
 import type { TeacherOnboardingStatus } from "../../lib/teacher-onboarding";
+
+function emptyTimePreference(): StudentTimePreference {
+  return { requestedDays: [], requestedTimes: [], timeWindows: [] };
+}
+
+/** Expand selected windows + discrete hours into HH:00 labels for board highlight. */
+function preferenceHighlightHours(pref: StudentTimePreference): string[] {
+  const hours = new Set<string>(pref.requestedTimes);
+  for (const w of pref.timeWindows) {
+    const startH = parseInt(w.start.split(":")[0] ?? "0", 10);
+    const endH = parseInt(w.end.split(":")[0] ?? "0", 10);
+    for (const label of ACTIVITY_HOUR_SLOTS) {
+      const h = parseInt(label.split(":")[0] ?? "0", 10);
+      if (h >= Math.min(startH, endH) && h <= Math.max(startH, endH)) {
+        hours.add(label);
+      }
+    }
+  }
+  return [...hours].sort();
+}
 
 interface LoggedInUser {
   id: string;
@@ -37,6 +64,9 @@ interface Lesson {
   title: string | null;
   scheduledAt: string;
   status: string;
+  canceledById?: string;
+  teacherId: string;
+  appealStatus?: string;
   teacher: { id: string; name: string };
   student: { id: string; name: string };
 }
@@ -45,6 +75,17 @@ interface TeacherMatch {
   teacherId: string;
   teacherName: string;
   matchScore: number;
+  subjectFitScore?: number;
+  levelFitScore?: number;
+  availabilityScore?: number;
+  isSoftRecommendation?: boolean;
+  exactAvailabilityMatch?: boolean;
+  overlapCount?: number;
+  matchedHighlightDays?: number[];
+  matchedHighlightHours?: string[];
+  nearestSlotStart?: string | null;
+  nearestSlotDeltaMinutes?: number | null;
+  weeklyLessonCount?: number;
   reasons: string[];
   referralCount: number;
   activeStudentsCount: number;
@@ -59,28 +100,16 @@ interface TeacherProfileForm {
   ageGroups: string[];
   bio: string;
   profileImageUrl: string;
+  bankName: string;
+  bankBranch: string;
+  accountNumber: string;
+  accountHolderName: string;
   referralCount: number;
   activeStudentsCount: number;
   lastReferralAt: string | null;
 }
 
 const AGE_GROUP_OPTIONS = ["יסודי", "חטיבה", "תיכון", "אקדמיה"] as const;
-
-const DAYS_OF_WEEK = [
-  { label: "א'", key: 0 },
-  { label: "ב'", key: 1 },
-  { label: "ג'", key: 2 },
-  { label: "ד'", key: 3 },
-  { label: "ה'", key: 4 },
-  { label: "ו'", key: 5 },
-  { label: "שבת", key: 6 },
-];
-
-// שמירה קפדנית על מערך השעות המקורי והמדויק שלך
-const HOURS_OF_DAY = [
-  "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", 
-  "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"
-];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -89,21 +118,29 @@ export default function DashboardPage() {
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [availLoading, setAvailLoading] = useState(false);
   const [mySlots, setMySlots] = useState<AvailabilitySlot[]>([]);
-  const [viewType, setViewType] = useState<"day" | "week" | "month">("week");
-  const [currentWeekDates, setCurrentWeekDates] = useState<Date[]>([]);
-  const [showBookingPanel, setShowBookingPanel] = useState(false);
   const [openSlots, setOpenSlots] = useState<OpenBookingSlot[]>([]);
   const [myLessons, setMyLessons] = useState<Lesson[]>([]);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [recommendedMatch, setRecommendedMatch] = useState<TeacherMatch | null>(null);
+  const [rankedMatches, setRankedMatches] = useState<TeacherMatch[]>([]);
   const [matchLoading, setMatchLoading] = useState(false);
+  const [timePreference, setTimePreference] = useState<StudentTimePreference>(
+    emptyTimePreference
+  );
+  const [highlightDays, setHighlightDays] = useState<number[]>([]);
+  const [highlightHours, setHighlightHours] = useState<string[]>([]);
+  const [matchNotice, setMatchNotice] = useState<string | null>(null);
   const [referralAssigned, setReferralAssigned] = useState(false);
   const [teacherProfileForm, setTeacherProfileForm] = useState<TeacherProfileForm>({
     subjectsText: "",
     ageGroups: [],
     bio: "",
     profileImageUrl: "",
+    bankName: "",
+    bankBranch: "",
+    accountNumber: "",
+    accountHolderName: "",
     referralCount: 0,
     activeStudentsCount: 0,
     lastReferralAt: null,
@@ -178,7 +215,6 @@ export default function DashboardPage() {
     };
 
     loadUser();
-    calculateCurrentWeek();
 
     return () => {
       cancelled = true;
@@ -186,31 +222,6 @@ export default function DashboardPage() {
     // Mount-only: do not depend on `router` (unstable identity can re-trigger forever)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const calculateCurrentWeek = () => {
-    const current = new Date();
-    const sunday = new Date(current.setDate(current.getDate() - current.getDay()));
-    const dates = [];
-    for (let i = 0; i < 7; i++) {
-      const nextDay = new Date(sunday);
-      nextDay.setDate(sunday.getDate() + i);
-      dates.push(nextDay);
-    }
-    setCurrentWeekDates(dates);
-  };
-
-  const getDaysInCurrentMonth = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const date = new Date(year, month, 1);
-    const days = [];
-    while (date.getMonth() === month) {
-      days.push(new Date(date));
-      date.setDate(date.getDate() + 1);
-    }
-    return days;
-  };
 
   const refreshTeacherOnboarding = async () => {
     try {
@@ -237,6 +248,10 @@ export default function DashboardPage() {
           ageGroups: [],
           bio: "",
           profileImageUrl: "",
+          bankName: "",
+          bankBranch: "",
+          accountNumber: "",
+          accountHolderName: "",
           referralCount: 0,
           activeStudentsCount: 0,
           lastReferralAt: null,
@@ -248,6 +263,10 @@ export default function DashboardPage() {
         ageGroups: profile.ageGroups ?? [],
         bio: profile.bio ?? "",
         profileImageUrl: profile.profileImageUrl ?? "",
+        bankName: profile.bankName ?? "",
+        bankBranch: profile.bankBranch ?? "",
+        accountNumber: profile.accountNumber ?? "",
+        accountHolderName: profile.accountHolderName ?? "",
         referralCount: profile.referralCount ?? 0,
         activeStudentsCount: profile.activeStudentsCount ?? 0,
         lastReferralAt: profile.lastReferralAt ?? null,
@@ -257,21 +276,125 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchRecommendedMatch = async () => {
+  const fetchRecommendedMatch = async (pref?: StudentTimePreference) => {
     setMatchLoading(true);
     try {
-      const response = await fetch("/api/match");
-      const data = await response.json();
+      const active = pref ?? timePreference;
+      const params = new URLSearchParams();
+      if (active.requestedDays.length > 0) {
+        params.set("requestedDays", active.requestedDays.join(","));
+      }
+      if (active.requestedTimes.length > 0) {
+        params.set("requestedSlots", active.requestedTimes.join(","));
+        params.set("requestedTimes", active.requestedTimes.join(","));
+      }
+      if (active.timeWindows.length > 0) {
+        params.set(
+          "timeWindows",
+          active.timeWindows.map((w) => `${w.start}-${w.end}`).join(",")
+        );
+      }
+
+      const qs = params.toString();
+      const response = await fetch(qs ? `/api/match?${qs}` : "/api/match");
+      const data = (await response.json()) as {
+        error?: string;
+        recommended?: TeacherMatch | null;
+        matches?: TeacherMatch[];
+        nearestFallback?: { message?: string } | null;
+        exactAvailabilityMatches?: number;
+      };
       if (!response.ok) {
         setRecommendedMatch(null);
+        setRankedMatches([]);
+        setMatchNotice(null);
         return;
       }
-      setRecommendedMatch(data.recommended ?? null);
+      const matches = Array.isArray(data.matches) ? data.matches : [];
+      setRankedMatches(matches);
+      const top = data.recommended ?? matches[0] ?? null;
+      setRecommendedMatch(top);
+      if (data.nearestFallback?.message) {
+        setMatchNotice(data.nearestFallback.message);
+      } else if (hasActiveTimePreference(active)) {
+        setMatchNotice(
+          typeof data.exactAvailabilityMatches === "number" &&
+            data.exactAvailabilityMatches > 0
+            ? `${data.exactAvailabilityMatches} מורים פנויים באחת המשבצות שבחרת — מדורגים לפי חפיפה ו-Fair Dispatch`
+            : null
+        );
+      } else {
+        setMatchNotice(null);
+      }
+      if (top?.teacherId) {
+        await loadStudentOpenSlots(top.teacherId);
+      }
     } catch (err) {
       console.error(err);
       setRecommendedMatch(null);
+      setRankedMatches([]);
+      setMatchNotice(null);
     } finally {
       setMatchLoading(false);
+    }
+  };
+
+  const applyHighlightsFromPreference = (pref: StudentTimePreference) => {
+    setHighlightDays([...pref.requestedDays]);
+    setHighlightHours(preferenceHighlightHours(pref));
+  };
+
+  const handleTimePreferenceChange = (next: StudentTimePreference) => {
+    setTimePreference(next);
+    applyHighlightsFromPreference(next);
+    void fetchRecommendedMatch(next);
+  };
+
+  const clearTimePreference = () => {
+    const empty = emptyTimePreference();
+    setTimePreference(empty);
+    setHighlightDays([]);
+    setHighlightHours([]);
+    setMatchNotice(null);
+    void fetchRecommendedMatch(empty);
+  };
+
+  const selectMatchedTeacher = async (teacher: TeacherMatch) => {
+    setRecommendedMatch(teacher);
+    if (hasActiveTimePreference(timePreference)) {
+      // Highlight every open cell that intersects the student's Day×Hour filter.
+      setHighlightDays([...timePreference.requestedDays]);
+      setHighlightHours(preferenceHighlightHours(timePreference));
+    } else if (teacher.nearestSlotStart) {
+      const d = new Date(teacher.nearestSlotStart);
+      setHighlightDays([d.getDay()]);
+      setHighlightHours([`${String(d.getHours()).padStart(2, "0")}:00`]);
+    }
+    await loadStudentOpenSlots(teacher.teacherId);
+    toast.success(
+      teacher.exactAvailabilityMatch
+        ? `${teacher.teacherName} — ${teacher.overlapCount ?? 0} משבצות חופפות`
+        : teacher.isSoftRecommendation && teacher.openSlotsCount === 0
+          ? `${teacher.teacherName} נבחר (המלצה רכה) — כשתיפתח זמינות היא תופיע בלוח`
+          : `הלוח מציג את שעות ${teacher.teacherName}`
+    );
+  };
+
+  const loadStudentOpenSlots = async (teacherId?: string) => {
+    setSlotsLoading(true);
+    try {
+      const id = teacherId ?? recommendedMatch?.teacherId;
+      const url = id
+        ? `/api/availability?teacherId=${encodeURIComponent(id)}`
+        : "/api/availability";
+      const response = await fetch(url);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "שגיאה בטעינת שעות פנויות");
+      setOpenSlots(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSlotsLoading(false);
     }
   };
 
@@ -295,6 +418,10 @@ export default function DashboardPage() {
           ageGroups: teacherProfileForm.ageGroups,
           bio: teacherProfileForm.bio,
           profileImageUrl: teacherProfileForm.profileImageUrl,
+          bankName: teacherProfileForm.bankName,
+          bankBranch: teacherProfileForm.bankBranch,
+          accountNumber: teacherProfileForm.accountNumber,
+          accountHolderName: teacherProfileForm.accountHolderName,
         }),
       });
       const data = await response.json();
@@ -355,7 +482,6 @@ export default function DashboardPage() {
       toast.error("אין מספיק קרדיטים — רכשו חבילה לפני השיבוץ");
       return;
     }
-    setShowBookingPanel(true);
     setSlotsLoading(true);
     try {
       let teacherId = recommendedMatch?.teacherId;
@@ -367,14 +493,8 @@ export default function DashboardPage() {
           teacherId = matchData.recommended.teacherId as string;
         }
       }
-
-      const url = teacherId
-        ? `/api/availability?teacherId=${encodeURIComponent(teacherId)}`
-        : "/api/availability";
-      const response = await fetch(url);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "שגיאה בטעינת שעות פנויות");
-      setOpenSlots(data);
+      await loadStudentOpenSlots(teacherId);
+      toast.success("הלוח עודכן — בחרו שעה בלחיצה או בגרירה");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "שגיאה בטעינת השעות");
     } finally {
@@ -383,6 +503,10 @@ export default function DashboardPage() {
   };
 
   const handleBookSlot = async (slotId: string) => {
+    if (user && user.lessonCredits < 1) {
+      toast.error("אין מספיק קרדיטים — רכשו חבילה לפני השיבוץ");
+      throw new Error("אין מספיק קרדיטים");
+    }
     setBookingLoading(true);
     const bookingToast = toast.loading("משבץ שיעור ומנכה קרדיט...");
     try {
@@ -396,15 +520,25 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slotId }),
       });
-      const data = await response.json();
+      const data = (await response.json()) as {
+        error?: string;
+        newCredits?: number;
+      };
       if (!response.ok) throw new Error(data.error || "השיבוץ נכשל");
 
-      setUser((prev) => (prev ? { ...prev, lessonCredits: data.newCredits } : prev));
+      setUser((prev) =>
+        prev && typeof data.newCredits === "number"
+          ? { ...prev, lessonCredits: data.newCredits }
+          : prev
+      );
       setOpenSlots((prev) => prev.filter((s) => s.id !== slotId));
       await fetchMyLessons();
       toast.success("השיעור שובץ בהצלחה!", { id: bookingToast });
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "שגיאה בשיבוץ", { id: bookingToast });
+      toast.error(err instanceof Error ? err.message : "שגיאה בשיבוץ", {
+        id: bookingToast,
+      });
+      throw err;
     } finally {
       setBookingLoading(false);
     }
@@ -461,8 +595,8 @@ export default function DashboardPage() {
       toast.success("פרופיל הלמידה פוענח בהצלחה! מחשבים התאמת מורה...", { id: quizToast });
       setHasCompletedQuiz(true);
       await fetchRecommendedMatch();
-    } catch (err: any) {
-      toast.error(err.message, { id: quizToast });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "שגיאה באבחון", { id: quizToast });
     }
   };
 
@@ -479,8 +613,27 @@ export default function DashboardPage() {
         body: JSON.stringify({ packageType }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as {
+        error?: string;
+        checkoutUrl?: string;
+        success?: boolean;
+        isMock?: boolean;
+        newCredits?: number;
+        message?: string;
+      };
       if (!response.ok) throw new Error(data.error || "הרכישה נכשלה");
+
+      if (data.isMock) {
+        if (typeof data.newCredits === "number") {
+          setUser((prev) => (prev ? { ...prev, lessonCredits: data.newCredits! } : prev));
+        }
+        toast.success("קרדיטים נוספו בהצלחה במצב פיתוח", {
+          id: purchaseToast,
+          style: { background: "#166534", color: "#fff" },
+          iconTheme: { primary: "#fff", secondary: "#166534" },
+        });
+        return;
+      }
 
       if (data.checkoutUrl) {
         toast.success("מעבירים לתשלום מאובטח...", { id: purchaseToast });
@@ -489,8 +642,8 @@ export default function DashboardPage() {
       }
 
       throw new Error("לא התקבל קישור לתשלום");
-    } catch (err: any) {
-      toast.error(err.message, { id: purchaseToast });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "שגיאה ברכישה", { id: purchaseToast });
     } finally {
       setPurchaseLoading(false);
     }
@@ -508,44 +661,63 @@ export default function DashboardPage() {
         body: JSON.stringify({ startTime: dateTimeString }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as { error?: string; message?: string };
       if (!response.ok) throw new Error(data.error || "שגיאה בנעילת השעה");
 
       toast.success("חלון הזמן ננעל ונפתח לשיבוץ תלמידים! 📅", { id: availToast });
       fetchTeacherSlots();
       await refreshTeacherOnboarding();
-    } catch (err: any) {
-      toast.error(err.message, { id: availToast });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "שגיאה בנעילת השעה", { id: availToast });
     } finally {
       setAvailLoading(false);
     }
   };
 
-  const findSlotInGrid = (date: Date, hourStr: string) => {
-    return mySlots.find((slot) => {
-      const slotDate = new Date(slot.startTime);
-      const [h] = hourStr.split(":");
-      return (
-        slotDate.getDate() === date.getDate() &&
-        slotDate.getMonth() === date.getMonth() &&
-        slotDate.getFullYear() === date.getFullYear() &&
-        slotDate.getHours() === parseInt(h)
+  const deleteSlot = async (slotId: string) => {
+    if (!user) return;
+    setAvailLoading(true);
+    const availToast = toast.loading("מסיר את חלון הזמן...");
+    try {
+      const response = await fetch(
+        `/api/availability?id=${encodeURIComponent(slotId)}`,
+        { method: "DELETE" }
       );
-    });
+      const data = (await response.json()) as { error?: string; message?: string };
+      if (!response.ok) throw new Error(data.error || "שגיאה בהסרת השעה");
+      toast.success("חלון הזמן הוסר מהיומן", { id: availToast });
+      fetchTeacherSlots();
+      await refreshTeacherOnboarding();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "שגיאה בהסרה", { id: availToast });
+    } finally {
+      setAvailLoading(false);
+    }
   };
 
-  const handleCellClick = (date: Date, hourStr: string, existingSlot?: AvailabilitySlot) => {
-    if (existingSlot) return;
-    if (availLoading) return;
-
-    const [h, m] = hourStr.split(":");
-    const targetDate = new Date(date);
-    targetDate.setHours(parseInt(h), parseInt(m), 0, 0);
-
-    const offset = targetDate.getTimezoneOffset() * 60000;
-    const localISOTime = new Date(targetDate.getTime() - offset).toISOString().slice(0, 16);
-
-    createSlot(localISOTime);
+  const moveSlot = async (slotId: string, dateTimeString: string) => {
+    if (!user) return;
+    setAvailLoading(true);
+    const availToast = toast.loading("מזיז משבצת ביומן...");
+    try {
+      const response = await fetch("/api/availability/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slotId, startTime: dateTimeString }),
+      });
+      const data = (await response.json()) as {
+        error?: string;
+        success?: boolean;
+        data?: { message?: string };
+      };
+      if (!response.ok) throw new Error(data.error || "שגיאה בהזזת המשבצת");
+      toast.success(data.data?.message || "המשבצת הוזזה", { id: availToast });
+      fetchTeacherSlots();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "שגיאה בהזזה", { id: availToast });
+    } finally {
+      setAvailLoading(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -820,35 +992,111 @@ export default function DashboardPage() {
               
               /* 🟢 הדאשבורד של הסטודנט נפתח במלואו רק לאחר שמירת האבחון בענן */
               <div className="space-y-6 animate-fadeIn">
-                {(matchLoading || recommendedMatch) && (
-                  <div className="bg-gradient-to-br from-violet-600/15 to-slate-900/40 border border-violet-500/30 p-6 rounded-2xl text-right space-y-2">
-                    <h3 className="text-sm font-bold text-violet-300">המורה המומלץ לפי האבחון</h3>
-                    {matchLoading && !recommendedMatch ? (
+                <StudentTimePreferenceBar
+                  value={timePreference}
+                  busy={matchLoading}
+                  onChange={handleTimePreferenceChange}
+                  onClear={clearTimePreference}
+                />
+
+                {matchNotice && (
+                  <p className="text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 text-right">
+                    {matchNotice}
+                  </p>
+                )}
+
+                {(matchLoading || recommendedMatch || rankedMatches.length > 0) && (
+                  <div className="bg-gradient-to-br from-violet-600/15 to-slate-900/40 border border-violet-500/30 p-6 rounded-2xl text-right space-y-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-violet-300">
+                        מורים פנויים — דירוג Fair Dispatch
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        מקצוע וחומר לימוד · חפיפת שעות · עומס שבועי מאוזן. לחצו על כרטיס לפתיחת הלוח.
+                      </p>
+                    </div>
+                    {matchLoading && rankedMatches.length === 0 ? (
                       <p className="text-xs text-slate-400">מחשב התאמה שוויונית...</p>
-                    ) : recommendedMatch ? (
-                      <>
-                        <p className="text-lg font-black text-white">{recommendedMatch.teacherName}</p>
-                        <p className="text-xs text-slate-300">
-                          ציון התאמה: {recommendedMatch.matchScore} · הפניות:{" "}
-                          {recommendedMatch.referralCount} · שעות פנויות:{" "}
-                          {recommendedMatch.openSlotsCount}
-                        </p>
-                        {recommendedMatch.subjects.length > 0 && (
-                          <p className="text-[11px] text-violet-200">
-                            {recommendedMatch.subjects.join(" · ")}
-                          </p>
-                        )}
-                        {recommendedMatch.reasons.length > 0 && (
-                          <p className="text-[11px] text-slate-500">
-                            {recommendedMatch.reasons.join(" · ")}
-                          </p>
-                        )}
-                        {recommendedMatch.bio && (
-                          <p className="text-[11px] text-slate-400 leading-relaxed">
-                            {recommendedMatch.bio}
-                          </p>
-                        )}
-                      </>
+                    ) : rankedMatches.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {rankedMatches.slice(0, 6).map((match, index) => {
+                          const isSelected = recommendedMatch?.teacherId === match.teacherId;
+                          return (
+                            <button
+                              key={match.teacherId}
+                              type="button"
+                              onClick={() => selectMatchedTeacher(match)}
+                              className={`w-full text-right p-4 rounded-xl border transition-all ${
+                                isSelected
+                                  ? "bg-violet-600/20 border-violet-400 ring-1 ring-violet-400/40"
+                                  : "bg-slate-900/50 border-slate-800 hover:border-violet-500/40"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="space-y-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    {index === 0 && (
+                                      <span className="text-[10px] font-black uppercase bg-violet-500/20 text-violet-200 px-2 py-0.5 rounded">
+                                        מומלץ ביותר
+                                      </span>
+                                    )}
+                                    {match.exactAvailabilityMatch && (
+                                      <span className="text-[10px] font-black uppercase bg-emerald-500/15 text-emerald-300 px-2 py-0.5 rounded">
+                                        {typeof match.overlapCount === "number" &&
+                                        match.overlapCount > 0
+                                          ? `${match.overlapCount} חפיפות`
+                                          : "פנוי בחלון"}
+                                      </span>
+                                    )}
+                                    {match.isSoftRecommendation && (
+                                      <span className="text-[10px] font-black uppercase bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded">
+                                        המלצה רכה
+                                      </span>
+                                    )}
+                                    <span className="text-sm font-black text-white">
+                                      {match.teacherName}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-400">
+                                    ציון {match.matchScore}
+                                    {typeof match.weeklyLessonCount === "number" &&
+                                      ` · עומס שבועי ${match.weeklyLessonCount}`}
+                                    {" · "}
+                                    {match.openSlotsCount > 0
+                                      ? `${match.openSlotsCount} שעות פנויות`
+                                      : "אין שעות פנויות כרגע"}
+                                  </p>
+                                  {match.nearestSlotStart && !match.exactAvailabilityMatch && (
+                                    <p className="text-[11px] text-amber-200/80">
+                                      חלון קרוב:{" "}
+                                      {new Date(match.nearestSlotStart).toLocaleString("he-IL", {
+                                        weekday: "short",
+                                        day: "numeric",
+                                        month: "short",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </p>
+                                  )}
+                                  {match.subjects.length > 0 && (
+                                    <p className="text-[11px] text-violet-200">
+                                      {match.subjects.join(" · ")}
+                                    </p>
+                                  )}
+                                  {match.reasons.length > 0 && (
+                                    <p className="text-[11px] text-slate-500">
+                                      {match.reasons.slice(0, 3).join(" · ")}
+                                    </p>
+                                  )}
+                                </div>
+                                <span className="text-[10px] font-mono text-slate-500 shrink-0">
+                                  #{index + 1}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
                     ) : (
                       <p className="text-xs text-slate-400">
                         אין כרגע מורה מתאים — ודאו שיש מורים מאושרים עם פרופיל מלא.
@@ -873,15 +1121,19 @@ export default function DashboardPage() {
                       <h3 className="text-sm font-bold text-slate-300 mb-2">שיבוץ שעות מול מורה</h3>
                       <p className="text-xs text-slate-400 leading-relaxed">
                         {recommendedMatch
-                          ? `השעות מוצגות לפי המורה המומלץ (${recommendedMatch.teacherName}) לחלוקה שוויונית.`
-                          : "בחרו שעה פנויה מיומן המורים המאושרים. כל שיבוץ מנכה קרדיט אחד."}
+                          ? recommendedMatch.isSoftRecommendation &&
+                            recommendedMatch.openSlotsCount === 0
+                            ? `${recommendedMatch.teacherName} מומלץ לפי חומר הלימוד (המלצה רכה). כשתיפתח זמינות — שבצו מהלוח.`
+                            : `הלוח מציג את שעות המורה המשודך (${recommendedMatch.teacherName}). לחצו או גררו משבצת פנויה.`
+                          : "בחרו שעה פנויה על לוח השעות הגרפי. כל שיבוץ מנכה קרדיט אחד."}
                       </p>
                     </div>
                     <button
                       onClick={openBookingFlow}
-                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-all mt-4"
+                      disabled={slotsLoading}
+                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-all mt-4 disabled:opacity-50"
                     >
-                      ➕ בקשת שיבוץ שיעור חדש
+                      {slotsLoading ? "מעדכן לוח..." : "🔄 רענון שעות פנויות בלוח"}
                     </button>
                   </div>
 
@@ -896,82 +1148,55 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {showBookingPanel && (
-                  <div className="bg-slate-800/30 border border-slate-700 p-6 rounded-2xl space-y-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <h2 className="text-sm font-bold text-white">שעות פנויות לשיבוץ</h2>
-                      <button
-                        onClick={() => setShowBookingPanel(false)}
-                        className="text-xs text-slate-400 hover:text-white"
-                      >
-                        סגור
-                      </button>
-                    </div>
-                    {slotsLoading ? (
-                      <p className="text-xs text-slate-400">טוען שעות פנויות...</p>
-                    ) : openSlots.length === 0 ? (
-                      <p className="text-xs text-slate-400">אין כרגע שעות פנויות. נסו שוב מאוחר יותר או השאירו פנייה בדף הבית.</p>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {openSlots.map((slot) => (
-                          <button
-                            key={slot.id}
-                            disabled={bookingLoading}
-                            onClick={() => handleBookSlot(slot.id)}
-                            className="text-right bg-slate-900/70 border border-slate-700 hover:border-blue-500/50 p-4 rounded-xl transition-all disabled:opacity-50"
-                          >
-                            <div className="text-xs font-bold text-blue-300">{slot.teacher.name}</div>
-                            <div className="text-sm font-black text-white mt-1">
-                              {new Date(slot.startTime).toLocaleString("he-IL", {
-                                weekday: "short",
-                                day: "numeric",
-                                month: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </div>
-                            {slot.teacher.teacherProfile?.subjects?.length ? (
-                              <div className="text-[11px] text-slate-500 mt-1">
-                                {slot.teacher.teacherProfile.subjects.join(" · ")}
-                              </div>
-                            ) : null}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                <WeeklyScheduleBoard
+                  mode="student"
+                  slots={openSlots}
+                  lessons={myLessons}
+                  userRole={user.role}
+                  busy={bookingLoading || slotsLoading}
+                  onBookSlot={handleBookSlot}
+                  onRefresh={() => {
+                    fetchMyLessons();
+                    void loadStudentOpenSlots();
+                  }}
+                  fallbackTeachers={rankedMatches}
+                  selectedTeacherId={recommendedMatch?.teacherId ?? null}
+                  highlightDays={highlightDays}
+                  highlightHours={highlightHours}
+                  onSelectFallbackTeacher={(teacher) => {
+                    const full =
+                      rankedMatches.find((m) => m.teacherId === teacher.teacherId) ??
+                      ({
+                        teacherId: teacher.teacherId,
+                        teacherName: teacher.teacherName,
+                        matchScore: teacher.matchScore,
+                        openSlotsCount: teacher.openSlotsCount,
+                        subjects: teacher.subjects,
+                        reasons: teacher.reasons,
+                        isSoftRecommendation: teacher.isSoftRecommendation,
+                        referralCount: 0,
+                        activeStudentsCount: 0,
+                        bio: null,
+                        ageGroups: [],
+                      } satisfies TeacherMatch);
+                    void selectMatchedTeacher(full);
+                  }}
+                />
 
                 {myLessons.length > 0 && (
                   <div className="bg-slate-800/20 border border-slate-800 p-6 rounded-2xl space-y-3">
-                    <h2 className="text-sm font-bold text-slate-300">השיעורים המשובצים שלי</h2>
+                    <h2 className="text-sm font-bold text-slate-300">רשימת השיעורים המשובצים</h2>
                     <div className="space-y-2">
                       {myLessons.map((lesson) => (
-                        <div
+                        <LessonRow
                           key={lesson.id}
-                          className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-4 text-xs gap-3"
-                        >
-                          <div className="text-right">
-                            <div className="font-bold text-white">{lesson.title || "שיעור פרטי"}</div>
-                            <div className="text-blue-300 mt-1">מורה: {lesson.teacher.name}</div>
-                            <div className="text-slate-400 mt-0.5">
-                              {new Date(lesson.scheduledAt).toLocaleString("he-IL")}
-                            </div>
-                          </div>
-                          <div className="flex flex-col sm:items-end gap-2">
-                            <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded text-center">
-                              {lesson.status}
-                            </span>
-                            {(lesson.status === "SCHEDULED" || lesson.status === "IN_PROGRESS") && (
-                              <a
-                                href={`/lessons/${lesson.id}`}
-                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-xl shadow-lg transition-all"
-                              >
-                                כניסה לשיעור בלייב
-                              </a>
-                            )}
-                          </div>
-                        </div>
+                          lesson={lesson}
+                          userRole={user.role}
+                          onRefresh={() => {
+                            fetchMyLessons();
+                            void loadStudentOpenSlots();
+                          }}
+                        />
                       ))}
                     </div>
                   </div>
@@ -1107,6 +1332,68 @@ export default function DashboardPage() {
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
+
+              <div className="border-t border-slate-800 pt-4 space-y-3">
+                <div>
+                  <h3 className="text-sm font-black text-white">פרטי בנק לתשלומים</h3>
+                  <p className="text-[11px] text-slate-500">
+                    נדרשים לסגירת תשלומים ידנית על ידי המנהל. הפרטים נשמרים בפרופיל בלבד.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400">שם הבנק</label>
+                    <input
+                      type="text"
+                      value={teacherProfileForm.bankName}
+                      onChange={(e) =>
+                        setTeacherProfileForm((p) => ({ ...p, bankName: e.target.value }))
+                      }
+                      placeholder="לדוגמה: לאומי"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400">סניף</label>
+                    <input
+                      type="text"
+                      value={teacherProfileForm.bankBranch}
+                      onChange={(e) =>
+                        setTeacherProfileForm((p) => ({ ...p, bankBranch: e.target.value }))
+                      }
+                      placeholder="מספר / שם סניף"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400">מספר חשבון</label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      value={teacherProfileForm.accountNumber}
+                      onChange={(e) =>
+                        setTeacherProfileForm((p) => ({ ...p, accountNumber: e.target.value }))
+                      }
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400">שם בעל החשבון</label>
+                    <input
+                      type="text"
+                      value={teacherProfileForm.accountHolderName}
+                      onChange={(e) =>
+                        setTeacherProfileForm((p) => ({
+                          ...p,
+                          accountHolderName: e.target.value,
+                        }))
+                      }
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <button
                 type="button"
                 disabled={profileSaving}
@@ -1117,184 +1404,39 @@ export default function DashboardPage() {
               </button>
             </div>
 
-          <div className="bg-slate-800/20 border border-slate-800 p-6 rounded-2xl space-y-6">
-            
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-800 pb-4">
-              <div>
-                <h2 className="text-lg font-black text-white">📅 יומן השעות המנוהל שלך</h2>
-                <p className="text-xs text-slate-400">ניהול, סינון ופתיחת שעות בלייב על גבי מטריצת הזמן שלך</p>
-              </div>
-              
-              <div className="bg-slate-900 border border-slate-800 p-1 rounded-xl flex gap-1 text-xs font-bold self-start">
-                <button onClick={() => setViewType("day")} className={`px-4 py-1.5 rounded-lg transition-all ${viewType === "day" ? "bg-slate-800 text-white" : "text-slate-400"}`}>יום</button>
-                <button onClick={() => setViewType("week")} className={`px-4 py-1.5 rounded-lg transition-all ${viewType === "week" ? "bg-slate-800 text-white" : "text-slate-400"}`}>שבוע</button>
-                <button onClick={() => setViewType("month")} className={`px-4 py-1.5 rounded-lg transition-all ${viewType === "month" ? "bg-slate-800 text-white" : "text-slate-400"}`}>חודש</button>
+          <WeeklyScheduleBoard
+            mode="teacher"
+            slots={mySlots}
+            lessons={myLessons}
+            userRole={user.role}
+            busy={availLoading}
+            onCreateSlot={createSlot}
+            onDeleteSlot={deleteSlot}
+            onMoveSlot={moveSlot}
+            onRefresh={() => {
+              fetchTeacherSlots();
+              fetchMyLessons();
+            }}
+          />
+
+          {myLessons.length > 0 && (
+            <div className="bg-slate-800/20 border border-slate-800 p-6 rounded-2xl space-y-3">
+              <h2 className="text-sm font-bold text-slate-300">רשימת השיעורים המשובצים</h2>
+              <div className="space-y-2">
+                {myLessons.map((lesson) => (
+                  <LessonRow
+                    key={lesson.id}
+                    lesson={lesson}
+                    userRole={user.role}
+                    onRefresh={() => {
+                      fetchMyLessons();
+                      fetchTeacherSlots();
+                    }}
+                  />
+                ))}
               </div>
             </div>
-
-            {/* 1. מצב יום (Day View) */}
-            {viewType === "day" && (
-              <div className="overflow-x-auto max-h-[600px] overflow-y-auto border border-slate-800 rounded-2xl">
-                <div className="min-w-[400px] bg-slate-900/40">
-                  <div className="grid grid-cols-2 bg-slate-900/90 border-b border-slate-800 text-center py-3 text-xs font-bold text-slate-400 sticky top-0 z-20 backdrop-blur-md">
-                    <div className="border-l border-slate-800/50">שעה</div>
-                    <div>
-                      <div>יום {new Date().toLocaleDateString("he-IL", { weekday: "long" })}</div>
-                      <div className="text-[10px] text-blue-400 font-mono mt-0.5">
-                        {new Date().toLocaleDateString("he-IL", { day: "numeric", month: "numeric", year: "numeric" })}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="divide-y divide-slate-800/40">
-                    {HOURS_OF_DAY.map((hourStr) => {
-                      const today = new Date();
-                      const slot = findSlotInGrid(today, hourStr);
-                      return (
-                        <div key={hourStr} className="grid grid-cols-2 items-stretch min-h-[58px]">
-                          <div className="bg-slate-900/30 border-l border-slate-800 flex items-center justify-center text-xs font-mono font-bold text-slate-500">
-                            {hourStr}
-                          </div>
-                          <div onClick={() => handleCellClick(today, hourStr, slot)} className={`p-1 flex items-center justify-center relative group select-none ${!slot ? "cursor-pointer hover:bg-blue-500/5 transition-colors" : ""}`}>
-                            {!slot && <span className="opacity-0 group-hover:opacity-100 text-blue-500/60 text-[11px] font-bold transition-opacity font-mono">+ {hourStr}</span>}
-                            {slot && !slot.isBooked && (
-                              <div className="absolute inset-1 rounded-xl bg-amber-500/10 border border-amber-500/50 text-amber-400 px-3 py-1 flex flex-col justify-center text-right shadow-md">
-                                <span className="text-[10px] font-black uppercase bg-amber-500/10 px-1.5 py-0.5 rounded w-fit">פנוי</span>
-                              </div>
-                            )}
-                            {slot && slot.isBooked && (
-                              <div className="absolute inset-1 rounded-xl bg-emerald-600 border border-emerald-500 text-white px-3 py-1 flex flex-col justify-center text-right shadow-lg">
-                                <span className="text-[9px] font-black bg-white/20 px-1.5 py-0.5 rounded w-fit uppercase">סגור</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 2. מצב שבוע (Week View) */}
-            {viewType === "week" && currentWeekDates.length > 0 && (
-              <div className="overflow-x-auto max-h-[600px] overflow-y-auto border border-slate-800 rounded-2xl">
-                <div className="min-w-[800px] bg-slate-900/40">
-                  <div className="grid grid-cols-8 bg-slate-900/90 border-b border-slate-800 text-center py-3 text-xs font-bold text-slate-400 sticky top-0 z-20 backdrop-blur-md">
-                    <div className="border-l border-slate-800/50">שעה</div>
-                    {DAYS_OF_WEEK.map((day) => {
-                      const dateObj = currentWeekDates[day.key];
-                      return (
-                        <div key={day.key} className="border-l border-slate-800/50 last:border-0">
-                          <div>יום {day.label}</div>
-                          <div className="text-[10px] text-slate-500 font-mono mt-0.5">{dateObj?.getDate()}/{dateObj?.getMonth() + 1}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="divide-y divide-slate-800/40">
-                    {HOURS_OF_DAY.map((hourStr) => (
-                      <div key={hourStr} className="grid grid-cols-8 items-stretch min-h-[58px]">
-                        <div className="bg-slate-900/30 border-l border-slate-800 flex items-center justify-center text-xs font-mono font-bold text-slate-500 sticky right-0 z-10">
-                          {hourStr}
-                        </div>
-                        {DAYS_OF_WEEK.map((day) => {
-                          const dateObj = currentWeekDates[day.key];
-                          const slot = dateObj ? findSlotInGrid(dateObj, hourStr) : undefined;
-                          return (
-                            <div key={day.key} onClick={() => dateObj && handleCellClick(dateObj, hourStr, slot)} className={`border-l border-slate-800/60 p-1 flex items-center justify-center relative group select-none last:border-0 ${!slot ? "cursor-pointer hover:bg-blue-500/5 transition-colors" : ""}`}>
-                              {!slot && <span className="opacity-0 group-hover:opacity-100 text-blue-500/60 text-[11px] font-bold transition-opacity font-mono">+ {hourStr}</span>}
-                              {slot && !slot.isBooked && (
-                                <div className="absolute inset-1 rounded-xl bg-amber-500/10 border border-amber-500/50 text-amber-400 px-2 py-1 flex flex-col justify-between text-right shadow-md z-10">
-                                  <div className="text-[9px] font-black tracking-wide uppercase bg-amber-500/10 px-1 rounded w-fit">פנוי</div>
-                                  <div className="text-xs font-black font-mono tracking-tight">{hourStr}</div>
-                                </div>
-                              )}
-                              {slot && slot.isBooked && (
-                                <div className="absolute inset-1 rounded-xl bg-emerald-600 border border-emerald-500 text-white px-2 py-1 flex flex-col justify-between text-right shadow-lg z-10">
-                                  <div><div className="text-[9px] font-black bg-white/20 px-1 rounded w-fit uppercase">סגור</div></div>
-                                  <div className="text-xs font-black font-mono tracking-tight">{hourStr}</div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 3. מצב חודש (Month View) */}
-            {viewType === "month" && (
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-                <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold text-slate-400 border-b border-slate-800 pb-2 mb-2">
-                  <div>ראשון</div><div>שני</div><div>שלישי</div><div>רביעי</div><div>חמישי</div><div>שישי</div><div>שבת</div>
-                </div>
-                <div className="grid grid-cols-7 gap-2">
-                  {Array.from({ length: new Date(new Date().getFullYear(), new Date().getMonth(), 1).getDay() }).map((_, i) => (
-                    <div key={`empty-${i}`} className="min-h-[85px] bg-slate-900/10 border border-transparent rounded-xl"></div>
-                  ))}
-                  {getDaysInCurrentMonth().map((day) => {
-                    const daySlots = mySlots.filter((slot) => {
-                      const d = new Date(slot.startTime);
-                      return d.getDate() === day.getDate() && d.getMonth() === day.getMonth() && d.getFullYear() === day.getFullYear();
-                    });
-                    const openCount = daySlots.filter(s => !s.isBooked).length;
-                    const bookedCount = daySlots.filter(s => s.isBooked).length;
-                    return (
-                      <div key={day.toISOString()} className="min-h-[85px] bg-slate-900/40 border border-slate-800/80 rounded-xl p-2 flex flex-col justify-between">
-                        <span className="text-xs font-mono font-bold text-slate-500">{day.getDate()}</span>
-                        <div className="space-y-1 mt-1">
-                          {openCount > 0 && <div className="text-[10px] font-black text-amber-400 bg-amber-500/5 border border-amber-500/20 px-1 py-0.5 rounded text-center">🟡 {openCount} פנויים</div>}
-                          {bookedCount > 0 && <div className="text-[10px] font-black text-emerald-400 bg-emerald-500/5 border border-emerald-500/20 px-1 py-0.5 rounded text-center">🟢 {bookedCount} סגורים</div>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* הצגת שיעורים המשובצים למורה */}
-            {myLessons.length > 0 && (
-              <div className="bg-slate-800/20 border border-slate-800 p-6 rounded-2xl space-y-3">
-                <h2 className="text-sm font-bold text-slate-300">השיעורים המשובצים שלי</h2>
-                <div className="space-y-2">
-                  {myLessons.map((lesson) => (
-                    <div
-                      key={lesson.id}
-                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-4 text-xs gap-3"
-                    >
-                      <div className="text-right">
-                        <div className="font-bold text-white">{lesson.title || "שיעור פרטי"}</div>
-                        <div className="text-indigo-300 mt-1">תלמיד: {lesson.student?.name}</div>
-                        <div className="text-slate-400 mt-0.5">
-                          {new Date(lesson.scheduledAt).toLocaleString("he-IL")}
-                        </div>
-                      </div>
-                      <div className="flex flex-col sm:items-end gap-2">
-                        <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded text-center">
-                          {lesson.status}
-                        </span>
-                        {(lesson.status === "SCHEDULED" || lesson.status === "IN_PROGRESS") && (
-                          <a
-                            href={`/lessons/${lesson.id}`}
-                            className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-xl shadow-lg transition-all"
-                          >
-                            התחל שיעור בלייב
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-          </div>
+          )}
           </div>
         )}
 

@@ -196,14 +196,24 @@ export default function StudentRegisterPage() {
           body: JSON.stringify({ packageType }),
         });
 
+        const paymentData = (await paymentResponse.json()) as {
+          error?: string;
+          checkoutUrl?: string;
+        };
+
         if (!paymentResponse.ok) {
-          const paymentData = await paymentResponse.json();
           toast.error(
             paymentData.error ||
               "החשבון נוצר אך טעינת החבילה נכשלה — ניתן לרכוש בדאשבורד",
             { id: progressToast }
           );
           router.push("/dashboard");
+          return;
+        }
+
+        if (paymentData.checkoutUrl) {
+          toast.success("מעבירים לתשלום מאובטח...", { id: progressToast });
+          window.location.href = paymentData.checkoutUrl;
           return;
         }
       }

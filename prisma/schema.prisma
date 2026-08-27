@@ -15,45 +15,57 @@ enum Role {
 }
 
 model User {
-  id        String  @id @default(uuid())
-  name      String
-  phone     String  @unique
-  email     String? @unique
-  password  String
-  role      Role    @default(STUDENT)
+  id       String  @id @default(uuid())
+  name     String
+  phone    String  @unique
+  email    String? @unique
+  password String
+  role     Role    @default(STUDENT)
 
   lessonCredits Int     @default(0)
   isApproved    Boolean @default(false)
 
-  givenLessons        Lesson[]              @relation("TeacherLessons")
-  takenLessons        Lesson[]              @relation("StudentLessons")
-  availabilities      TeacherAvailability[]
-  diagnosticQuizzes   DiagnosticQuiz[]
-  payments            Payment[]
-  teacherProfile      TeacherProfile?
-  auditLogs           AuditLog[]
-  referralsAsTeacher  TeacherReferral[]     @relation("TeacherReferrals")
-  referralsAsStudent  TeacherReferral[]     @relation("StudentReferrals")
-  payouts             TeacherPayout[]
-  ledgerEntries       BillingLedger[]
+  givenLessons       Lesson[]              @relation("TeacherLessons")
+  takenLessons       Lesson[]              @relation("StudentLessons")
+  availabilities     TeacherAvailability[]
+  diagnosticQuizzes  DiagnosticQuiz[]
+  payments           Payment[]
+  teacherProfile     TeacherProfile?
+  auditLogs          AuditLog[]
+  referralsAsTeacher TeacherReferral[]     @relation("TeacherReferrals")
+  referralsAsStudent TeacherReferral[]     @relation("StudentReferrals")
+  payouts            TeacherPayout[]
+  ledgerEntries      BillingLedger[]
 
   createdAt DateTime @default(now())
 }
 
 model TeacherProfile {
-  id              String   @id @default(uuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   subjects        String[] // מקצועות: מתמטיקה, פיזיקה, אינפי...
   ageGroups       String[] @default([]) // יסודי / חטיבה / תיכון / אקדמיה
   bio             String?
   profileImageUrl String?
 
+  /// Bank details for tutor payouts (manual settle by admin).
+  bankName          String?
+  bankBranch        String?
+  accountNumber     String?
+  accountHolderName String?
+
   // מדדי חלוקה שוויונית
   referralCount       Int       @default(0)
   activeStudentsCount Int       @default(0)
   lastReferralAt      DateTime?
+  /// Match score of the most recent referral for this teacher.
+  lastMatchScore      Int?
+
+  /// Aggregated rating from student reviews (1–5 scale).
+  averageRating Float @default(5.0)
+  totalReviews  Int   @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -77,9 +89,9 @@ model TeacherReferral {
 }
 
 model TeacherAvailability {
-  id        String   @id @default(uuid())
+  id        String @id @default(uuid())
   teacherId String
-  teacher   User     @relation(fields: [teacherId], references: [id])
+  teacher   User   @relation(fields: [teacherId], references: [id])
 
   startTime DateTime
   endTime   DateTime
@@ -90,9 +102,9 @@ model TeacherAvailability {
 model Lesson {
   id String @id @default(uuid())
 
-  title       String?
-  startTime   DateTime?
-  endTime     DateTime?
+  title     String?
+  startTime DateTime?
+  endTime   DateTime?
 
   teacherId String
   teacher   User   @relation("TeacherLessons", fields: [teacherId], references: [id])
@@ -100,16 +112,34 @@ model Lesson {
   studentId String
   student   User   @relation("StudentLessons", fields: [studentId], references: [id])
 
-  scheduledAt    DateTime
-  status         String   @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED
-  reminderSent   Boolean  @default(false)
+  scheduledAt         DateTime
+  status              String    @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED, CANCELLED_LATE
+  reminderSent        Boolean   @default(false)
+  /// When the lesson was cancelled (null unless cancelled).
+  canceledAt          DateTime?
+  /// User id that issued the cancellation.
+  canceledById        String?
+  /// Original teacher before a same-day substitute reassignment (null unless replaced).
+  originalTeacherId   String?
+  /// Teacher that stepped in for a same-day substitute (recorded when teacher != originalTeacherId).
+  substituteTeacherId String?
+  /// Fine appeal state. NONE = no appeal, PENDING = teacher requested, APPROVED/REJECTED by a manager.
+  appealStatus        String    @default("NONE") // NONE, PENDING, APPROVED, REJECTED
   /// Planned duration in minutes (null = fallback to 60). Room `exp` = scheduledAt + duration + 10%.
-  durationMinutes Int?   @default(60)
+  durationMinutes     Int?      @default(60)
   /// Daily.co room URL for the virtual classroom (DB column retained as zoomLink for compatibility).
-  dailyRoomUrl    String? @map("zoomLink")
+  dailyRoomUrl        String?   @map("zoomLink")
 
   excalidrawPdfUrl  String?
   videoRecordingUrl String?
+
+  /// Student rating after lesson completion (1–5 stars).
+  rating        Int?
+  reviewComment String?
+  ratedAt       DateTime?
+
+  /// How many times this lesson has been rescheduled (max 1).
+  rescheduledCount Int @default(0)
 
   chatChannel ChatChannel?
   payouts     TeacherPayout[]
@@ -134,6 +164,8 @@ model Payment {
   amountPaid    Int
   creditsAdded  Int
   transactionId String
+  /// PENDING | COMPLETED | REFUNDED — mock/dev and Stripe webhook write COMPLETED
+  status        String @default("COMPLETED")
 
   createdAt DateTime @default(now())
 }
@@ -189,13 +221,13 @@ model WebhookEvent {
 }
 
 model OtpCode {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   phone     String
   codeHash  String
-  purpose   String   @default("PASSWORD_RESET")
+  purpose   String    @default("PASSWORD_RESET")
   expiresAt DateTime
   usedAt    DateTime?
-  attempts  Int      @default(0)
+  attempts  Int       @default(0)
 
   createdAt DateTime @default(now())
 
@@ -218,24 +250,27 @@ enum LedgerEntryType {
   REFUND
   PLATFORM_FEE
   ADJUSTMENT
+  PENALTY
+  COMPENSATION
+  PLATFORM_COMPENSATION
 }
 
 model TeacherPayout {
-  id              String       @id @default(uuid())
-  teacherId       String
-  teacher         User         @relation(fields: [teacherId], references: [id])
-  amount          Decimal      @db.Decimal(19, 4)
-  currency        String       @default("ILS")
-  status          PayoutStatus @default(SCHEDULED)
-  periodStart     DateTime
-  periodEnd       DateTime
-  idempotencyKey  String       @unique
-  metadata        Json?
-  lessonId        String?
-  lesson          Lesson?      @relation(fields: [lessonId], references: [id])
+  id             String       @id @default(uuid())
+  teacherId      String
+  teacher        User         @relation(fields: [teacherId], references: [id])
+  amount         Decimal      @db.Decimal(19, 4)
+  currency       String       @default("ILS")
+  status         PayoutStatus @default(SCHEDULED)
+  periodStart    DateTime
+  periodEnd      DateTime
+  idempotencyKey String       @unique
+  metadata       Json?
+  lessonId       String?
+  lesson         Lesson?      @relation(fields: [lessonId], references: [id])
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([teacherId])
   @@index([status])
@@ -243,18 +278,18 @@ model TeacherPayout {
 }
 
 model BillingLedger {
-  id            String         @id @default(uuid())
+  id            String          @id @default(uuid())
   userId        String
-  user          User           @relation(fields: [userId], references: [id])
+  user          User            @relation(fields: [userId], references: [id])
   entryType     LedgerEntryType
-  amount        Decimal        @db.Decimal(19, 4)
-  currency      String         @default("ILS")
+  amount        Decimal         @db.Decimal(19, 4)
+  currency      String          @default("ILS")
   description   String?
-  relatedId     String?        // paymentId, payoutId, lessonId
-  transactionId String?        @unique
+  relatedId     String? // paymentId, payoutId, lessonId
+  transactionId String?         @unique
   metadata      Json?
 
-  createdAt     DateTime       @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
   @@index([entryType])

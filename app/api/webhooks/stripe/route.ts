@@ -125,6 +125,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         amountPaid: Math.round(amountPaid),
         creditsAdded: credits,
         transactionId,
+        status: "COMPLETED",
       },
     });
 

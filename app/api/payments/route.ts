@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import Stripe from "stripe";
+import { LedgerEntryType } from "@prisma/client";
 import { requireAuth } from "../../../lib/api-auth";
+import { prisma } from "../../../lib/prisma";
+import { writeLedgerEntryInTransaction } from "../../../lib/services/LedgerService";
 
 const PACKAGES: Record<string, { price: number; credits: number; label: string }> = {
   SINGLE: { price: 180, credits: 1, label: "שיעור בודד" },
@@ -10,10 +14,15 @@ const PACKAGES: Record<string, { price: number; credits: number; label: string }
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) {
+  if (!key || key === "mock") {
     throw new Error("STRIPE_SECRET_KEY is not set");
   }
   return new Stripe(key);
+}
+
+function isMockStripeMode(): boolean {
+  const key = process.env.STRIPE_SECRET_KEY;
+  return !key || key === "mock";
 }
 
 function appBaseUrl(request: Request): string {
@@ -26,7 +35,7 @@ function appBaseUrl(request: Request): string {
 
 /**
  * Create a Stripe Checkout Session. Credits are granted only via the Stripe webhook
- * after `checkout.session.completed` is verified — never here.
+ * after `checkout.session.completed` is verified — never here (except mock/dev mode).
  */
 export async function POST(request: Request) {
   try {
@@ -45,11 +54,60 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "סוג חבילה לא תקין" }, { status: 400 });
     }
 
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json(
-        { error: "מערכת התשלומים אינה מוגדרת. פנו לתמיכה." },
-        { status: 503 }
-      );
+    // Local / mock Stripe: grant credits immediately instead of Checkout + webhook.
+    if (isMockStripeMode()) {
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          { error: "מערכת התשלומים אינה מוגדרת. פנו לתמיכה." },
+          { status: 503 }
+        );
+      }
+
+      const transactionId = `mock_${randomUUID()}`;
+
+      const updatedCredits = await prisma.$transaction(async (tx) => {
+        const payment = await tx.payment.create({
+          data: {
+            studentId: auth.user.id,
+            packageType,
+            amountPaid: selectedPackage.price,
+            creditsAdded: selectedPackage.credits,
+            transactionId,
+            status: "COMPLETED",
+          },
+        });
+
+        const updatedUser = await tx.user.update({
+          where: { id: auth.user.id },
+          data: { lessonCredits: { increment: selectedPackage.credits } },
+          select: { lessonCredits: true },
+        });
+
+        await writeLedgerEntryInTransaction(tx, {
+          userId: auth.user.id,
+          entryType: LedgerEntryType.CHARGE,
+          amount: selectedPackage.price,
+          currency: "ILS",
+          description: `תשלום מדומה (Dev Mode): ${selectedPackage.label}`,
+          relatedId: payment.id,
+          transactionId,
+          metadata: {
+            isMock: true,
+            packageType,
+            creditsAdded: selectedPackage.credits,
+            status: "COMPLETED",
+          },
+        });
+
+        return updatedUser.lessonCredits;
+      });
+
+      return NextResponse.json({
+        success: true,
+        isMock: true,
+        newCredits: updatedCredits,
+        message: "תשלום מדומה הושלם בהצלחה",
+      });
     }
 
     const stripe = getStripe();

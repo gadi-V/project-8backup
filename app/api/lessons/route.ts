@@ -12,12 +12,15 @@ import {
   createStreamChannel,
   generateStreamToken,
 } from "../../../lib/stream";
+import { lessonAntiCollisionWindow } from "../../../lib/scheduling";
 
 async function attachLessonCredentials<
   T extends {
     id: string;
     dailyRoomUrl: string | null;
     teacherId: string;
+    scheduledAt: Date;
+    durationMinutes: number | null;
     chatChannel?: { streamChannelId: string } | null;
   },
 >(lesson: T, userId: string, role: string) {
@@ -31,7 +34,10 @@ async function attachLessonCredentials<
     const isOwner = role === "TEACHER" || role === "MANAGER" || role === "ADMIN";
 
     try {
-      dailyToken = await generateDailyToken(roomName, isOwner, userId);
+      dailyToken = await generateDailyToken(roomName, isOwner, userId, {
+        scheduledAt: lesson.scheduledAt,
+        durationMinutes: lesson.durationMinutes ?? 60,
+      });
     } catch (error) {
       console.error(`Daily token generation failed for lesson ${lesson.id}:`, error);
     }
@@ -202,19 +208,36 @@ export async function POST(request: Request) {
           throw Object.assign(new Error("NO_CREDITS"), { status: 400 });
         }
 
-        const slotEnd = new Date(slot.endTime);
-        const slotStartMinus50 = new Date(slot.startTime.getTime() - 50 * 60 * 1000);
+        // Each lesson is 50 min but occupies a 60-min block in the calendar
+        // (50 min lesson + 10 min mandatory break).
+        // Two 60-min blocks [T, T+60) and [E, E+60) conflict when E ∈ (T−60, T+60).
+        const { windowStart: blockWindowStart, windowEnd: blockWindowEnd } =
+          lessonAntiCollisionWindow(slot.startTime);
 
         const studentOverlap = await tx.lesson.findFirst({
           where: {
             studentId: auth.user.id,
-            status: "SCHEDULED",
-            AND: [{ scheduledAt: { lt: slotEnd } }, { scheduledAt: { gt: slotStartMinus50 } }],
+            status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+            scheduledAt: { gt: blockWindowStart, lt: blockWindowEnd },
           },
         });
 
         if (studentOverlap) {
           throw Object.assign(new Error("OVERLAP"), { status: 400 });
+        }
+
+        // Teacher anti-collision: the 60-minute block (lesson + break) must be
+        // free of any other active lesson before confirming the booking.
+        const teacherOverlap = await tx.lesson.findFirst({
+          where: {
+            teacherId: slot.teacherId,
+            status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+            scheduledAt: { gt: blockWindowStart, lt: blockWindowEnd },
+          },
+        });
+
+        if (teacherOverlap) {
+          throw Object.assign(new Error("TEACHER_OVERLAP"), { status: 400 });
         }
 
         const updatedStudent = await tx.user.update({
@@ -234,11 +257,8 @@ export async function POST(request: Request) {
             scheduledAt: slot.startTime,
             status: "SCHEDULED",
             dailyRoomUrl: null,
-            // Real duration from the teacher's availability slot (minutes).
-            durationMinutes: Math.max(
-              1,
-              Math.round((slot.endTime.getTime() - slot.startTime.getTime()) / 60000)
-            ),
+            // Canonical lesson duration per platform rules: 50 min lesson + 10 min break = 60-min calendar block.
+            durationMinutes: 50,
           },
         });
 
@@ -269,7 +289,9 @@ export async function POST(request: Request) {
         NO_CREDITS:
           "אין לך מספיק קרדיטים בחבילה. אנא רכוש חבילת שיעורים בדאשבורד כדי להשתבץ.",
         OVERLAP:
-          "הנך משובץ כבר לשיעור אחר בטווח שעות זה. חפיפת זמנים חסומה (מינימום 50 דקות לשיעור).",
+          "הנך משובץ כבר לשיעור אחר בחלון 60 הדקות המבוקש (שיעור 50 דק׳ + 10 דק׳ הפסקה). בחר שעה אחרת.",
+        TEACHER_OVERLAP:
+          "המורה כבר משובץ לשיעור אחר בחלון 60 הדקות המבוקש. בחר חלון זמן אחר.",
       };
 
       return NextResponse.json(

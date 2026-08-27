@@ -64,7 +64,7 @@ export default function PricingPage() {
 
   const handlePurchase = async (packageId: string) => {
     setLoading(packageId);
-    const purchaseToast = toast.loading("בודק הרשאות ומעבד רכישה...");
+    const purchaseToast = toast.loading("בודק הרשאות ומעביר לתשלום מאובטח...");
 
     try {
       const meResponse = await fetch("/api/me");
@@ -74,7 +74,9 @@ export default function PricingPage() {
         return;
       }
 
-      const meData = await meResponse.json();
+      const meData = (await meResponse.json()) as {
+        user: { role: string };
+      };
       if (meData.user.role !== "STUDENT") {
         toast.error("רכישת חבילות זמינה לתלמידים בלבד", { id: purchaseToast });
         return;
@@ -86,15 +88,44 @@ export default function PricingPage() {
         body: JSON.stringify({ packageType: packageId }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as {
+        error?: string;
+        checkoutUrl?: string;
+        success?: boolean;
+        isMock?: boolean;
+        newCredits?: number;
+        message?: string;
+      };
       if (!response.ok) throw new Error(data.error || "הרכישה נכשלה");
 
-      toast.success(`החבילה נטענה! יתרה: ${data.newCredits} שיעורים`, { id: purchaseToast });
-      router.push("/dashboard");
+      // Local Dev mock: credits already granted server-side — show success and return to dashboard.
+      if (data.isMock) {
+        toast.success("קרדיטים נוספו בהצלחה במצב פיתוח", {
+          id: purchaseToast,
+          style: {
+            background: "#166534",
+            color: "#fff",
+          },
+          iconTheme: {
+            primary: "#fff",
+            secondary: "#166534",
+          },
+        });
+        // Full navigation so /dashboard loads fresh /api/me with updated credits.
+        window.location.assign("/dashboard");
+        return;
+      }
+
+      if (!data.checkoutUrl) {
+        throw new Error("לא התקבל קישור לתשלום");
+      }
+
+      // Credits are granted only via Stripe webhook after payment succeeds.
+      toast.success("מעבירים לתשלום מאובטח...", { id: purchaseToast });
+      window.location.href = data.checkoutUrl;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "שגיאה ברכישה";
       toast.error(message, { id: purchaseToast });
-    } finally {
       setLoading(null);
     }
   };
