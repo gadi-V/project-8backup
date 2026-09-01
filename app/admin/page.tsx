@@ -459,6 +459,12 @@ export default function AdminPage() {
           </div>
           <div className="flex gap-3">
             <Link
+              href="/admin/curriculum"
+              className="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white py-2 px-4 rounded-xl"
+            >
+              תכנית לימודים
+            </Link>
+            <Link
               href="/dashboard"
               className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-xl border border-slate-700"
             >
@@ -820,15 +826,23 @@ export default function AdminPage() {
                   מורים עם יתרה לתשלום ופרטי בנק — סמן כשולם לאחר העברה ידנית.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  loadPayouts().catch(() => toast.error("שגיאה בטעינת תשלומים"))
-                }
-                className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-xl border border-slate-700"
-              >
-                רענון
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/admin/payouts"
+                  className="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white py-2 px-4 rounded-xl border border-violet-500"
+                >
+                  ניהול שכר וסליקה מלא
+                </Link>
+                <button
+                  type="button"
+                  onClick={() =>
+                    loadPayouts().catch(() => toast.error("שגיאה בטעינת תשלומים"))
+                  }
+                  className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-xl border border-slate-700"
+                >
+                  רענון
+                </button>
+              </div>
             </div>
             {payouts.length === 0 ? (
               <p className="text-sm text-slate-400">אין תשלומים ממתינים.</p>

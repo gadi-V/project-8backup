@@ -273,6 +273,7 @@ export type ClassroomWhiteboardRef = {
    *  - Without `lessonId`: returns the raw PDF Blob (legacy download mode).
    */
   exportBoardToPdf: (lessonId?: string) => Promise<Blob | string | null>;
+  exportBoardToPng: (pageIndex?: number) => Promise<void>;
 };
 
 type BoardRole = "STUDENT" | "TEACHER" | "ADMIN" | "MANAGER";
@@ -1179,14 +1180,25 @@ function paintSelectionOverlay(
       ctx.moveTo(bounds.x + bounds.w / 2, bounds.y - 4);
       ctx.lineTo(hp.x, hp.y);
       ctx.strokeStyle = "#3b82f6";
+      ctx.lineWidth = 1.5;
       ctx.setLineDash([]);
       ctx.stroke();
+
+      // Rotation circular handle (amber handle like the design)
       ctx.beginPath();
-      ctx.arc(hp.x, hp.y, HANDLE_R, 0, Math.PI * 2);
-      ctx.fillStyle = "#fbbf24";
+      ctx.arc(hp.x, hp.y, 8, 0, Math.PI * 2);
+      ctx.fillStyle = "#f59e0b";
       ctx.fill();
-      ctx.strokeStyle = "#3b82f6";
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
       ctx.stroke();
+
+      // Rotation icon (↻) inside the handle
+      ctx.font = "bold 9px system-ui, sans-serif";
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("↻", hp.x, hp.y);
     }
     ctx.restore();
   }
@@ -1600,7 +1612,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
       const handler = (e: WheelEvent): void => {
         if (!(e.metaKey || e.ctrlKey)) return;
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.08 : 0.08;
+        const delta = e.deltaY > 0 ? -0.03 : 0.03;
         setZoom((z) => Math.max(0.25, Math.min(3, Math.round((z + delta) * 100) / 100)));
       };
       el.addEventListener("wheel", handler, { passive: false });
@@ -2500,6 +2512,30 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
       setCropState(null);
     }, [cropState, broadcastElement, pushHistory]);
 
+    const rotateSelectedImage = useCallback(
+      (angleDeltaRad: number = Math.PI / 2): void => {
+        const sel = selectedRef.current;
+        if (sel.size !== 1) return;
+        const imgEl = elementsRef.current.find(
+          (e): e is ImageEl => e.kind === "image" && sel.has(e.id),
+        );
+        if (!imgEl) return;
+        const before = imgEl;
+        const nextRotation = (imgEl.rotation + angleDeltaRad) % (Math.PI * 2);
+        const after: ImageEl = { ...imgEl, rotation: nextRotation };
+        pushHistory({
+          id: nanoid(),
+          removed: [],
+          added: [],
+          updated: [{ id: before.id, before, after }],
+        }, true);
+        setElements((prev) => prev.map((e) => (e.id === after.id ? after : e)));
+        const sync = toSyncEl(after);
+        if (sync) broadcastElement({ add: sync });
+      },
+      [broadcastElement, pushHistory],
+    );
+
     const toggleCropMode = useCallback((): void => {
       if (cropState) {
         commitCrop();
@@ -2886,7 +2922,150 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
           return null;
         }
       },
+      exportBoardToPng: async (pageIndex: number = activePageIndex): Promise<void> => {
+        const targetPage = pages[pageIndex] ?? pages[0];
+        if (!targetPage) return;
+        const off = document.createElement("canvas");
+        off.width = PAGE_W;
+        off.height = PAGE_H;
+        const ctx = off.getContext("2d");
+        if (!ctx) return;
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, PAGE_W, PAGE_H);
+        ctx.strokeStyle = "#e2e8f0";
+        ctx.lineWidth = 0.5;
+        for (let x = 0; x <= PAGE_W; x += 20) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, PAGE_H);
+          ctx.stroke();
+        }
+        for (let y = 0; y <= PAGE_H; y += 20) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(PAGE_W, y);
+          ctx.stroke();
+        }
+
+        for (const el of elements) {
+          if (el.pageIndex !== pageIndex) continue;
+          if (el.kind === "stroke")
+            paintSmoothStroke(ctx, el.points, el.color, el.width, el.opacity, el.tool === "highlighter", el.strokeStyle);
+          else if (el.kind === "shape") paintShape(ctx, el);
+          else if (el.kind === "text") paintText(ctx, el);
+          else if (el.kind === "image") {
+            const img = imgCache.current.get(el.id);
+            if (img?.complete && img.naturalWidth > 0) paintImage(ctx, img, el);
+          }
+        }
+
+        const dataUrl = off.toDataURL("image/png");
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = `whiteboard-page-${pageIndex + 1}.png`;
+        a.click();
+      },
     }));
+
+    const exportPdfDirect = useCallback(async (): Promise<void> => {
+      const frames: ExportFrame[] = pages
+        .map((page, idx) => {
+          const off = document.createElement("canvas");
+          off.width = PAGE_W;
+          off.height = PAGE_H;
+          const ctx = off.getContext("2d");
+          if (!ctx) return { pageNumber: page.pageNumber, width: PAGE_W, height: PAGE_H, dataUrl: "" };
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, PAGE_W, PAGE_H);
+          ctx.strokeStyle = "#e2e8f0";
+          ctx.lineWidth = 0.5;
+          for (let x = 0; x <= PAGE_W; x += 20) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, PAGE_H);
+            ctx.stroke();
+          }
+          for (let y = 0; y <= PAGE_H; y += 20) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(PAGE_W, y);
+            ctx.stroke();
+          }
+          for (const el of elements) {
+            if (el.pageIndex !== idx) continue;
+            if (el.kind === "stroke")
+              paintSmoothStroke(ctx, el.points, el.color, el.width, el.opacity, el.tool === "highlighter", el.strokeStyle);
+            else if (el.kind === "shape") paintShape(ctx, el);
+            else if (el.kind === "text") paintText(ctx, el);
+            else if (el.kind === "image") {
+              const img = imgCache.current.get(el.id);
+              if (img?.complete && img.naturalWidth > 0) paintImage(ctx, img, el);
+            }
+          }
+          return { pageNumber: page.pageNumber, width: PAGE_W, height: PAGE_H, dataUrl: off.toDataURL("image/png") };
+        })
+        .filter((f) => f.dataUrl !== "");
+      if (frames.length === 0) return;
+      try {
+        const res = await fetch("/api/excalidraw/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ frames }),
+        });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `whiteboard-${new Date().toISOString().slice(0, 10)}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error("[whiteboard] export pdf error:", err);
+      }
+    }, [elements, pages]);
+
+    const exportPngDirect = useCallback((): void => {
+      const pageIndex = activePageIndex;
+      const off = document.createElement("canvas");
+      off.width = PAGE_W;
+      off.height = PAGE_H;
+      const ctx = off.getContext("2d");
+      if (!ctx) return;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, PAGE_W, PAGE_H);
+      ctx.strokeStyle = "#e2e8f0";
+      ctx.lineWidth = 0.5;
+      for (let x = 0; x <= PAGE_W; x += 20) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, PAGE_H);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= PAGE_H; y += 20) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(PAGE_W, y);
+        ctx.stroke();
+      }
+      for (const el of elements) {
+        if (el.pageIndex !== pageIndex) continue;
+        if (el.kind === "stroke")
+          paintSmoothStroke(ctx, el.points, el.color, el.width, el.opacity, el.tool === "highlighter", el.strokeStyle);
+        else if (el.kind === "shape") paintShape(ctx, el);
+        else if (el.kind === "text") paintText(ctx, el);
+        else if (el.kind === "image") {
+          const img = imgCache.current.get(el.id);
+          if (img?.complete && img.naturalWidth > 0) paintImage(ctx, img, el);
+        }
+      }
+      const dataUrl = off.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `whiteboard-page-${pageIndex + 1}.png`;
+      a.click();
+    }, [activePageIndex, elements]);
 
     const syncLabel = !streamChannel
       ? "לוח מקומי"
@@ -2899,9 +3078,9 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
     const GRID_CSS = {
       backgroundColor: "#ffffff",
       backgroundImage:
-        "linear-gradient(to right, #e2e8f0 1px, transparent 1px)," +
-        "linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)",
-      backgroundSize: "20px 20px",
+        "linear-gradient(to right, #f1f5f9 1px, transparent 1px)," +
+        "linear-gradient(to bottom, #f1f5f9 1px, transparent 1px)",
+      backgroundSize: "24px 24px",
     } as const;
 
     const AddPageButton = ({ className }: { className: string }) => (
@@ -3298,18 +3477,40 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
             </div>
 
             {/* Actions group */}
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 title="הוסף עמוד A4"
                 onClick={addPage}
-                className="h-9 px-3 shrink-0 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black flex items-center justify-center gap-1 transition-all"
+                className="h-8 px-2.5 shrink-0 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1 transition-all shadow-sm active:scale-95"
               >
-                <span className="text-base leading-none">+</span>
-                <span className="text-xs font-bold">A4</span>
+                <span className="text-sm leading-none">+</span>
+                <span className="text-[11px] font-semibold">A4</span>
               </button>
 
-              <span title={syncLabel} className="shrink-0 flex items-center">
+              <div className="h-4 w-px bg-slate-700/80 mx-0.5" />
+
+              <button
+                type="button"
+                title="ייצוא כל העמודים לקובץ PDF"
+                onClick={exportPdfDirect}
+                className="h-8 px-2.5 shrink-0 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700/70 text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+              >
+                <span className="text-xs">📄</span>
+                <span className="text-[11px]">PDF</span>
+              </button>
+
+              <button
+                type="button"
+                title="ייצוא העמוד הנוכחי לתמונת PNG"
+                onClick={exportPngDirect}
+                className="h-8 px-2.5 shrink-0 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700/70 text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+              >
+                <span className="text-xs">🖼️</span>
+                <span className="text-[11px]">PNG</span>
+              </button>
+
+              <span title={syncLabel} className="shrink-0 flex items-center ms-1">
                 <span
                   className={`block w-2 h-2 rounded-full ${
                     syncStatus === "live"
@@ -3348,7 +3549,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
             {pages.map((page, idx) => (
               <div key={page.id} className="flex flex-col items-center">
                 <div
-                  className="relative rounded-sm shadow-2xl overflow-hidden"
+                  className="relative rounded-lg shadow-2xl overflow-hidden ring-1 ring-slate-800/80 border border-slate-700/40"
                   style={{ width: PAGE_W, height: PAGE_H, ...GRID_CSS }}
                   onContextMenu={(e) => e.preventDefault()}
                 >
@@ -3395,6 +3596,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                       );
                     if (!selBounds || editText) return null;
                     return (
+                      <>
                       <div
                         className="lasso-action-bar absolute z-40 flex flex-col items-center gap-1.5 pointer-events-auto"
                         style={{
@@ -3517,14 +3719,24 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                               ↓ שכבה — אחורה
                             </button>
                             {pageHasImage && (
-                              <button
-                                type="button"
-                                className="px-2 py-1.5 text-[11px] text-slate-200 hover:bg-white/10 rounded-lg text-right"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={toggleCropMode}
-                              >
-                                ✂ חיתוך תמונה
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  className="px-2 py-1.5 text-[11px] text-slate-200 hover:bg-white/10 rounded-lg text-right flex items-center justify-between"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => rotateSelectedImage(Math.PI / 2)}
+                                >
+                                  <span>🔄 סובב 90° (על הצד)</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="px-2 py-1.5 text-[11px] text-slate-200 hover:bg-white/10 rounded-lg text-right"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={toggleCropMode}
+                                >
+                                  ✂ חיתוך תמונה
+                                </button>
+                              </>
                             )}
                             <button
                               type="button"
@@ -3537,6 +3749,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                           </div>
                         )}
                       </div>
+                      </>
                     );
                   })()}
 

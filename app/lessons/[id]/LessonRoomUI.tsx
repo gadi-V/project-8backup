@@ -10,6 +10,9 @@ import ClassroomWhiteboard, {
 import ClassroomChat from "../../../components/ClassroomChat";
 import VideoRoom from "../../../components/VideoRoom";
 import RatingModal from "../../../components/RatingModal";
+import PreLessonAssetsSection from "../../../components/packages/PreLessonAssetsSection";
+import DiagnosticSummaryCard from "../../../components/packages/DiagnosticSummaryCard";
+import PostLessonSummaryModal from "../../../components/lessons/PostLessonSummaryModal";
 
 interface LessonRoomUIProps {
   lesson: {
@@ -23,6 +26,7 @@ interface LessonRoomUIProps {
     scheduledAt: string;
     createdAt: string;
     durationMinutes: number | null;
+    packageId: string | null;
     chatChannel?: {
       streamChannelId: string;
     } | null;
@@ -32,13 +36,29 @@ interface LessonRoomUIProps {
     name: string;
     role: "STUDENT" | "TEACHER" | "ADMIN" | "MANAGER";
   };
+  pedagogicalBrief?: {
+    studentName: string;
+    subject: string;
+    challenge: string;
+    topics: Array<{
+      topicName: string;
+      subTopics: string[];
+      weightInExam: number;
+    }>;
+  } | null;
 }
 
-export default function LessonRoomUI({ lesson, user }: LessonRoomUIProps) {
+export default function LessonRoomUI({
+  lesson,
+  user,
+  pedagogicalBrief,
+}: LessonRoomUIProps) {
   const router = useRouter();
   const whiteboardRef = useRef<ClassroomWhiteboardRef>(null);
   const [isEnding, setIsEnding] = useState(false);
   const [showRating, setShowRating] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [existingGaps, setExistingGaps] = useState<string[]>([]);
   const [boardChannel, setBoardChannel] = useState<StreamChannelType | null>(
     null
   );
@@ -69,6 +89,25 @@ export default function LessonRoomUI({ lesson, user }: LessonRoomUIProps) {
   };
 
   const handleEndLesson = async () => {
+    const isTeacherRole =
+      user.role === "TEACHER" || user.role === "MANAGER" || user.role === "ADMIN";
+
+    if (isTeacherRole) {
+      if (lesson.packageId) {
+        try {
+          const res = await fetch(`/api/packages/${lesson.packageId}/quiz`);
+          if (res.ok) {
+            const data = await res.json();
+            setExistingGaps(data.identifiedGaps || []);
+          }
+        } catch (error) {
+          console.error("Failed to load gaps for summary modal:", error);
+        }
+      }
+      setShowSummaryModal(true);
+      return;
+    }
+
     if (!whiteboardRef.current) return;
 
     setIsEnding(true);
@@ -140,6 +179,20 @@ export default function LessonRoomUI({ lesson, user }: LessonRoomUIProps) {
       className="h-[100dvh] min-h-0 bg-slate-900 flex flex-col overflow-hidden"
       dir="rtl"
     >
+      {showSummaryModal && (
+        <PostLessonSummaryModal
+          isOpen={showSummaryModal}
+          onClose={() => setShowSummaryModal(false)}
+          lessonId={lesson.id}
+          teacherId={user.id}
+          existingGaps={existingGaps}
+          onSummarySaved={() => {
+            setShowSummaryModal(false);
+            window.location.reload();
+          }}
+        />
+      )}
+
       {showRating && (
         <RatingModal
           lessonId={lesson.id}
@@ -200,6 +253,56 @@ export default function LessonRoomUI({ lesson, user }: LessonRoomUIProps) {
         </main>
 
         <aside className="w-full max-w-sm sm:w-96 flex flex-col border-r border-slate-800 bg-slate-900 shrink-0 p-2 gap-2 overflow-y-auto">
+          {pedagogicalBrief && (
+            <div className="bg-slate-800/90 border border-indigo-500/40 rounded-xl p-3 text-xs text-slate-200">
+              <div className="flex items-center justify-between font-bold text-indigo-300 mb-1.5">
+                <span>תדריך פדגוגי מותאם</span>
+                <span className="bg-indigo-900/60 text-indigo-200 px-2 py-0.5 rounded text-[10px]">
+                  {pedagogicalBrief.subject}
+                </span>
+              </div>
+              <p className="text-slate-300 mb-2 leading-snug">
+                <span className="font-semibold text-slate-400">מוקד קושי: </span>
+                {pedagogicalBrief.challenge}
+              </p>
+              {pedagogicalBrief.topics.length > 0 && (
+                <div className="space-y-1">
+                  <div className="font-semibold text-slate-400">נושאים לחיזוק בשיעור:</div>
+                  <div className="flex flex-wrap gap-1">
+                    {pedagogicalBrief.topics.map((t, idx) => (
+                      <span
+                        key={idx}
+                        className="bg-slate-700 text-amber-300 font-medium px-2 py-0.5 rounded text-[11px] border border-slate-600"
+                        title={t.subTopics.join(", ")}
+                      >
+                        {t.topicName}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {lesson.packageId && (
+            <div className="space-y-4">
+              <div className="rounded-xl overflow-hidden border border-slate-800 bg-white">
+                <DiagnosticSummaryCard
+                  packageId={lesson.packageId}
+                  currentUserId={user.id}
+                  isTeacher={user.role === "TEACHER" || user.role === "MANAGER" || user.role === "ADMIN"}
+                />
+              </div>
+              <div className="rounded-xl overflow-hidden border border-slate-800 bg-white">
+                <PreLessonAssetsSection
+                  packageId={lesson.packageId}
+                  currentUserId={user.id}
+                  isTeacher={user.role === "TEACHER" || user.role === "MANAGER" || user.role === "ADMIN"}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="h-64 rounded-2xl overflow-hidden shrink-0 border border-slate-800 bg-black">
             <VideoRoom roomUrl={lesson.roomUrl} token={lesson.dailyToken} />
           </div>

@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/head-of-desk",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/lesson-reminders",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

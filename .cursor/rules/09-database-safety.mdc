@@ -1,0 +1,40 @@
+---
+description: "Additive-only Prisma schema changes, banking field integrity, LedgerEntryType immutability, and safe PostgreSQL sync"
+globs:
+  - "prisma/schema.prisma"
+  - "prisma/migrations/**"
+  - "prisma.config.ts"
+---
+
+# Database & Schema Safety Invariants
+
+## 1. Additive-Only Schema Changes
+- All changes to `prisma/schema.prisma` MUST be strictly **additive**: you may add new models, new fields, new enums, or new enum variants, but you may NEVER delete or rename an existing column, model, enum value, or relation.
+- Dropping, renaming, or collapsing existing fields breaks backward compatibility with the deployed Neon PostgreSQL database and is strictly prohibited.
+- New columns MUST be nullable or have a default value so existing deployed rows never block migration.
+
+## 2. Protected Banking Fields (TeacherProfile)
+- The following `TeacherProfile` banking/payout fields are **protected and MUST NOT be removed, renamed, or re-typed**:
+  - `bankName` (String?)
+  - `bankBranch` (String?)
+  - `accountNumber` (String?)
+  - `accountHolderName` (String?)
+- Any diff that deletes one of these lines from `prisma/schema.prisma` fails the guardrail check.
+
+## 3. LedgerEntryType Enum Immutability
+- The `LedgerEntryType` enum must always contain exactly these 8 variants — adding is forbidden only in the sense of dropping; modifying or dropping any variant is strictly prohibited:
+  - `CHARGE`
+  - `PAYOUT`
+  - `REFUND`
+  - `PLATFORM_FEE`
+  - `PENALTY`
+  - `COMPENSATION`
+  - `PLATFORM_COMPENSATION`
+  - `ADJUSTMENT`
+- Any diff that deletes or renames one of these variants fails the guardrail check.
+- Financial records remain append-only: no `DELETE` behavior is allowed on `BillingLedger` / `TeacherPayout` code paths.
+
+## 3. Migration Workflow (Non-Destructive)
+- **NEVER** recommend or run `prisma migrate reset` (or `prisma migrate reset --force`) in any automated workflow — it destroys data and blocks against Neon.
+- In development, when schema drift is detected, use **`npx prisma db push`** (non-destructive) to synchronize the schema, then reconcile a migration file via `prisma migrate dev` only when safe.
+- Prefer a one-time `npx prisma migrate dev --name <feature>` for intentional additive changes; never drop-and-recreate.

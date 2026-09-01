@@ -30,9 +30,14 @@ globs:
 
 Matching ranks approved tutors for a student from their latest diagnostic. Primary signals (in order of product intent):
 
-1. **Subject & material relevance** — subject overlap plus challenge/topics text against the tutor's subjects and bio.
-2. **Level / age-group fit** — diagnostic `ageGroup` mapped to canonical buckets (`יסודי` / `חטיבה` / `תיכון` / `אקדמיה`) vs `TeacherProfile.ageGroups`.
-3. **Availability overlap** — count of future unbooked `TeacherAvailability` rows (60-minute calendar units).
+1. **Curriculum topic overlap & proficiency** — check overlap between the student's weak topics in `DiagnosticQuiz` and the tutor's `topicProficiencies` (weighted by exam importance). Falls back to token NLP and bio match when explicit topic mappings are absent.
+2. **Subject & material relevance** — subject overlap plus challenge/topics text against the tutor's subjects and bio.
+3. **Level / age-group fit** — diagnostic `ageGroup` mapped to canonical buckets (`יסודי` / `חטיבה` / `תיכון` / `אקדמיה`) vs `TeacherProfile.ageGroups`.
+4. **Availability overlap** — count of future unbooked `TeacherAvailability` rows (60-minute calendar units).
+
+### Curriculum & Topic Integrity Invariants
+- Any changes to `DiagnosticQuiz`, `TeacherProfile`, or `lib/matching.ts` must maintain `CurriculumTopic` schema compatibility.
+- `topicProficiencyScore` computed over explicit weak `CurriculumTopic` targets must always take precedence over keyword/bio heuristics.
 
 ### Soft Recommendation
 If a tutor has **high subject/material fit** but **zero overlapping open slots**, still surface them as a leading recommendation (`isSoftRecommendation: true`). The parties then agree on a time via the interactive weekly board once the tutor opens availability — do NOT hide strong material matches solely for lack of slots.

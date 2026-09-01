@@ -75,6 +75,43 @@ export default async function LessonPage(props: {
   const streamApiKey =
     process.env.NEXT_PUBLIC_STREAM_API_KEY || process.env.STREAM_API_KEY || null;
 
+  // Pedagogical Brief for Teacher / Manager / Admin
+  let studentPedagogicalBrief: {
+    studentName: string;
+    subject: string;
+    challenge: string;
+    topics: Array<{
+      topicName: string;
+      subTopics: string[];
+      weightInExam: number;
+    }>;
+  } | null = null;
+
+  if (
+    user.role === "TEACHER" ||
+    user.role === "MANAGER" ||
+    user.role === "ADMIN"
+  ) {
+    const studentDiagnostic = await prisma.diagnosticQuiz.findFirst({
+      where: { studentId: lesson.studentId },
+      include: { topics: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (studentDiagnostic) {
+      studentPedagogicalBrief = {
+        studentName: lesson.student.name,
+        subject: studentDiagnostic.subject,
+        challenge: studentDiagnostic.challenge,
+        topics: studentDiagnostic.topics.map((t) => ({
+          topicName: t.topicName,
+          subTopics: Array.isArray(t.subTopics) ? (t.subTopics as string[]) : [],
+          weightInExam: t.weightInExam,
+        })),
+      };
+    }
+  }
+
   return (
     <LessonRoomUI
       lesson={{
@@ -89,12 +126,14 @@ export default async function LessonPage(props: {
         createdAt: lesson.createdAt.toISOString(),
         chatChannel: lesson.chatChannel,
         durationMinutes: lesson.durationMinutes,
+        packageId: lesson.packageId ?? null,
       }}
       user={{
         id: user.id,
         name: user.name,
         role: user.role,
       }}
+      pedagogicalBrief={studentPedagogicalBrief}
     />
   );
 }

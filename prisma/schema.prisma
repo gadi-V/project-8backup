@@ -14,6 +14,24 @@ enum Role {
   STUDENT
 }
 
+enum TeacherVettingStage {
+  REGISTRATION
+  SCREENING
+  SIMULATION
+  EXAM_581
+  FINAL_VIDEO
+  APPROVED
+  REJECTED
+  // Historic values kept for backward compatibility with previously deployed rows.
+  // Additive-only: never drop. New code uses REGISTRATION..REJECTED.
+  APPLIED
+  INTERVIEW_SCHEDULED
+  INTERVIEW_COMPLETED
+  SIMULATION_PASSED
+  PEDAGOGY_TEST_PASSED
+  TERMS_AGREED
+}
+
 model User {
   id       String  @id @default(uuid())
   name     String
@@ -24,6 +42,19 @@ model User {
 
   lessonCredits Int     @default(0)
   isApproved    Boolean @default(false)
+
+  // Student diagnostic & context fields
+  parentName         String?
+  parentPhone        String?
+  schoolName         String?
+  classTrack         String?
+  trackType          String?
+  degreeField        String?
+  academicYear       String?
+  targetOrganization String?
+  quadGroupUrl       String?
+  /// Opt-in flag so the funnel only notifies via WhatsApp when a parent phone was supplied.
+  notifyParentViaWhatsApp Boolean @default(false)
 
   givenLessons       Lesson[]              @relation("TeacherLessons")
   takenLessons       Lesson[]              @relation("StudentLessons")
@@ -36,6 +67,7 @@ model User {
   referralsAsStudent TeacherReferral[]     @relation("StudentReferrals")
   payouts            TeacherPayout[]
   ledgerEntries      BillingLedger[]
+  uploadedAssets     PreLessonAsset[]
 
   createdAt DateTime @default(now())
 }
@@ -45,16 +77,33 @@ model TeacherProfile {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  subjects        String[] // מקצועות: מתמטיקה, פיזיקה, אינפי...
-  ageGroups       String[] @default([]) // יסודי / חטיבה / תיכון / אקדמיה
-  bio             String?
-  profileImageUrl String?
+  subjects           String[] // מקצועות: מתמטיקה, פיזיקה, אינפי...
+  ageGroups          String[]             @default([]) // יסודי / חטיבה / תיכון / אקדמיה
+  bio                String?
+  profileImageUrl    String?
+  // Granular topic proficiencies (e.g. topic IDs or names with mastery level / score)
+  topicProficiencies Json?
+  vettingStage       TeacherVettingStage?
+
+  cvUrl           String?
+  vettingStatus   VettingStatus    @default(PENDING)
+  vettingNotes    String?          @db.Text
+  payoutType      PayoutType       @default(SLIP)
+  isApproved      Boolean          @default(false)
+  vettingStepLogs VettingStepLog[]
 
   /// Bank details for tutor payouts (manual settle by admin).
   bankName          String?
   bankBranch        String?
   accountNumber     String?
   accountHolderName String?
+
+  /// Permanent Daily.co classroom assigned on approval (teacher welcome envelope).
+  permanentRoomUrl    String?
+  /// When the automated welcome pack was dispatched (audit anchor).
+  welcomePackSentAt   DateTime?
+  /// Whether the teacher joined the 50-hour training track (activated by welcome envelope).
+  trainingTrackJoined Boolean @default(false)
 
   // מדדי חלוקה שוויונית
   referralCount       Int       @default(0)
@@ -141,10 +190,17 @@ model Lesson {
   /// How many times this lesson has been rescheduled (max 1).
   rescheduledCount Int @default(0)
 
+  packageId String?
+  package   Package? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  /// Post-lesson pedagogical summary (teacher entered after the lesson).
+  pedagogicalBrief String? @db.Text
+
   chatChannel ChatChannel?
   payouts     TeacherPayout[]
 
-  createdAt DateTime @default(now())
+  createdAt       DateTime         @default(now())
+  preLessonAssets PreLessonAsset[]
 }
 
 model ChatChannel {
@@ -154,6 +210,23 @@ model ChatChannel {
   streamChannelId String @unique
 
   createdAt DateTime @default(now())
+}
+
+model Package {
+  id       String  @id @default(uuid())
+  code     String  @unique
+  name     String
+  credits  Int     @default(0)
+  priceIls Int     @default(0)
+  currency String  @default("ILS")
+  isActive Boolean @default(true)
+
+  chat            UnifiedPackageChat?
+  lessons         Lesson[]
+  preLessonAssets PreLessonAsset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Payment {
@@ -188,10 +261,72 @@ model DiagnosticQuiz {
   ageGroup  String
   subject   String
   challenge String
+  topicIds  String[]          @default([])
+  topics    CurriculumTopic[]
+
+  // --- Diagnostic Quiz Engine (additive) ---
+  packageId      String?
+  topic          String?
+  score          Int?
+  totalQuestions Int?
+  answersSummary String?
+  identifiedGaps String[] @default([])
+
+  /// Gating and readiness scores
+  estimatedScore        Int?      @default(0)
+  isUnlocked            Boolean   @default(false)
+  unlockedAt            DateTime?
+  recommendationSummary String?
+
+  /// 5-Step Funnel tracking fields
+  hasUpcomingExam Boolean @default(false)
+  examTimeframe   String?
+  learningGoal    String?
+  lastGrade       Int?
+  challengeAnswer String?
+
+  schoolName String?
+  classTrack String?
+
+  /// Adaptive Multi-Track taxonomy fields (Step 5.2)
+  trackType           String?
+  examNumber          String?
+  unitsCount          Int?
+  degreeField         String?
+  academicYear        String?
+  coreCourse          String?
+  mechinaTrack        String?
+  isFirstAttempt      Boolean?
+  psychometricTotal   Int?
+  psychometricQuant   Int?
+  psychometricVerbal  Int?
+  psychometricEnglish Int?
+  targetTestSession   String?
+  targetOrganization  String?
+  testingInstitute    String?
+  examBattery         String?
+
+  quadGroupUrl String?
 
   student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+}
+
+model CurriculumTopic {
+  id           String   @id @default(uuid())
+  subject      String
+  topicName    String
+  subTopics    Json     @default("[]")
+  gradeLevel   String   @default("HIGH_SCHOOL")
+  weightInExam Float    @default(1.0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  diagnosticQuizzes DiagnosticQuiz[]
+
+  @@index([subject])
+  @@index([gradeLevel])
 }
 
 model AuditLog {
@@ -232,6 +367,62 @@ model OtpCode {
   createdAt DateTime @default(now())
 
   @@index([phone, purpose, createdAt])
+}
+
+// --- New: Payout & Vetting Workflow Enums ---
+
+enum PayoutType {
+  SLIP
+  INVOICE
+}
+
+enum VettingStatus {
+  PENDING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+}
+
+enum VettingStepName {
+  REGISTRATION_AND_CV
+  SCREENING_CALL
+  TEACHING_SIMULATION
+  EXAM_581
+  FINAL_VIDEO_CALL
+  FINAL_APPROVAL
+}
+
+enum VettingStepStatus {
+  PENDING
+  PASSED
+  FAILED
+  SKIPPED
+  /// Submitted by the teacher but awaiting the admin/manager review (e.g. exam 581).
+  PENDING_REVIEW
+}
+
+enum PreLessonAssetType {
+  IMAGE
+  PDF
+  TEXT_NOTE
+}
+
+model VettingStepLog {
+  id                 String            @id @default(uuid())
+  teacherProfileId   String
+  teacherProfile     TeacherProfile    @relation(fields: [teacherProfileId], references: [id], onDelete: Cascade)
+  stepNumber         Int
+  stepName           VettingStepName
+  status             VettingStepStatus @default(PENDING)
+  adminNotes         String?           @db.Text
+  bypassedByAdmin    Boolean           @default(false)
+  evaluatedByAdminId String?
+  completedAt        DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@unique([teacherProfileId, stepNumber])
+  @@index([teacherProfileId, status])
 }
 
 // ─── Financial Models (Immutable Ledger + Payouts) ───
@@ -294,4 +485,36 @@ model BillingLedger {
   @@index([userId, createdAt])
   @@index([entryType])
   @@index([relatedId])
+}
+
+model UnifiedPackageChat {
+  id              String           @id @default(uuid())
+  packageId       String           @unique
+  package         Package          @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  streamChannelId String?          @unique
+  isActive        Boolean          @default(true)
+  preLessonAssets PreLessonAsset[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([packageId])
+}
+
+model PreLessonAsset {
+  id           String              @id @default(uuid())
+  packageId    String
+  package      Package             @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  lessonId     String?
+  lesson       Lesson?             @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  chatId       String?
+  chat         UnifiedPackageChat? @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  assetType    PreLessonAssetType  @default(IMAGE)
+  assetUrl     String?
+  textContent  String?             @db.Text
+  uploadedById String
+  uploadedBy   User                @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime            @default(now())
+
+  @@index([packageId])
+  @@index([lessonId])
 }

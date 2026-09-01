@@ -1,0 +1,35 @@
+---
+description: "Curriculum Knowledge Trees, Pedagogical Brief in Classroom, and FastMCP Syllabus Ingestion"
+globs:
+  - "agents_hive/**"
+  - "lib/matching.ts"
+  - "app/api/diagnostic/**"
+  - "app/api/match/**"
+  - "app/lessons/**"
+  - "prisma/schema.prisma"
+---
+
+# Curriculum Knowledge Trees & Pedagogical Invariants
+
+## 1. Locked CurriculumTopic Schema
+- The `CurriculumTopic` model structure is **locked** and MUST contain exactly (and at least) these fields with these types:
+  - `id` (String @id @default(uuid()))
+  - `subject` (String)
+  - `topicName` (String)
+  - `subTopics` (Json, default `[]`)
+  - `gradeLevel` (String, one of `ELEMENTARY` | `MIDDLE_SCHOOL` | `HIGH_SCHOOL` | `ACADEMIC`)
+  - `weightInExam` (Float, default `1.0`)
+- Cross-links from `DiagnosticQuiz` (`topicIds`, `topics`) and any `TeacherProfile` metadata referencing these fields must be preserved.
+
+## 2. Matching Priority Invariant
+- `lib/matching.ts` MUST compute `topicProficiencyScore` against the student's weak topics from `DiagnosticQuiz` **before** any generic bio/keyword matching.
+- Fallback regex / bio matching is permitted only when explicit topic mappings or `topicProficiencies` are absent.
+- The `topicProficiencyScore` contribution must always remain the first-ranked signal in the `Subject & Material NLP` (0–100 pts) step.
+
+## 3. Pedagogical Brief Guardrail
+- The Classroom UI (`/app/lessons/[id]/page.tsx` and `LessonRoomUI.tsx`) MUST always fetch and render the student's mapped knowledge gaps and weak topics as a dedicated **Pedagogical Brief** in the teacher side-panel.
+- Removing or hiding this widget from the teacher/manager view is strictly prohibited.
+
+## 4. FastMCP Syllabus Tool Safety
+- The `parse_syllabus_to_curriculum` tool in `agents_hive/hive_mcp.py` MUST run structural validation (Pydantic-based) against the locked `CurriculumTopic` JSON schema **before** returning payloads or permitting any DB ingestion.
+- Output items must contain valid `subject`, `topicName`, `subTopics` (array), `gradeLevel`, and `weightInExam` (number between 0.1 and 1.0).

@@ -11,6 +11,7 @@ export default function Navbar() {
           <nav className="hidden md:flex items-center gap-8 text-[12px] font-semibold text-[#6e6e73]">
             <a href="/#features" className="hover:text-[#0071e3] transition-colors">האתגר</a>
             <a href="/#method" className="hover:text-[#0071e3] transition-colors">השיטה</a>
+            <Link href="/onboarding/diagnostic" className="hover:text-[#0071e3] transition-colors">אבחון</Link>
             <Link href="/pricing" className="hover:text-[#0071e3] transition-colors">מחירון</Link>
             <a href="/#faq" className="hover:text-[#0071e3] transition-colors">שאלות ותשובות</a>
           </nav>

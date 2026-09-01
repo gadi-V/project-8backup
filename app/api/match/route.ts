@@ -184,6 +184,7 @@ async function loadMatchableTeachers(): Promise<MatchableTeacher[]> {
           referralCount: true,
           activeStudentsCount: true,
           lastReferralAt: true,
+          topicProficiencies: true,
         },
       },
       availabilities: {
@@ -218,6 +219,7 @@ async function loadMatchableTeachers(): Promise<MatchableTeacher[]> {
         referralCount: t.teacherProfile!.referralCount,
         activeStudentsCount: t.teacherProfile!.activeStudentsCount,
         lastReferralAt: t.teacherProfile!.lastReferralAt,
+        topicProficiencies: (t.teacherProfile!.topicProficiencies as Record<string, number> | null) ?? null,
       },
       openSlotsCount: t.availabilities.length,
       openSlots: t.availabilities.map((s) => ({
@@ -250,6 +252,7 @@ export async function GET(request: Request) {
 
     const diagnostic = await prisma.diagnosticQuiz.findFirst({
       where: { studentId },
+      include: { topics: true },
       orderBy: { createdAt: "desc" },
     });
 
@@ -266,6 +269,12 @@ export async function GET(request: Request) {
         ageGroup: diagnostic.ageGroup,
         subject: diagnostic.subject,
         challenge: diagnostic.challenge,
+        topics: diagnostic.topics.map((t) => ({
+          id: t.id,
+          topicName: t.topicName,
+          subTopics: Array.isArray(t.subTopics) ? (t.subTopics as string[]) : [],
+          weightInExam: t.weightInExam,
+        })),
       },
       matchable,
       preference
@@ -345,6 +354,7 @@ export async function POST(request: Request) {
 
     const diagnostic = await prisma.diagnosticQuiz.findFirst({
       where: { studentId },
+      include: { topics: true },
       orderBy: { createdAt: "desc" },
     });
 
@@ -375,6 +385,12 @@ export async function POST(request: Request) {
         ageGroup: diagnostic.ageGroup,
         subject: diagnostic.subject,
         challenge: diagnostic.challenge,
+        topics: diagnostic.topics.map((t) => ({
+          id: t.id,
+          topicName: t.topicName,
+          subTopics: Array.isArray(t.subTopics) ? (t.subTopics as string[]) : [],
+          weightInExam: t.weightInExam,
+        })),
       },
       matchable,
       preference

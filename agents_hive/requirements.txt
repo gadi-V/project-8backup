@@ -2,3 +2,8 @@ openai>=1.12.0
 python-dotenv>=1.0.0
 pydantic>=2.6.0
 rich>=13.7.0
+httpx>=0.27.0
+# Optional desk dependencies (install when the corresponding desk is enabled):
+# playwright>=1.44.0   # scanner_desk.py browser probing
+# moviepy>=1.0.3       # creative_factory.py MP4 rendering
+# httpx is used by head_of_desk.py + creative_factory.py for async outbound calls.

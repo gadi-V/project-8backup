@@ -62,7 +62,7 @@ export default function HomePage() {
             <Link href="/register" className="inline-block text-center bg-[#1d1d1f] hover:bg-[#2d2d2f] text-white font-black text-xs py-3.5 px-8 rounded-full transition-all shadow-md">
               הרשמה לפלטפורמה
             </Link>
-            <Link href="/register/student" className="inline-block text-center bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] font-black text-xs py-3.5 px-8 rounded-full transition-all border border-[#e5e5e7]">
+            <Link href="/onboarding/diagnostic" className="inline-block text-center bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] font-black text-xs py-3.5 px-8 rounded-full transition-all border border-[#e5e5e7]">
               אבחון לתלמיד
             </Link>
           </div>

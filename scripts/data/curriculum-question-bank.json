@@ -1,0 +1,1357 @@
+{
+  "generatedAt": "2026-09-01T13:23:23.851Z",
+  "questions": [
+    {
+      "id": "seed-מתמטיקה (581)::אלגברה-q1",
+      "topic": "אלגברה",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::אלגברה-q2",
+      "topic": "אלגברה",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::בעיות תנועה והספק-q1",
+      "topic": "בעיות תנועה והספק",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::בעיות תנועה והספק-q2",
+      "topic": "בעיות תנועה והספק",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::גיאומטריה במישור-q1",
+      "topic": "גיאומטריה במישור",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::גיאומטריה במישור-q2",
+      "topic": "גיאומטריה במישור",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::טריגונומטריה-q1",
+      "topic": "טריגונומטריה",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::טריגונומטריה-q2",
+      "topic": "טריגונומטריה",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::חדו״א פולינומים ורציונליות-q1",
+      "topic": "חדו״א פולינומים ורציונליות",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::חדו״א פולינומים ורציונליות-q2",
+      "topic": "חדו״א פולינומים ורציונליות",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::חדו״א שורשים-q1",
+      "topic": "חדו״א שורשים",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::חדו״א שורשים-q2",
+      "topic": "חדו״א שורשים",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::טריגונומטריה במרחב-q1",
+      "topic": "טריגונומטריה במרחב",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (581)::טריגונומטריה במרחב-q2",
+      "topic": "טריגונומטריה במרחב",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (582)::וקטורים (אלגבריים וגיאומטריים)-q1",
+      "topic": "וקטורים (אלגבריים וגיאומטריים)",
+      "questionText": "אילו מהפתרונות נכון עבור: \\frac{d}{dx}\\left(e^{x} + \\ln x\\right)?",
+      "questionLatex": "\\frac{d}{dx}\\left(e^{x} + \\ln x\\right)",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: e^x + \\frac{1}{x}",
+          "textLatex": "\\frac{d}{dx}\\left(e^{x} + \\ln x\\right)",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (582)::וקטורים (אלגבריים וגיאומטריים)-q2",
+      "topic": "וקטורים (אלגבריים וגיאומטריים)",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (582)::מספרים מרוכבים-q1",
+      "topic": "מספרים מרוכבים",
+      "questionText": "אילו מהפתרונות נכון עבור: \\frac{d}{dx}\\left(e^{x} + \\ln x\\right)?",
+      "questionLatex": "\\frac{d}{dx}\\left(e^{x} + \\ln x\\right)",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: e^x + \\frac{1}{x}",
+          "textLatex": "\\frac{d}{dx}\\left(e^{x} + \\ln x\\right)",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (582)::מספרים מרוכבים-q2",
+      "topic": "מספרים מרוכבים",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (582)::גיאומטריה אנליטית-q1",
+      "topic": "גיאומטריה אנליטית",
+      "questionText": "אילו מהפתרונות נכון עבור: \\frac{d}{dx}\\left(e^{x} + \\ln x\\right)?",
+      "questionLatex": "\\frac{d}{dx}\\left(e^{x} + \\ln x\\right)",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: e^x + \\frac{1}{x}",
+          "textLatex": "\\frac{d}{dx}\\left(e^{x} + \\ln x\\right)",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (582)::גיאומטריה אנליטית-q2",
+      "topic": "גיאומטריה אנליטית",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (582)::חדו״א מעריכית $e^x$-q1",
+      "topic": "חדו״א מעריכית $e^x$",
+      "questionText": "אילו מהפתרונות נכון עבור: \\frac{d}{dx}\\left(e^{x} + \\ln x\\right)?",
+      "questionLatex": "\\frac{d}{dx}\\left(e^{x} + \\ln x\\right)",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: e^x + \\frac{1}{x}",
+          "textLatex": "\\frac{d}{dx}\\left(e^{x} + \\ln x\\right)",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (582)::חדו״א מעריכית $e^x$-q2",
+      "topic": "חדו״א מעריכית $e^x$",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (582)::חדו״א לוגריתמית $\\ln(x)$-q1",
+      "topic": "חדו״א לוגריתמית $\\ln(x)$",
+      "questionText": "אילו מהפתרונות נכון עבור: \\frac{d}{dx}\\left(e^{x} + \\ln x\\right)?",
+      "questionLatex": "\\frac{d}{dx}\\left(e^{x} + \\ln x\\right)",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: e^x + \\frac{1}{x}",
+          "textLatex": "\\frac{d}{dx}\\left(e^{x} + \\ln x\\right)",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (582)::חדו״א לוגריתמית $\\ln(x)$-q2",
+      "topic": "חדו״א לוגריתמית $\\ln(x)$",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (582)::חזקה, מודלים של גידול ודעיכה-q1",
+      "topic": "חזקה, מודלים של גידול ודעיכה",
+      "questionText": "אילו מהפתרונות נכון עבור: \\frac{d}{dx}\\left(e^{x} + \\ln x\\right)?",
+      "questionLatex": "\\frac{d}{dx}\\left(e^{x} + \\ln x\\right)",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: e^x + \\frac{1}{x}",
+          "textLatex": "\\frac{d}{dx}\\left(e^{x} + \\ln x\\right)",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מתמטיקה (582)::חזקה, מודלים של גידול ודעיכה-q2",
+      "topic": "חזקה, מודלים של גידול ודעיכה",
+      "questionText": "חשב את התוצאה של \\int (3x^2 + 2) \\, dx:",
+      "questionLatex": "\\int (3x^2 + 2) \\, dx",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: x^3 + 2x + C",
+          "textLatex": "\\int (3x^2 + 2) \\, dx",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-חדו״א 1 (אקדמי)::גבולות-q1",
+      "topic": "גבולות",
+      "questionText": "אילו מהפתרונות נכון עבור: \\lim_{x \\to 0} \\frac{\\sin x}{x}?",
+      "questionLatex": "\\lim_{x \\to 0} \\frac{\\sin x}{x}",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: 1",
+          "textLatex": "\\lim_{x \\to 0} \\frac{\\sin x}{x}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-חדו״א 1 (אקדמי)::גבולות-q2",
+      "topic": "גבולות",
+      "questionText": "חשב את התוצאה של A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}:",
+      "questionLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: det = -2",
+          "textLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-חדו״א 1 (אקדמי)::נגזרות-q1",
+      "topic": "נגזרות",
+      "questionText": "אילו מהפתרונות נכון עבור: \\lim_{x \\to 0} \\frac{\\sin x}{x}?",
+      "questionLatex": "\\lim_{x \\to 0} \\frac{\\sin x}{x}",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: 1",
+          "textLatex": "\\lim_{x \\to 0} \\frac{\\sin x}{x}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-חדו״א 1 (אקדמי)::נגזרות-q2",
+      "topic": "נגזרות",
+      "questionText": "חשב את התוצאה של A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}:",
+      "questionLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: det = -2",
+          "textLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-חדו״א 1 (אקדמי)::אינטגרלים לא אמיתיים-q1",
+      "topic": "אינטגרלים לא אמיתיים",
+      "questionText": "אילו מהפתרונות נכון עבור: \\lim_{x \\to 0} \\frac{\\sin x}{x}?",
+      "questionLatex": "\\lim_{x \\to 0} \\frac{\\sin x}{x}",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: 1",
+          "textLatex": "\\lim_{x \\to 0} \\frac{\\sin x}{x}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-חדו״א 1 (אקדמי)::אינטגרלים לא אמיתיים-q2",
+      "topic": "אינטגרלים לא אמיתיים",
+      "questionText": "חשב את התוצאה של A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}:",
+      "questionLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: det = -2",
+          "textLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-אלגברה לינארית (אקדמי)::מטריצות-q1",
+      "topic": "מטריצות",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-אלגברה לינארית (אקדמי)::מטריצות-q2",
+      "topic": "מטריצות",
+      "questionText": "חשב את התוצאה של A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}:",
+      "questionLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: det = -2",
+          "textLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-אלגברה לינארית (אקדמי)::מרחבים וקטוריים-q1",
+      "topic": "מרחבים וקטוריים",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-אלגברה לינארית (אקדמי)::מרחבים וקטוריים-q2",
+      "topic": "מרחבים וקטוריים",
+      "questionText": "חשב את התוצאה של A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}:",
+      "questionLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: det = -2",
+          "textLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-אלגברה לינארית (אקדמי)::מערכות משוואות לינאריות-q1",
+      "topic": "מערכות משוואות לינאריות",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-אלגברה לינארית (אקדמי)::מערכות משוואות לינאריות-q2",
+      "topic": "מערכות משוואות לינאריות",
+      "questionText": "חשב את התוצאה של A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}:",
+      "questionLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: det = -2",
+          "textLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-פסיכומטרי (כמותי)::אלגברה-q1",
+      "topic": "אלגברה",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-פסיכומטרי (כמותי)::אלגברה-q2",
+      "topic": "אלגברה",
+      "questionText": "חשב את התוצאה של \\frac{3}{4} \\cdot \\frac{2}{9}:",
+      "questionLatex": "\\frac{3}{4} \\cdot \\frac{2}{9}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: \\frac{1}{6}",
+          "textLatex": "\\frac{3}{4} \\cdot \\frac{2}{9}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-פסיכומטרי (כמותי)::בעיות יחס ואחוזים-q1",
+      "topic": "בעיות יחס ואחוזים",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-פסיכומטרי (כמותי)::בעיות יחס ואחוזים-q2",
+      "topic": "בעיות יחס ואחוזים",
+      "questionText": "חשב את התוצאה של \\frac{3}{4} \\cdot \\frac{2}{9}:",
+      "questionLatex": "\\frac{3}{4} \\cdot \\frac{2}{9}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: \\frac{1}{6}",
+          "textLatex": "\\frac{3}{4} \\cdot \\frac{2}{9}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-פסיכומטרי (כמותי)::גיאומטריה-q1",
+      "topic": "גיאומטריה",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-פסיכומטרי (כמותי)::גיאומטריה-q2",
+      "topic": "גיאומטריה",
+      "questionText": "חשב את התוצאה של \\frac{3}{4} \\cdot \\frac{2}{9}:",
+      "questionLatex": "\\frac{3}{4} \\cdot \\frac{2}{9}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: \\frac{1}{6}",
+          "textLatex": "\\frac{3}{4} \\cdot \\frac{2}{9}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-פסיכומטרי (כמותי)::הסקה מתרשים-q1",
+      "topic": "הסקה מתרשים",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-פסיכומטרי (כמותי)::הסקה מתרשים-q2",
+      "topic": "הסקה מתרשים",
+      "questionText": "חשב את התוצאה של \\frac{3}{4} \\cdot \\frac{2}{9}:",
+      "questionLatex": "\\frac{3}{4} \\cdot \\frac{2}{9}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: \\frac{1}{6}",
+          "textLatex": "\\frac{3}{4} \\cdot \\frac{2}{9}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מיונים וביטחון::חשיבה לוגית-q1",
+      "topic": "חשיבה לוגית",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מיונים וביטחון::חשיבה לוגית-q2",
+      "topic": "חשיבה לוגית",
+      "questionText": "חשב את התוצאה של A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}:",
+      "questionLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: det = -2",
+          "textLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מיונים וביטחון::מבחני צורות-q1",
+      "topic": "מבחני צורות",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מיונים וביטחון::מבחני צורות-q2",
+      "topic": "מבחני צורות",
+      "questionText": "חשב את התוצאה של A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}:",
+      "questionLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: det = -2",
+          "textLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    },
+    {
+      "id": "seed-מיונים וביטחון::מתמטיקה טכנית-q1",
+      "topic": "מתמטיקה טכנית",
+      "questionText": "אילו מהפתרונות נכון עבור: x^2 - 5x + 6 = 0?",
+      "questionLatex": "x^2 - 5x + 6 = 0",
+      "options": [
+        {
+          "id": "a",
+          "text": "הפתרון: x = 2, 3",
+          "textLatex": "x^2 - 5x + 6 = 0",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תשובה אחרת (טעות נפוצה)",
+          "isCorrect": false,
+          "gapIndication": "נראה שהתבלבלת בטכניקה"
+        },
+        {
+          "id": "c",
+          "text": "לא ניתן לחשב",
+          "isCorrect": false,
+          "gapIndication": "חסר רקע בחוקי היסוד"
+        }
+      ]
+    },
+    {
+      "id": "seed-מיונים וביטחון::מתמטיקה טכנית-q2",
+      "topic": "מתמטיקה טכנית",
+      "questionText": "חשב את התוצאה של A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}:",
+      "questionLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+      "options": [
+        {
+          "id": "a",
+          "text": "התוצאה: det = -2",
+          "textLatex": "A = \\begin{pmatrix}1 & 2 \\\\ 3 & 4\\end{pmatrix}",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "תוצאה שונה",
+          "isCorrect": false,
+          "gapIndication": "נדרשת חזרה על הכלל"
+        },
+        {
+          "id": "c",
+          "text": "אין פתרון",
+          "isCorrect": false,
+          "gapIndication": "תחומי הגדרה שגויים"
+        }
+      ]
+    }
+  ]
+}

@@ -13,6 +13,8 @@ const PUBLIC_API_ROUTES = new Set([
   "/api/webhooks/daily",
   "/api/webhooks/stripe",
   "/api/cron/lesson-reminders",
+  "/api/cron/head-of-desk",
+  "/api/admin/audit/risk-events",
 ]);
 
 const AUTH_PAGES = new Set(["/login", "/register", "/forgot-password"]);

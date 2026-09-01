@@ -19,6 +19,7 @@ export type MatchableTeacher = {
     referralCount: number;
     activeStudentsCount: number;
     lastReferralAt: Date | null;
+    topicProficiencies?: Record<string, number> | null;
   };
   openSlotsCount: number;
   /** Future unbooked slots (required for time-window filtering). */
@@ -27,10 +28,18 @@ export type MatchableTeacher = {
   weeklyLessonCount?: number;
 };
 
+export type DiagnosticTopicInfo = {
+  id: string;
+  topicName: string;
+  subTopics?: string[];
+  weightInExam?: number;
+};
+
 export type DiagnosticInput = {
   ageGroup: string;
   subject: string;
   challenge: string;
+  topics?: DiagnosticTopicInfo[];
 };
 
 /** Preferred study windows from the student (multi-day / multi-hour, Asia/Jerusalem). */
@@ -259,6 +268,59 @@ function subjectOverlapScore(studentSubject: string, teacherSubjects: string[]):
     }
   }
   return best;
+}
+
+function topicProficiencyScore(
+  diagnosticTopics: DiagnosticTopicInfo[] | undefined,
+  materialTokens: string[],
+  teacherProficiencies: Record<string, number> | null | undefined,
+  teacherSubjects: string[],
+  bio: string | null
+): number {
+  let score = 0;
+
+  // 1. Concrete CurriculumTopic checking against teacherProficiencies
+  if (diagnosticTopics && diagnosticTopics.length > 0 && teacherProficiencies) {
+    let matchedWeights = 0;
+    let totalWeight = 0;
+
+    for (const dt of diagnosticTopics) {
+      const weight = dt.weightInExam ?? 1.0;
+      totalWeight += weight;
+
+      // Match by ID or by normalized topicName
+      const directProficiency =
+        teacherProficiencies[dt.id] ??
+        teacherProficiencies[normalize(dt.topicName)] ??
+        teacherProficiencies[dt.topicName];
+
+      if (typeof directProficiency === "number") {
+        matchedWeights += (directProficiency / 100) * weight * 35;
+      } else {
+        // Check subtopics
+        const subList = Array.isArray(dt.subTopics) ? dt.subTopics : [];
+        let subMatches = 0;
+        for (const sub of subList) {
+          const subProf =
+            teacherProficiencies[sub] ?? teacherProficiencies[normalize(sub)];
+          if (typeof subProf === "number" && subProf >= 60) {
+            subMatches++;
+          }
+        }
+        if (subList.length > 0 && subMatches > 0) {
+          matchedWeights += (subMatches / subList.length) * weight * 30;
+        }
+      }
+    }
+
+    if (totalWeight > 0) {
+      score += Math.min(35, Math.round(matchedWeights / totalWeight));
+    }
+  }
+
+  // 2. Fallback / supplementary NLP matching against bio and subject definitions
+  const textScore = materialRelevanceScore(materialTokens, teacherSubjects, bio);
+  return Math.min(40, score + textScore);
 }
 
 function materialRelevanceScore(
@@ -544,8 +606,10 @@ export function rankTeachersForDiagnostic(
     const slotFit = evaluateSlotPreference(slots, preference);
 
     const subjectBase = subjectOverlapScore(diagnostic.subject, teacher.profile.subjects);
-    const materialBonus = materialRelevanceScore(
+    const materialBonus = topicProficiencyScore(
+      diagnostic.topics,
       materialTokens,
+      teacher.profile.topicProficiencies,
       teacher.profile.subjects,
       teacher.profile.bio
     );
