@@ -116,17 +116,23 @@ async def run_mcp_server() -> None:
 
     tail_task = asyncio.create_task(_tail())
 
-    async def _wait():
+    async def _wait() -> None:
         rc = await proc.wait()
         _log(f"FastMCP server exited rc={rc}")
-        SHUTDOWN_EVENT.set()
+        # A stdio FastMCP server terminates when its client disconnects (or on
+        # clean exit) — that is not a daemon failure. Only SHUTDOWN_EVENT stops
+        # the whole daemon; Head of Desk keeps cycling regardless.
 
     wait_task = asyncio.create_task(_wait())
 
-    # Keep alive until shutdown; kill child on exit.
+    # Hold until child exits OR daemon shutdown — then clean up.
     try:
-        while not SHUTDOWN_EVENT.is_set():
-            await asyncio.sleep(1)
+        done, _pending = await asyncio.wait(
+            {wait_task, asyncio.create_task(SHUTDOWN_EVENT.wait())},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if not SHUTDOWN_EVENT.is_set():
+            _log("FastMCP subprocess ended — continuing daemon (HOD loop live)")
     finally:
         if proc.returncode is None:
             proc.terminate()
