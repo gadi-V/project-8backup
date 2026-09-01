@@ -25,10 +25,15 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from dotenv import load_dotenv
-
 HIVE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = HIVE_DIR.parent
+
+# Prefer the hive venv interpreter so `python-dotenv` and FastMCP deps resolve.
+_VENV_PYTHON = HIVE_DIR / "venv" / "bin" / "python"
+if _VENV_PYTHON.exists() and Path(sys.executable).resolve() != _VENV_PYTHON.resolve():
+    os.execv(str(_VENV_PYTHON), [str(_VENV_PYTHON), *sys.argv])
+
+from dotenv import load_dotenv
 
 # 1) Hive-local secrets (OpenRouter, Telegram, manager phone, monitor secret).
 load_dotenv(dotenv_path=HIVE_DIR / ".env")

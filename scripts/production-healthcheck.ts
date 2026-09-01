@@ -95,9 +95,12 @@ async function checkEndpoints() {
     },
     {
       path: "/api/admin/audit/risk-events",
-      name: "Head of Desk risk-events",
-      expect: (s, b) =>
-        s === 200 && Array.isArray(b?.events) && b.events.every((e: any) => e.severity === "CRITICAL"),
+      name: "Head of Desk risk-events (quiet day)",
+      expect: (s, b) => {
+        if (s !== 200 || !Array.isArray(b?.events)) return false;
+        const critical = b.events.filter((e: any) => e.severity === "CRITICAL");
+        return critical.length === 0;
+      },
     },
     {
       path: "/api/admin/teachers",
@@ -121,6 +124,13 @@ async function checkEndpoints() {
     },
   ];
 
+  const pageProbes: Array<{ path: string; name: string }> = [
+    { path: "/admin", name: "Admin dashboard page" },
+    { path: "/admin/teachers", name: "Admin teachers page" },
+    { path: "/teachers/apply", name: "Teacher apply page" },
+    { path: "/onboarding/diagnostic", name: "Diagnostic onboarding page" },
+  ];
+
   for (const p of probes) {
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -139,6 +149,20 @@ async function checkEndpoints() {
       record("API", p.name, false, `fetch failed: ${msg.slice(0, 120)}`);
     }
   }
+
+  for (const p of pageProbes) {
+    try {
+      const res = await fetch(`${appBase()}${p.path}`, {
+        headers: { Accept: "text/html" },
+        redirect: "follow",
+      });
+      const ok = res.status === 200 || res.status === 307 || res.status === 308;
+      record("PAGES", p.name, ok, `status=${res.status}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      record("PAGES", p.name, false, `fetch failed: ${msg.slice(0, 120)}`);
+    }
+  }
 }
 
 function checkEnvironment() {
@@ -154,6 +178,8 @@ function checkEnvironment() {
     { key: "STREAM_API_KEY", label: "Stream chat", required: false },
     { key: "SUPABASE_URL", label: "S3/Supabase storage", required: false },
     { key: "SUPABASE_SERVICE_ROLE_KEY", label: "S3 service key", required: false },
+    { key: "AWS_S3_BUCKET", label: "AWS S3 bucket (alt)", required: false },
+    { key: "AWS_ACCESS_KEY_ID", label: "AWS access key (alt)", required: false },
     { key: "OPENROUTER_API_KEY", label: "OpenRouter", required: false, file: "agents_hive/.env" },
     { key: "TELEGRAM_BOT_TOKEN", label: "Telegram", required: false },
   ];
