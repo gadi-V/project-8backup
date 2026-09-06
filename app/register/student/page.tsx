@@ -3,6 +3,41 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
+import {
+  fieldClass,
+  frostCard,
+  pageCanvas,
+  primaryCta,
+  secondaryCta,
+} from "../../../lib/ui";
+
+function BackArrow({ className = "ms-1.5 inline-block h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M5 12h14M13 6l6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ForwardArrow({ className = "me-1.5 inline-block h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M19 12H5M11 6l-6 6 6 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 type StudentFormData = {
   name: string;
@@ -234,47 +269,45 @@ export default function StudentRegisterPage() {
   };
 
   return (
-    <div
-      className="min-h-screen bg-[#fbfbfd] text-[#1d1d1f] font-sans antialiased py-16 px-6"
-      dir="rtl"
-    >
+    <div className={`${pageCanvas} font-sans antialiased py-16 px-6`} dir="rtl">
       <div className="max-w-xl mx-auto space-y-12">
         <div className="text-center space-y-2">
           <Link
             href="/register"
-            className="text-xs font-black tracking-widest text-[#6e6e73] hover:text-[#1d1d1f] transition-colors"
+            className="inline-flex items-center text-xs font-medium tracking-wide text-neutral-500 hover:text-neutral-900 transition-colors"
           >
-            ← חזרה לבחירת סוג הרשמה
+            חזרה לבחירת סוג הרשמה
+            <BackArrow />
           </Link>
-          <h1 className="text-4xl font-black text-[#1d1d1f] tracking-tight pt-4">
+          <h1 className="text-4xl font-semibold text-neutral-900 tracking-tight pt-4">
             הרשמת תלמיד / הורה
           </h1>
-          <p className="text-xs font-bold text-[#6e6e73]">
+          <p className="text-sm text-neutral-500">
             אבחון לימודי קצר ואז פתיחת חשבון STUDENT
           </p>
         </div>
 
-        <div className="w-full bg-[#e5e5e7] h-1.5 rounded-full overflow-hidden">
+        <div className="w-full bg-neutral-100 h-1.5 rounded-full overflow-hidden">
           <div
-            className="bg-[#0071e3] h-full transition-all duration-300"
+            className="bg-neutral-900 h-full transition-all duration-300 rounded-full"
             style={{ width: `${(step / 4) * 100}%` }}
           />
         </div>
 
-        <div className="bg-white border border-[#e5e5e7] p-8 rounded-3xl shadow-sm space-y-8">
+        <div className={`${frostCard} p-8 space-y-8`}>
           {step === 1 && (
             <div className="space-y-6 animate-fadeIn">
-              <h3 className="text-xl font-black text-[#1d1d1f] text-right">
+              <h3 className="text-xl font-black text-[#1d1d1f] text-end">
                 בחר את מסלול הלימודים הנוכחי שלך:
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, path: "school" })}
-                  className={`p-6 rounded-2xl border text-right transition-all ${
+                  className={`p-6 rounded-2xl border text-end transition-all ${
                     formData.path === "school"
-                      ? "border-[#0071e3] bg-[#0071e3]/5 shadow-sm"
-                      : "border-[#e5e5e7] hover:border-slate-400"
+                      ? "border-neutral-900 bg-neutral-900/5 shadow-sm"
+                      : "border-neutral-200 hover:border-neutral-400"
                   }`}
                 >
                   <div className="text-md font-black text-[#1d1d1f]">חטיבה ותיכון</div>
@@ -286,10 +319,10 @@ export default function StudentRegisterPage() {
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, path: "academia" })}
-                  className={`p-6 rounded-2xl border text-right transition-all ${
+                  className={`p-6 rounded-2xl border text-end transition-all ${
                     formData.path === "academia"
-                      ? "border-[#0071e3] bg-[#0071e3]/5 shadow-sm"
-                      : "border-[#e5e5e7] hover:border-slate-400"
+                      ? "border-neutral-900 bg-neutral-900/5 shadow-sm"
+                      : "border-neutral-200 hover:border-neutral-400"
                   }`}
                 >
                   <div className="text-md font-black text-[#1d1d1f]">השכלה גבוהה / אקדמיה</div>
@@ -302,7 +335,7 @@ export default function StudentRegisterPage() {
           )}
 
           {step === 2 && (
-            <div className="space-y-4 animate-fadeIn text-right">
+            <div className="space-y-4 animate-fadeIn text-end">
               <h3 className="text-xl font-black text-[#1d1d1f]">פרטי הרקע הלימודי שלך:</h3>
 
               {formData.path === "school" ? (
@@ -316,7 +349,7 @@ export default function StudentRegisterPage() {
                         setFormData({ ...formData, schoolGrade: e.target.value })
                       }
                       placeholder="למשל: כיתה י' או כיתה יב'"
-                      className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className={fieldClass}
                     />
                   </div>
                   <div className="space-y-1">
@@ -328,7 +361,7 @@ export default function StudentRegisterPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, schoolUnits: e.target.value })
                       }
-                      className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className={fieldClass}
                     >
                       <option value="">בחרו מספר יחידות</option>
                       <option value="3">3 יחידות לימוד</option>
@@ -347,7 +380,7 @@ export default function StudentRegisterPage() {
                         setFormData({ ...formData, schoolSubject: e.target.value })
                       }
                       placeholder="למשל: מתמטיקה, פיזיקה, אנגלית"
-                      className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className={fieldClass}
                     />
                   </div>
                 </div>
@@ -365,7 +398,7 @@ export default function StudentRegisterPage() {
                         })
                       }
                       placeholder="למשל: אוניברסיטת תל אביב, הטכניון"
-                      className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className={fieldClass}
                     />
                   </div>
                   <div className="space-y-1">
@@ -377,7 +410,7 @@ export default function StudentRegisterPage() {
                         setFormData({ ...formData, academicDegree: e.target.value })
                       }
                       placeholder="למשל: הנדסת מכונות, מדעי המחשב"
-                      className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className={fieldClass}
                     />
                   </div>
                   <div className="space-y-1">
@@ -391,7 +424,7 @@ export default function StudentRegisterPage() {
                         setFormData({ ...formData, academicCourse: e.target.value })
                       }
                       placeholder="למשל: אינפי 1, אלגברה ליניארית"
-                      className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className={fieldClass}
                     />
                   </div>
                 </div>
@@ -400,7 +433,7 @@ export default function StudentRegisterPage() {
           )}
 
           {step === 3 && (
-            <div className="space-y-6 animate-fadeIn text-right">
+            <div className="space-y-6 animate-fadeIn text-end">
               <h3 className="text-xl font-black text-[#1d1d1f]">
                 מהו האתגר המרכזי ויעד הלימודים שלך?
               </h3>
@@ -414,7 +447,7 @@ export default function StudentRegisterPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, bottleneck: e.target.value })
                   }
-                  className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none"
+                  className={fieldClass}
                 >
                   <option value="">בחרו את החסם המרכזי</option>
                   <option value="gaps">פערי עבר קשים בבסיס של חומר הלימוד</option>
@@ -435,9 +468,9 @@ export default function StudentRegisterPage() {
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, goalType: "marathon" })}
-                    className={`p-4 rounded-xl border text-right transition-all ${
+                    className={`p-4 rounded-xl border text-end transition-all ${
                       formData.goalType === "marathon"
-                        ? "border-[#0071e3] bg-[#0071e3]/5 font-black"
+                        ? "border-neutral-900 bg-neutral-900/5 font-semibold"
                         : "border-[#e5e5e7]"
                     }`}
                   >
@@ -452,9 +485,9 @@ export default function StudentRegisterPage() {
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, goalType: "semester" })}
-                    className={`p-4 rounded-xl border text-right transition-all ${
+                    className={`p-4 rounded-xl border text-end transition-all ${
                       formData.goalType === "semester"
-                        ? "border-[#0071e3] bg-[#0071e3]/5 font-black"
+                        ? "border-neutral-900 bg-neutral-900/5 font-semibold"
                         : "border-[#e5e5e7]"
                     }`}
                   >
@@ -471,7 +504,7 @@ export default function StudentRegisterPage() {
           )}
 
           {step === 4 && (
-            <div className="space-y-6 animate-fadeIn text-right">
+            <div className="space-y-6 animate-fadeIn text-end">
               <h3 className="text-xl font-black text-[#1d1d1f]">
                 סיום רישום ובחירת חבילה (אופציונלי):
               </h3>
@@ -500,9 +533,9 @@ export default function StudentRegisterPage() {
                     onClick={() =>
                       setFormData({ ...formData, selectedCard: card.id })
                     }
-                    className={`p-4 rounded-xl border text-right transition-all flex flex-col justify-between ${
+                    className={`p-4 rounded-xl border text-end transition-all flex flex-col justify-between ${
                       formData.selectedCard === card.id
-                        ? "border-[#0071e3] bg-[#0071e3]/5 font-black"
+                        ? "border-neutral-900 bg-neutral-900/5 font-semibold"
                         : "border-[#e5e5e7]"
                     }`}
                   >
@@ -518,14 +551,14 @@ export default function StudentRegisterPage() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="שם מלא *"
-                  className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none"
+                  className={fieldClass}
                 />
                 <input
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="מספר טלפון *"
-                  className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none text-right"
+                  className={`${fieldClass} text-start`}
                   dir="ltr"
                 />
                 <input
@@ -533,7 +566,7 @@ export default function StudentRegisterPage() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="אימייל (אופציונלי)"
-                  className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none text-right"
+                  className={`${fieldClass} text-start`}
                   dir="ltr"
                 />
                 <div className="space-y-1">
@@ -545,7 +578,7 @@ export default function StudentRegisterPage() {
                       setFormData({ ...formData, password: e.target.value })
                     }
                     placeholder="לפחות 6 תווים"
-                    className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none text-right"
+                    className={`${fieldClass} text-start`}
                     dir="ltr"
                   />
                 </div>
@@ -555,22 +588,23 @@ export default function StudentRegisterPage() {
               </div>
 
               {submitError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold p-3 rounded-xl text-right">
+                <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold p-3 rounded-xl text-end">
                   {submitError}
                 </div>
               )}
             </div>
           )}
 
-          <div className="flex items-center justify-between pt-4 border-t border-[#e5e5e7]">
+          <div className="flex items-center justify-between pt-4 border-t border-neutral-200/80">
             {step > 1 ? (
               <button
                 type="button"
                 onClick={handlePrevStep}
                 disabled={loading}
-                className="text-xs font-black text-[#6e6e73] hover:text-[#1d1d1f] transition-colors disabled:opacity-50"
+                className={`inline-flex items-center ${secondaryCta} text-xs py-2.5 px-4 disabled:opacity-50`}
               >
                 חזור אחורה
+                <BackArrow />
               </button>
             ) : (
               <div />
@@ -580,16 +614,17 @@ export default function StudentRegisterPage() {
               <button
                 type="button"
                 onClick={handleNextStep}
-                className="bg-[#0071e3] hover:bg-[#0077ed] text-white font-black text-xs py-3 px-6 rounded-full transition-all shadow-md"
+                className={`inline-flex items-center ${primaryCta} text-xs`}
               >
-                המשך לשלב הבא ←
+                <ForwardArrow />
+                המשך לשלב הבא
               </button>
             ) : (
               <button
                 type="button"
                 onClick={handleSubmit}
                 disabled={loading}
-                className="bg-[#1d1d1f] hover:bg-[#2d2d2f] text-white font-black text-xs py-3 px-8 rounded-full transition-all shadow-md disabled:opacity-50"
+                className={`${primaryCta} text-xs disabled:opacity-50`}
               >
                 {loading ? "יוצר חשבון..." : "פתיחת חשבון תלמיד"}
               </button>

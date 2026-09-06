@@ -1,6 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  badgeNeutral,
+  badgeSuccess,
+  badgeWarning,
+  fieldClass,
+  frostCard,
+  secondaryCta,
+} from "../lib/ui";
 
 export interface FallbackTeacher {
   teacherId: string;
@@ -46,15 +54,15 @@ export default function TeacherFallbackSwitcher({
   }, [teachers, selectedTeacherId, query]);
 
   return (
-    <div className="bg-amber-500/5 border border-amber-500/25 rounded-2xl p-4 space-y-3 text-right">
+    <div className={`${frostCard} p-4 space-y-3 text-start border-amber-200/80 bg-amber-50/40`}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-black text-amber-200">
+          <h3 className="text-sm font-semibold text-neutral-900">
             {forceOpen
               ? "אין שעות פנויות למורה בשבוע זה"
               : "החלפת מורה / חיפוש חלופי"}
           </h3>
-          <p className="text-[11px] text-slate-400 mt-0.5">
+          <p className="text-[11px] text-neutral-500 mt-0.5">
             מורים חלופיים לפי ציון התאמה ומקצוע — בחירה מרעננת את הלוח מיד.
           </p>
         </div>
@@ -62,7 +70,7 @@ export default function TeacherFallbackSwitcher({
           type="button"
           disabled={busy}
           onClick={() => setManualOpen((v) => !v)}
-          className="text-[11px] font-bold px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-200 hover:border-amber-500/50 disabled:opacity-50 self-start"
+          className={`${secondaryCta} self-start text-[11px] py-2 px-3`}
         >
           {isOpen && !forceOpen ? "סגור חיפוש" : "החלף מורה"}
         </button>
@@ -75,14 +83,17 @@ export default function TeacherFallbackSwitcher({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="חיפוש לפי שם או מקצוע..."
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+            className={fieldClass}
             dir="rtl"
           />
 
           {alternatives.length === 0 ? (
-            <p className="text-xs text-slate-500">
-              לא נמצאו מורים חלופיים מתאימים כרגע.
-            </p>
+            <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 text-center space-y-2">
+              <p className="text-sm font-medium text-neutral-900">לא נמצאו מורים חלופיים</p>
+              <p className="text-xs text-neutral-500">
+                נסו לשנות את החיפוש או את העדפות הזמן למעלה.
+              </p>
+            </div>
           ) : (
             <div className="flex gap-2 overflow-x-auto pb-1">
               {alternatives.map((teacher) => (
@@ -95,19 +106,23 @@ export default function TeacherFallbackSwitcher({
                     setManualOpen(false);
                     setQuery("");
                   }}
-                  className="min-w-[180px] shrink-0 text-right bg-slate-900/80 border border-slate-700 hover:border-amber-500/50 active:scale-[0.98] p-3 rounded-xl transition-all disabled:opacity-50"
+                  className="min-w-[180px] shrink-0 text-start bg-white border border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50 active:scale-[0.98] p-3 rounded-xl transition-all disabled:opacity-50"
                 >
-                  <div className="text-xs font-black text-white truncate">
+                  <div className="text-xs font-semibold text-neutral-900 truncate">
                     {teacher.teacherName}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-1">
-                    ציון {teacher.matchScore} ·{" "}
-                    {teacher.openSlotsCount > 0
-                      ? `${teacher.openSlotsCount} פנויות`
-                      : "ללא שעות כרגע"}
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    <span className={badgeNeutral}>ציון {teacher.matchScore}</span>
+                    {teacher.openSlotsCount > 0 ? (
+                      <span className={badgeSuccess}>
+                        {teacher.openSlotsCount} פנויות
+                      </span>
+                    ) : (
+                      <span className={badgeWarning}>ללא שעות</span>
+                    )}
                   </div>
                   {teacher.subjects.length > 0 && (
-                    <div className="text-[10px] text-amber-200/80 mt-1 truncate">
+                    <div className="text-[10px] text-neutral-500 mt-1.5 truncate">
                       {teacher.subjects.slice(0, 2).join(" · ")}
                     </div>
                   )}

@@ -36,7 +36,7 @@ export default function MathFormula({
     return (
       <div
         dir="ltr"
-        className={`my-2 overflow-x-auto text-left font-sans select-text [unicode-bidi:isolate] ${className}`}
+        className={`my-2 overflow-x-auto text-start font-sans select-text [unicode-bidi:isolate] ${className}`}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     );

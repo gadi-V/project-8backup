@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
-import { requireAuth } from "../../../../lib/api-auth";
+import { requireAuthOrMonitor } from "../../../../lib/api-auth";
 import {
   buildConversionMessage,
+  createWhatsAppQuadGroup,
   determinePackageForGapDepth,
   sendQuadGroupInvite,
   sendWhatsAppText,
@@ -22,11 +23,14 @@ import { writeAuditLog } from "../../../../lib/audit";
  * ・ פער קל (1–2 נושאים)  → TRIO.
  * ・ פער עמוק (3+ נושאים) → MULTI.
  *
+ * Auth: session cookie (ADMIN/MANAGER/STUDENT) OR
+ * `Authorization: Bearer HIVE_MONITOR_SECRET` (FastMCP M2M).
+ *
  * Reaction-surface only: never returns student/teacher phone numbers.
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(["ADMIN", "MANAGER", "STUDENT"]);
+    const auth = await requireAuthOrMonitor(request, ["ADMIN", "MANAGER", "STUDENT"]);
     if (auth.error) return auth.error;
 
     const body = (await request.json()) as {
@@ -36,6 +40,7 @@ export async function POST(request: NextRequest) {
       gapTopicsCount?: unknown;
       gapTopicsNames?: unknown;
       purpose?: unknown;
+      studentId?: unknown;
     };
 
     const packageType = (body.packageType ?? "").toString().toUpperCase() as PackageSize;
@@ -53,18 +58,102 @@ export async function POST(request: NextRequest) {
           ? Number(body.gapTopicsCount)
           : 0;
 
-    const student = await prisma.user.findUnique({
-      where: { id: auth.user.id },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        parentName: true,
-        parentPhone: true,
-        quadGroupUrl: true,
-        role: true,
-      },
-    });
+    const bodyPhone =
+      typeof body.studentPhone === "string" && body.studentPhone.trim()
+        ? body.studentPhone.trim()
+        : "";
+    const bodyStudentId =
+      typeof body.studentId === "string" && body.studentId.trim()
+        ? body.studentId.trim()
+        : "";
+
+    // Session: act on the authenticated user. M2M: resolve student by phone/id from body.
+    let student: {
+      id: string;
+      name: string;
+      phone: string;
+      parentName: string | null;
+      parentPhone: string | null;
+      quadGroupUrl: string | null;
+      role: string;
+    } | null = null;
+
+    if (auth.via === "m2m") {
+      if (bodyStudentId) {
+        student = await prisma.user.findUnique({
+          where: { id: bodyStudentId },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            parentName: true,
+            parentPhone: true,
+            quadGroupUrl: true,
+            role: true,
+          },
+        });
+      } else if (bodyPhone) {
+        student = await prisma.user.findFirst({
+          where: { phone: bodyPhone },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            parentName: true,
+            parentPhone: true,
+            quadGroupUrl: true,
+            role: true,
+          },
+        });
+      }
+
+      // Hive conversion probe with no matching student: analysis-only dry-run (no send).
+      if (!student) {
+        const recommendation = determinePackageForGapDepth(gapCount);
+        const studentName =
+          typeof body.studentName === "string" && body.studentName.trim()
+            ? body.studentName.trim()
+            : "תלמיד";
+        const conversionMessage = buildConversionMessage({
+          studentName,
+          subject: "המקצוע שזוהה באבחון",
+          gapTopicsCount: gapCount,
+          gapTopicsNames: Array.isArray(body.gapTopicsNames)
+            ? (body.gapTopicsNames as string[]).filter((n): n is string => typeof n === "string")
+            : [],
+          estimatedScore: null,
+        });
+        return NextResponse.json({
+          success: true,
+          dryRun: true,
+          data: {
+            channel: packageType === "SINGLE" ? "TRANSACTIONAL_SINGLE" : "QUAD_GROUP",
+            modeLabel:
+              packageType === "SINGLE"
+                ? "הודעות טרנזקציוניות בלבד — ללא פתיחת קבוצה"
+                : "נפתחה קבוצת WhatsApp מרובעת ייעודית (מנהל פדגוגי + מורה + תלמיד + הורה)",
+            isGroupOpened: false,
+            quadGroupUrl: null,
+            recommendedPackage: recommendation,
+            messagePreview: conversionMessage.split("\n")[0],
+          },
+        });
+      }
+    } else {
+      student = await prisma.user.findUnique({
+        where: { id: auth.user.id },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          parentName: true,
+          parentPhone: true,
+          quadGroupUrl: true,
+          role: true,
+        },
+      });
+    }
+
     if (!student) {
       return NextResponse.json({ success: false, error: "משתמש לא נמצא" }, { status: 404 });
     }
@@ -73,10 +162,7 @@ export async function POST(request: NextRequest) {
       typeof body.studentName === "string" && body.studentName.trim()
         ? body.studentName.trim()
         : student.name;
-    const studentPhone =
-      typeof body.studentPhone === "string" && body.studentPhone.trim()
-        ? body.studentPhone.trim()
-        : student.phone;
+    const studentPhone = bodyPhone || student.phone;
 
     // 1) Conversion message from gap depth (recommended package + call to action).
     const recommendation = determinePackageForGapDepth(gapCount);
@@ -96,13 +182,48 @@ export async function POST(request: NextRequest) {
     let isGroupOpened = false;
 
     if (packageType === "SINGLE") {
-      // Single: transactional only — never open a group.
+      // Single: transactional 1-on-1 only — never open a group.
       await sendWhatsAppText(studentPhone, conversionMessage);
     } else {
-      // TRIO/MULTI: auto-open dedicated Quad WhatsApp group.
+      // TRIO/MULTI (3+ lessons): auto-open dedicated Quad WhatsApp group
+      // (Admin + Teacher + Student + Parent).
       if (!quadGroupUrl) {
-        const groupToken = `quad-${student.id.slice(0, 8)}-${Date.now().toString(36)}`;
-        quadGroupUrl = `https://chat.whatsapp.com/${groupToken}`;
+        const manager = await prisma.user.findFirst({
+          where: { role: { in: ["MANAGER", "ADMIN"] } },
+          select: { name: true, phone: true },
+          orderBy: { role: "desc" },
+        });
+
+        const created = await createWhatsAppQuadGroup({
+          studentId: student.id,
+          studentName,
+          subject: "המקצוע שזוהה באבחון",
+          teacherName: "מורה מומחה (ישובץ בהמשך)",
+          members: [
+            {
+              role: "ADMIN",
+              phone: manager?.phone || process.env.WHATSAPP_ADMIN_PHONE || "0000000000",
+              name: manager?.name || "מנהל פדגוגי",
+            },
+            {
+              role: "TEACHER",
+              phone: process.env.WHATSAPP_TEACHER_PLACEHOLDER_PHONE || "0000000001",
+              name: "מורה מומחה (ישובץ בהמשך)",
+            },
+            {
+              role: "STUDENT",
+              phone: studentPhone,
+              name: studentName,
+            },
+            {
+              role: "PARENT",
+              phone: student.parentPhone || studentPhone,
+              name: student.parentName || studentName,
+            },
+          ],
+        });
+
+        quadGroupUrl = created.inviteUrl;
         await prisma.user.update({
           where: { id: student.id },
           data: { quadGroupUrl },
@@ -121,7 +242,7 @@ export async function POST(request: NextRequest) {
     }
 
     await writeAuditLog({
-      actorId: auth.user.id,
+      actorId: auth.actorId,
       action: "WHATSAPP_DISPATCH_CHANNEL",
       entityType: "User",
       entityId: student.id,
@@ -131,6 +252,7 @@ export async function POST(request: NextRequest) {
         mode: packageType === "SINGLE" ? "TRANSACTIONAL_SINGLE" : "QUAD_GROUP",
         isGroupOpened,
         recommendedPackage: recommendation.packageType,
+        via: auth.via,
       },
     });
 

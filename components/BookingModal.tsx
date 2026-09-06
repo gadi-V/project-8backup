@@ -1,5 +1,7 @@
 "use client";
 
+import { frostCard, primaryCta, secondaryCta } from "../lib/ui";
+
 export interface BookingModalSlot {
   id: string;
   startTime: string;
@@ -34,33 +36,33 @@ export default function BookingModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-neutral-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="booking-modal-title"
     >
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full space-y-4 text-right shadow-2xl">
+      <div className={`${frostCard} p-6 max-w-md w-full space-y-4 text-start shadow-lg`}>
         <div>
-          <h3 id="booking-modal-title" className="text-base font-black text-white">
+          <h3 id="booking-modal-title" className="text-base font-semibold text-neutral-900">
             אישור שיבוץ שיעור
           </h3>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-neutral-500 mt-1">
             משבצת של 60 דקות · השיעור עצמו 50 דקות
           </p>
         </div>
 
-        <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-2 text-xs">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-2 text-xs">
           <div className="flex justify-between gap-3">
-            <span className="text-slate-500 font-bold">מורה</span>
-            <span className="text-white font-black">{slot.teacherName}</span>
+            <span className="text-neutral-500 font-medium">מורה</span>
+            <span className="text-neutral-900 font-semibold">{slot.teacherName}</span>
           </div>
           <div className="flex justify-between gap-3">
-            <span className="text-slate-500 font-bold">תאריך</span>
-            <span className="text-slate-200 font-bold">{dateLabel}</span>
+            <span className="text-neutral-500 font-medium">תאריך</span>
+            <span className="text-neutral-700 font-medium">{dateLabel}</span>
           </div>
           <div className="flex justify-between gap-3">
-            <span className="text-slate-500 font-bold">שעה</span>
-            <span className="text-blue-300 font-mono font-black">{timeLabel}</span>
+            <span className="text-neutral-500 font-medium">שעה</span>
+            <span className="text-neutral-900 font-mono font-semibold">{timeLabel}</span>
           </div>
         </div>
 
@@ -69,7 +71,7 @@ export default function BookingModal({
             type="button"
             disabled={busy}
             onClick={onClose}
-            className="text-xs font-bold py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 disabled:opacity-50"
+            className={secondaryCta}
           >
             ביטול
           </button>
@@ -77,7 +79,7 @@ export default function BookingModal({
             type="button"
             disabled={busy}
             onClick={() => onConfirm(slot.id)}
-            className="text-xs font-bold py-2.5 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-all"
+            className={primaryCta}
           >
             {busy ? "משבץ..." : "קבע שיעור"}
           </button>

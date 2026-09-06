@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { LedgerEntryType } from "@prisma/client";
 import { prisma } from "../../../../../lib/prisma";
-import { requireAuth } from "../../../../../lib/api-auth";
+import { requireAuthOrMonitor } from "../../../../../lib/api-auth";
 import { writeAuditLog } from "../../../../../lib/audit";
 
 /**
  * Admin Super-Override — הנפקת שיעור חוזר (make-up) ללא חיוב התלמיד.
  *
  * POST /api/admin/override/compensation
- * Body: { studentId: string, reason: string }
+ * Body: { studentId?: string, lessonId?: string, reason: string }
+ *   (studentId או lessonId — חובה לפחות אחד; lessonId נפתר ל-studentId)
  *
  * Financial logic (Immutable Ledger, add-only):
  * ・ רוכש את  שורת ה-CHARGE המקורית האחרונה של התלמיד (relatedId / metadata).
@@ -37,16 +38,18 @@ async function hasIssuedCompensationToday(studentId: string, now: Date): Promise
 
 export async function POST(request: Request) {
   try {
-    const auth = await requireAuth(["ADMIN", "MANAGER"]);
+    const auth = await requireAuthOrMonitor(request, ["ADMIN", "MANAGER"]);
     if (auth.error) return auth.error;
 
     const body = (await request.json()) as {
       studentId?: unknown;
+      lessonId?: unknown;
       reason?: unknown;
       amountIls?: unknown;
     };
 
-    const studentId = typeof body.studentId === "string" ? body.studentId.trim() : "";
+    let studentId = typeof body.studentId === "string" ? body.studentId.trim() : "";
+    const lessonId = typeof body.lessonId === "string" ? body.lessonId.trim() : "";
     const reason =
       typeof body.reason === "string" && body.reason.trim()
         ? body.reason.trim().slice(0, 500)
@@ -56,9 +59,45 @@ export async function POST(request: Request) {
         ? body.amountIls
         : LESSON_VALUE_ILS;
 
-    if (!studentId || !reason) {
+    if (!reason) {
       return NextResponse.json(
-        { success: false, error: "studentId ו-reason הם שדות חובה" },
+        { success: false, error: "reason הוא שדה חובה" },
+        { status: 400 }
+      );
+    }
+
+    if (!studentId && lessonId) {
+      const lesson = await prisma.lesson.findUnique({
+        where: { id: lessonId },
+        select: { studentId: true },
+      });
+      if (!lesson) {
+        if (
+          auth.via === "m2m" &&
+          (lessonId.startsWith("dry-run") || lessonId === "connectivity-probe")
+        ) {
+          return NextResponse.json({
+            success: true,
+            dryRun: true,
+            data: {
+              message: "M2M connectivity OK — compensation endpoint reachable (no ledger write)",
+              lessonId,
+              reason,
+              amountIls,
+            },
+          });
+        }
+        return NextResponse.json(
+          { success: false, error: "השיעור לא נמצא" },
+          { status: 404 }
+        );
+      }
+      studentId = lesson.studentId;
+    }
+
+    if (!studentId) {
+      return NextResponse.json(
+        { success: false, error: "studentId או lessonId הם שדות חובה" },
         { status: 400 }
       );
     }
@@ -119,7 +158,8 @@ export async function POST(request: Request) {
           transactionId: idempotencyKey,
           metadata: {
             reason,
-            issuedById: auth.user.id,
+            issuedById: auth.actorId ?? auth.user.id,
+            via: auth.via,
             balancedAgainst: "CHARGE",
             originalChargeTransactionId: originalCharge?.transactionId ?? null,
             originalChargeAmount: originalCharge
@@ -138,7 +178,7 @@ export async function POST(request: Request) {
 
       await tx.auditLog.create({
         data: {
-          actorId: auth.user.id,
+          actorId: auth.actorId,
           action: "ADMIN_OVERRIDE_COMPENSATION",
           entityType: "User",
           entityId: studentId,
@@ -149,27 +189,43 @@ export async function POST(request: Request) {
             creditsGranted: LESSON_CREDIT_COMPENSATION,
             amountIls,
             balancedAgainst: originalCharge?.id ?? null,
+            via: auth.via,
           },
         },
       });
 
-      return { alreadyIssued: false as const, entryId: entry.id, lessonCredits: updatedUser.lessonCredits };
+      return {
+        alreadyIssued: false as const,
+        entryId: entry.id,
+        transactionId: entry.transactionId,
+        lessonCredits: updatedUser.lessonCredits,
+        balancedAgainst: originalCharge?.id ?? null,
+      };
     });
 
     if (compensated.alreadyIssued) {
       return NextResponse.json({
         success: true,
         alreadyIssued: true,
-        data: { message: "שיעור הפיצוי כבר הונפק קודם לכן (Idempotent)" },
+        data: {
+          message: "שיעור הפיצוי כבר הונפק קודם לכן (Idempotent)",
+          transactionId: idempotencyKey,
+        },
       });
     }
 
     void writeAuditLog({
-      actorId: auth.user.id,
+      actorId: auth.actorId,
       action: "ADMIN_OVERRIDE_COMPENSATION",
       entityType: "User",
       entityId: studentId,
-      metadata: { reason, idempotencyKey, amountIls },
+      metadata: {
+        reason,
+        idempotencyKey,
+        amountIls,
+        lessonId: lessonId || null,
+        via: auth.via,
+      },
     }).catch(() => undefined);
 
     return NextResponse.json({
@@ -177,11 +233,14 @@ export async function POST(request: Request) {
       data: {
         message: "שיעור פיצוי הונפק בהצלחה ללא חיוב התלמיד",
         studentId,
+        lessonId: lessonId || null,
         creditsGranted: LESSON_CREDIT_COMPENSATION,
         lessonCredits: compensated.lessonCredits,
         ledgerEntryId: compensated.entryId,
+        transactionId: compensated.transactionId,
         amountIls,
-        balancedAgainst: originalCharge?.id ?? null,
+        balancedAgainst: compensated.balancedAgainst,
+        entryType: LedgerEntryType.PLATFORM_COMPENSATION,
       },
     });
   } catch (error: unknown) {

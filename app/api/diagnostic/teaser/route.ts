@@ -10,13 +10,14 @@ import {
 
 /**
  * 5-Step Diagnostic & Wake-up Call Funnel Intake.
- * Public endpoint that processes:
+ * Public endpoint (middleware allows /api/diagnostic/** for guests) that processes:
  * 1. Subject & Grade Level
  * 2. Exam Urgency & Timeframe
  * 3. Learning Goal
  * 4. Last Baseline Grade
  * 5. High-difficulty challenge answer
- * 
+ *
+ * Guests (no session) still receive readiness score + masked gap tree + package CTA.
  * Computes an aggressive urgency readiness score (38%–54% when failing challenge)
  * to demonstrate clear pedagogical vulnerability without unpaid curriculum leak.
  */
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
       isChallengeCorrect,
       correctCount = 0,
       totalQuestions = 3,
+      weakDomains = [],
     } = body;
 
     if (!ageGroup || !subject) {
@@ -67,6 +69,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // Optional session — never 401 for anonymous teaser submission
     const sessionUser = await getCurrentUser();
     let targetUserId = sessionUser?.id;
 
@@ -290,7 +293,7 @@ export async function POST(request: Request) {
     }
 
     // STRICT TEASER PAYLOAD: Mask topic names to prevent exploitation
-    const maskedTopics = diagnostic.topics.map((t: CurriculumTopic, index: number) => ({
+    let maskedTopics = diagnostic.topics.map((t: CurriculumTopic, index: number) => ({
       id: `topic-masked-${index + 1}`,
       maskedName: `נושא מיקוד ${index + 1} (${Math.round(t.weightInExam * 100)}% מציון הבחינה)`,
       weightInExam: t.weightInExam,
@@ -298,8 +301,25 @@ export async function POST(request: Request) {
       isLocked: true,
     }));
 
+    // Guest / empty-curriculum fallback: build masked gap tree from weak domains
+    if (maskedTopics.length === 0) {
+      const domains: string[] = Array.isArray(weakDomains)
+        ? weakDomains.filter((d: unknown): d is string => typeof d === "string" && d.length > 0)
+        : [];
+      const gapCount = Math.max(1, domains.length || totalQ - numCorrect || 1);
+      maskedTopics = Array.from({ length: Math.min(5, gapCount) }, (_, index) => ({
+        id: `topic-masked-${index + 1}`,
+        maskedName: domains[index]
+          ? `מוקד פער: ${domains[index]}`
+          : `נושא מיקוד ${index + 1}`,
+        weightInExam: Number((1 / Math.min(5, gapCount)).toFixed(2)),
+        subTopicsCount: 2,
+        isLocked: true,
+      }));
+    }
+
     // Gap-depth analysis → recommended package (TRIO for 1-2 weak topics, MULTI for 3+).
-    const gapTopicsCount = diagnostic.topics.length;
+    const gapTopicsCount = maskedTopics.length;
     const recommendation = {
       packageRecommendation: (gapTopicsCount >= 3 ? "MULTI" : "TRIO") as "TRIO" | "MULTI",
       lessons: gapTopicsCount >= 3 ? 5 : 3,
@@ -317,7 +337,7 @@ export async function POST(request: Request) {
         isUnlocked: false,
         estimatedScore: diagnostic.estimatedScore,
         recommendationSummary: diagnostic.recommendationSummary,
-        topicsCount: diagnostic.topics.length,
+        topicsCount: gapTopicsCount,
         maskedTopics,
         recommendation,
         closer: closerAnalysis && closerDispatch

@@ -3,6 +3,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
+import { fieldClass, frostCard, pageCanvas, primaryCta } from "../../lib/ui";
 
 function getSafeRedirectTarget(from: string | null): string {
   if (!from) return "/dashboard";
@@ -62,7 +63,7 @@ function LoginForm() {
         throw new Error(data.error || "פרטי ההתחברות שגויים");
       }
 
-      toast.success(`ברוך הבא, ${data.user.name}! 👋`, { id: loginToast });
+      toast.success(`ברוך הבא, ${data.user.name}!`, { id: loginToast });
       router.replace(getSafeRedirectTarget(searchParams.get("from")));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "שגיאה בהתחברות";
@@ -73,21 +74,21 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden" dir="rtl">
-      <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
-      <div className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-indigo-600/10 blur-[100px] rounded-full pointer-events-none"></div>
-
-      <div className="max-w-md w-full space-y-8 bg-slate-800/40 border border-slate-800 p-8 rounded-2xl backdrop-blur-md relative z-10">
-        <div className="text-center">
-          <h2 className="text-3xl font-black tracking-tight bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">
+    <div className={`${pageCanvas} flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8`} dir="rtl">
+      <div className={`max-w-md w-full space-y-8 ${frostCard} p-8`}>
+        <div className="text-center space-y-2">
+          <h2 className="text-3xl font-semibold tracking-tight text-neutral-900">
             כניסה למערכת
           </h2>
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="text-xs text-neutral-500">
             אזור כניסה מאוחד לתלמידים, הורים וצוות המורים.
           </p>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="text-sm text-neutral-500">
             עדיין אין לך חשבון?{" "}
-            <Link href="/register" className="font-medium text-blue-400 hover:text-blue-300 transition-colors">
+            <Link
+              href="/register"
+              className="font-medium text-neutral-900 hover:text-neutral-700 underline-offset-2 hover:underline transition-colors"
+            >
               להרשמה בחינם
             </Link>
           </p>
@@ -95,12 +96,15 @@ function LoginForm() {
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div>
-            <label className="text-xs font-bold text-slate-400 block mb-1 px-1">אימייל או מספר טלפון</label>
+            <label className="text-xs font-semibold text-neutral-600 block mb-1.5 text-start">
+              אימייל או מספר טלפון
+            </label>
             <input
               type="text"
               required
               disabled={loading}
-              className="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-left dir-ltr disabled:opacity-50"
+              dir="rtl"
+              className={fieldClass}
               placeholder="0501234567 או email@example.com"
               value={formData.identifier || ""}
               onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
@@ -108,11 +112,11 @@ function LoginForm() {
           </div>
 
           <div>
-            <div className="flex justify-between items-center mb-1 px-1">
-              <label className="text-xs font-bold text-slate-400">סיסמה</label>
+            <div className="flex justify-between items-center mb-1.5 gap-3">
+              <label className="text-xs font-semibold text-neutral-600 text-start">סיסמה</label>
               <Link
                 href="/forgot-password"
-                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                className="text-xs text-neutral-500 hover:text-neutral-800 transition-colors"
               >
                 שכחת סיסמה?
               </Link>
@@ -121,7 +125,8 @@ function LoginForm() {
               type="password"
               required
               disabled={loading}
-              className="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-left disabled:opacity-50"
+              dir="rtl"
+              className={fieldClass}
               placeholder="••••••••"
               value={formData.password || ""}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -131,7 +136,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-600/20 transition-all hover:translate-y-[-1px] mt-6 disabled:opacity-50 flex items-center justify-center"
+            className={`w-full ${primaryCta} mt-6 flex items-center justify-center`}
           >
             {loading ? "מבצע אימות מאובטח..." : "התחברות לפלטפורמה"}
           </button>
@@ -145,7 +150,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center" dir="rtl">
+        <div className={`${pageCanvas} flex items-center justify-center`} dir="rtl">
           טוען...
         </div>
       }

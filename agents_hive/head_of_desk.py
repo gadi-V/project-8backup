@@ -26,7 +26,9 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict
 from dotenv import load_dotenv
 
 ENV_PATH = Path(__file__).parent / ".env"
+ROOT_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
+load_dotenv(dotenv_path=ROOT_ENV_PATH)
 
 # דיוק פיננסי - 19.4 (Decimal(19,4)) כמו ב-Prisma
 ILS = "ILS"

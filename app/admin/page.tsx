@@ -3,6 +3,21 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
+import {
+  pageCanvas,
+  frostCard,
+  frostPanel,
+  primaryCta,
+  secondaryCta,
+  dangerCta,
+  fieldClass,
+  badgeNeutral,
+  badgeSuccess,
+  badgeWarning,
+  emptyState,
+  eyebrow,
+  ledgerCard,
+} from "../../lib/ui";
 
 type Tab = "overview" | "teachers" | "leads" | "diagnostics" | "payouts" | "appeals";
 
@@ -434,8 +449,8 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center" dir="rtl">
-        טוען לוח ניהול...
+      <div className={`${pageCanvas} flex items-center justify-center`} dir="rtl">
+        <p className="text-sm text-neutral-500">טוען לוח ניהול...</p>
       </div>
     );
   }
@@ -450,49 +465,46 @@ export default function AdminPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-6 sm:p-8" dir="rtl">
+    <div className={`${pageCanvas} p-6 sm:p-8`} dir="rtl">
       <div className="max-w-6xl mx-auto space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 p-6 rounded-2xl">
+        <div className={`${frostCard} p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4`}>
           <div>
-            <span className="text-xs font-bold text-violet-400 block mb-1">לוח בקרה · ADMIN / MANAGER</span>
-            <h1 className="text-2xl font-black">שלום, {adminName}</h1>
+            <span className={`${eyebrow} block mb-1`}>לוח בקרה · ADMIN / MANAGER</span>
+            <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
+              שלום, {adminName}
+            </h1>
           </div>
-          <div className="flex gap-3">
-            <Link
-              href="/admin/curriculum"
-              className="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white py-2 px-4 rounded-xl"
-            >
+          <div className="flex flex-wrap gap-2">
+            <Link href="/admin/lessons" className={primaryCta}>
+              שיעורים · Override
+            </Link>
+            <Link href="/admin/curriculum" className={primaryCta}>
               תכנית לימודים
             </Link>
-            <Link
-              href="/dashboard"
-              className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-xl border border-slate-700"
-            >
+            <Link href="/dashboard" className={secondaryCta}>
               לדאשבורד
             </Link>
-            <button
-              onClick={handleLogout}
-              className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-xl border border-slate-700"
-            >
+            <button type="button" onClick={handleLogout} className={secondaryCta}>
               התנתקות
             </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 bg-slate-900/40 border border-slate-800 p-2 rounded-xl">
+        <div className={`${frostPanel} p-2 flex flex-wrap gap-2`}>
           {tabs.map((item) => (
             <button
               key={item.id}
+              type="button"
               onClick={() => setTab(item.id)}
-              className={`text-xs font-bold py-2 px-4 rounded-lg transition-all flex items-center gap-2 ${
-                tab === item.id ? "bg-violet-600 text-white" : "text-slate-400 hover:bg-slate-800"
+              className={`text-xs font-medium py-2 px-4 rounded-full transition-colors flex items-center gap-2 ${
+                tab === item.id
+                  ? "bg-neutral-900 text-white"
+                  : "text-neutral-600 hover:bg-neutral-100"
               }`}
             >
               {item.label}
               {typeof item.badge === "number" && item.badge > 0 && (
-                <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full">
-                  {item.badge}
-                </span>
+                <span className={badgeWarning}>{item.badge}</span>
               )}
             </button>
           ))}
@@ -511,14 +523,14 @@ export default function AdminPage() {
             ].map((card) => (
               <div
                 key={card.label}
-                className={`border p-5 rounded-2xl ${
-                  card.highlight
-                    ? "bg-amber-500/10 border-amber-500/30"
-                    : "bg-slate-900/50 border-slate-800"
+                className={`${frostCard} p-5 ${
+                  card.highlight ? "ring-1 ring-amber-200/80" : ""
                 }`}
               >
-                <div className="text-[11px] font-bold text-slate-400 mb-2">{card.label}</div>
-                <div className="text-3xl font-black">{card.value}</div>
+                <div className="text-[11px] font-medium text-neutral-500 mb-2">{card.label}</div>
+                <div className="text-3xl font-semibold tracking-tight text-neutral-900">
+                  {card.value}
+                </div>
               </div>
             ))}
           </div>
@@ -527,38 +539,31 @@ export default function AdminPage() {
         {tab === "teachers" && (
           <div className="space-y-3">
             {teachers.length === 0 ? (
-              <p className="text-sm text-slate-400">אין מורים רשומים עדיין.</p>
+              <div className={emptyState}>
+                <p className="text-sm text-neutral-600">אין מורים רשומים עדיין.</p>
+              </div>
             ) : (
               teachers.map((teacher) => (
-                <div
-                  key={teacher.id}
-                  className="bg-slate-900/50 border border-slate-800 rounded-2xl p-5 space-y-4"
-                >
+                <div key={teacher.id} className={`${frostCard} p-5 space-y-4`}>
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                    <div className="text-right space-y-1 flex-1">
-                      <div className="flex items-center gap-2 justify-end">
-                        <h3 className="font-black text-white">{teacher.name}</h3>
-                        <span
-                          className={`text-[10px] font-black px-2 py-0.5 rounded ${
-                            teacher.isApproved
-                              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                              : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                          }`}
-                        >
+                    <div className="text-start space-y-1 flex-1">
+                      <div className="flex items-center gap-2 justify-start">
+                        <h3 className="font-semibold text-neutral-900">{teacher.name}</h3>
+                        <span className={teacher.isApproved ? badgeSuccess : badgeWarning}>
                           {teacher.isApproved ? "מאושר" : "ממתין"}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400" dir="ltr">
+                      <p className="text-xs text-neutral-500" dir="ltr">
                         {teacher.phone}
                         {teacher.email ? ` · ${teacher.email}` : ""}
                       </p>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-[11px] text-neutral-500">
                         {teacher._count.availabilities} שעות פתוחות · {teacher._count.givenLessons}{" "}
                         שיעורים · נרשם {new Date(teacher.createdAt).toLocaleDateString("he-IL")}
                       </p>
                       {teacher.teacherProfile ? (
-                        <div className="text-[11px] text-slate-400 space-y-0.5 pt-1">
-                          <p className="text-violet-300">
+                        <div className="text-[11px] text-neutral-600 space-y-0.5 pt-1">
+                          <p className="text-neutral-800 font-medium">
                             מקצועות: {teacher.teacherProfile.subjects.join(" · ") || "—"}
                           </p>
                           <p>
@@ -575,14 +580,16 @@ export default function AdminPage() {
                               : " · ללא הפניות עדיין"}
                           </p>
                           {teacher.teacherProfile.bio ? (
-                            <p className="text-slate-500 line-clamp-2">{teacher.teacherProfile.bio}</p>
+                            <p className="text-neutral-500 line-clamp-2">
+                              {teacher.teacherProfile.bio}
+                            </p>
                           ) : null}
                         </div>
                       ) : (
-                        <p className="text-[11px] text-amber-400/80">טרם הוגדר פרופיל מורה</p>
+                        <p className="text-[11px] text-amber-800">טרם הוגדר פרופיל מורה</p>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-2 justify-end">
+                    <div className="flex flex-wrap gap-2 justify-start">
                       <button
                         type="button"
                         onClick={() =>
@@ -590,18 +597,19 @@ export default function AdminPage() {
                             ? setEditingTeacherId(null)
                             : openProfileEditor(teacher)
                         }
-                        className="text-xs font-bold py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                        className={secondaryCta}
                       >
                         {editingTeacherId === teacher.id ? "סגור עריכה" : "ערוך פרופיל"}
                       </button>
                       <button
+                        type="button"
                         disabled={actionLoading === teacher.id}
                         onClick={() => toggleTeacher(teacher.id, !teacher.isApproved)}
-                        className={`text-xs font-bold py-2.5 px-4 rounded-xl disabled:opacity-50 ${
+                        className={
                           teacher.isApproved
-                            ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
-                            : "bg-emerald-600 hover:bg-emerald-500 text-white"
-                        }`}
+                            ? secondaryCta
+                            : "bg-emerald-700 text-white hover:bg-emerald-800 rounded-full px-5 py-2.5 text-sm font-medium transition-colors disabled:opacity-40"
+                        }
                       >
                         {teacher.isApproved ? "בטל אישור" : "אשר מורה"}
                       </button>
@@ -609,10 +617,10 @@ export default function AdminPage() {
                   </div>
 
                   {editingTeacherId === teacher.id && (
-                    <div className="border-t border-slate-800 pt-4 space-y-4 text-right">
-                      <h4 className="text-xs font-black text-violet-300">עריכת TeacherProfile</h4>
+                    <div className="border-t border-neutral-100 pt-4 space-y-4 text-start">
+                      <h4 className={`${eyebrow}`}>עריכת TeacherProfile</h4>
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-400">
+                        <label className="text-[11px] font-medium text-neutral-500">
                           תחומי התמחות (מופרדים בפסיק)
                         </label>
                         <input
@@ -622,21 +630,23 @@ export default function AdminPage() {
                             setProfileForm((p) => ({ ...p, subjectsText: e.target.value }))
                           }
                           placeholder="מתמטיקה, פיזיקה, אינפי 1"
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500"
+                          className={fieldClass}
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[11px] font-bold text-slate-400">קבוצות גיל</label>
-                        <div className="flex flex-wrap gap-2 justify-end">
+                        <label className="text-[11px] font-medium text-neutral-500">
+                          קבוצות גיל
+                        </label>
+                        <div className="flex flex-wrap gap-2 justify-start">
                           {AGE_GROUP_OPTIONS.map((group) => (
                             <button
                               key={group}
                               type="button"
                               onClick={() => toggleAgeGroup(group)}
-                              className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                              className={`text-[11px] font-medium px-3 py-1.5 rounded-full border transition-colors ${
                                 profileForm.ageGroups.includes(group)
-                                  ? "bg-violet-600 border-violet-500 text-white"
-                                  : "bg-slate-950 border-slate-700 text-slate-400"
+                                  ? "bg-neutral-900 border-neutral-900 text-white"
+                                  : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
                               }`}
                             >
                               {group}
@@ -645,19 +655,21 @@ export default function AdminPage() {
                         </div>
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-400">ביוגרפיה קצרה</label>
+                        <label className="text-[11px] font-medium text-neutral-500">
+                          ביוגרפיה קצרה
+                        </label>
                         <textarea
                           value={profileForm.bio}
                           onChange={(e) =>
                             setProfileForm((p) => ({ ...p, bio: e.target.value }))
                           }
                           rows={3}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500 resize-y"
+                          className={`${fieldClass} resize-y`}
                           placeholder="ניסיון, גישה פדגוגית..."
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-400">
+                        <label className="text-[11px] font-medium text-neutral-500">
                           קישור לתמונת פרופיל (אופציונלי)
                         </label>
                         <input
@@ -668,14 +680,14 @@ export default function AdminPage() {
                             setProfileForm((p) => ({ ...p, profileImageUrl: e.target.value }))
                           }
                           placeholder="https://..."
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500"
+                          className={fieldClass}
                         />
                       </div>
                       <button
                         type="button"
                         disabled={profileSaving}
                         onClick={() => saveTeacherProfile(teacher.id)}
-                        className="text-xs font-bold py-2.5 px-5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50"
+                        className={primaryCta}
                       >
                         {profileSaving ? "שומר..." : "שמור פרופיל"}
                       </button>
@@ -690,43 +702,36 @@ export default function AdminPage() {
         {tab === "leads" && (
           <div className="space-y-3">
             {leads.length === 0 ? (
-              <p className="text-sm text-slate-400">אין לידים במערכת.</p>
+              <div className={emptyState}>
+                <p className="text-sm text-neutral-600">אין לידים במערכת.</p>
+              </div>
             ) : (
               leads.map((lead) => (
                 <div
                   key={lead.id}
-                  className="bg-slate-900/50 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  className={`${frostCard} p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4`}
                 >
-                  <div className="text-right space-y-1">
-                    <div className="flex items-center gap-2 justify-end">
-                      <h3 className="font-black text-white">{lead.name}</h3>
-                      <span
-                        className={`text-[10px] font-black px-2 py-0.5 rounded ${
-                          lead.isHandled
-                            ? "bg-slate-700 text-slate-300"
-                            : "bg-blue-500/15 text-blue-300 border border-blue-500/30"
-                        }`}
-                      >
+                  <div className="text-start space-y-1">
+                    <div className="flex items-center gap-2 justify-start">
+                      <h3 className="font-semibold text-neutral-900">{lead.name}</h3>
+                      <span className={lead.isHandled ? badgeNeutral : badgeWarning}>
                         {lead.isHandled ? "טופל" : "פתוח"}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400" dir="ltr">
+                    <p className="text-xs text-neutral-500" dir="ltr">
                       {lead.phone}
                     </p>
-                    <p className="text-xs text-slate-300">{lead.grade}</p>
-                    <p className="text-[11px] text-slate-500">{lead.requestedHours}</p>
-                    <p className="text-[11px] text-slate-600">
+                    <p className="text-xs text-neutral-700">{lead.grade}</p>
+                    <p className="text-[11px] text-neutral-500">{lead.requestedHours}</p>
+                    <p className="text-[11px] text-neutral-400">
                       {new Date(lead.createdAt).toLocaleString("he-IL")}
                     </p>
                   </div>
                   <button
+                    type="button"
                     disabled={actionLoading === lead.id}
                     onClick={() => toggleLead(lead.id, !lead.isHandled)}
-                    className={`text-xs font-bold py-2.5 px-4 rounded-xl disabled:opacity-50 ${
-                      lead.isHandled
-                        ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
-                        : "bg-blue-600 hover:bg-blue-500 text-white"
-                    }`}
+                    className={lead.isHandled ? secondaryCta : primaryCta}
                   >
                     {lead.isHandled ? "פתח מחדש" : "סמן כטופל"}
                   </button>
@@ -739,7 +744,9 @@ export default function AdminPage() {
         {tab === "diagnostics" && (
           <div className="space-y-3">
             {diagnostics.length === 0 ? (
-              <p className="text-sm text-slate-400">אין אבחונים שמורים עדיין.</p>
+              <div className={emptyState}>
+                <p className="text-sm text-neutral-600">אין אבחונים שמורים עדיין.</p>
+              </div>
             ) : (
               diagnostics.map((item) => {
                 let challengePreview = item.challenge;
@@ -754,32 +761,31 @@ export default function AdminPage() {
                   /* keep raw */
                 }
                 return (
-                  <div
-                    key={item.id}
-                    className="bg-slate-900/50 border border-slate-800 rounded-2xl p-5 text-right space-y-2"
-                  >
+                  <div key={item.id} className={`${frostCard} p-5 text-start space-y-2`}>
                     <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-black text-white">{item.student.name}</h3>
-                      <span className="text-[10px] font-mono text-slate-500">
+                      <h3 className="font-semibold text-neutral-900">{item.student.name}</h3>
+                      <span className="text-[10px] font-mono text-neutral-400">
                         {new Date(item.createdAt).toLocaleDateString("he-IL")}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400" dir="ltr">
+                    <p className="text-xs text-neutral-500" dir="ltr">
                       {item.student.phone}
                     </p>
-                    <p className="text-xs text-violet-300">
+                    <p className="text-xs text-neutral-700 font-medium">
                       {item.ageGroup} · {item.subject}
                     </p>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">{challengePreview}</p>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-neutral-600 leading-relaxed">
+                      {challengePreview}
+                    </p>
+                    <p className="text-[11px] text-neutral-500">
                       יתרת קרדיטים: {item.student.lessonCredits}
                     </p>
-                    <div className="flex flex-wrap gap-2 justify-end pt-2">
+                    <div className="flex flex-wrap gap-2 justify-start pt-2">
                       <button
                         type="button"
                         disabled={actionLoading === `match-${item.student.id}`}
                         onClick={() => runMatchForStudent(item.student.id)}
-                        className="text-[11px] font-bold py-2 px-3 rounded-lg bg-violet-600/80 hover:bg-violet-500 text-white disabled:opacity-50"
+                        className={primaryCta}
                       >
                         חשב התאמת מורה
                       </button>
@@ -788,23 +794,23 @@ export default function AdminPage() {
                           type="button"
                           disabled={actionLoading === `assign-${item.student.id}`}
                           onClick={() => assignMatchForStudent(item.student.id)}
-                          className="text-[11px] font-bold py-2 px-3 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white disabled:opacity-50"
+                          className="bg-emerald-700 text-white hover:bg-emerald-800 rounded-full px-5 py-2.5 text-sm font-medium transition-colors disabled:opacity-40"
                         >
                           שייך הפנייה למורה המומלץ
                         </button>
                       )}
                     </div>
                     {matchPreview[item.student.id] && (
-                      <div className="bg-slate-950/60 border border-violet-500/20 rounded-xl p-3 text-[11px] space-y-1">
-                        <p className="font-bold text-violet-300">
+                      <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 text-[11px] space-y-1">
+                        <p className="font-medium text-neutral-900">
                           מומלץ: {matchPreview[item.student.id]!.teacherName} · ציון{" "}
                           {matchPreview[item.student.id]!.matchScore}
                         </p>
-                        <p className="text-slate-400">
+                        <p className="text-neutral-600">
                           הפניות עד כה: {matchPreview[item.student.id]!.referralCount}
                         </p>
                         {matchPreview[item.student.id]!.reasons.length > 0 && (
-                          <p className="text-slate-500">
+                          <p className="text-neutral-500">
                             {matchPreview[item.student.id]!.reasons.join(" · ")}
                           </p>
                         )}
@@ -819,18 +825,15 @@ export default function AdminPage() {
 
         {tab === "payouts" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-black text-white">Payout Queue</h2>
-                <p className="text-xs text-slate-400">
+                <h2 className="text-lg font-semibold text-neutral-900">תור תשלומי מורים</h2>
+                <p className="text-xs text-neutral-500">
                   מורים עם יתרה לתשלום ופרטי בנק — סמן כשולם לאחר העברה ידנית.
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Link
-                  href="/admin/payouts"
-                  className="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white py-2 px-4 rounded-xl border border-violet-500"
-                >
+                <Link href="/admin/payouts" className={primaryCta}>
                   ניהול שכר וסליקה מלא
                 </Link>
                 <button
@@ -838,41 +841,49 @@ export default function AdminPage() {
                   onClick={() =>
                     loadPayouts().catch(() => toast.error("שגיאה בטעינת תשלומים"))
                   }
-                  className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-xl border border-slate-700"
+                  className={secondaryCta}
                 >
                   רענון
                 </button>
               </div>
             </div>
             {payouts.length === 0 ? (
-              <p className="text-sm text-slate-400">אין תשלומים ממתינים.</p>
+              <div className={emptyState}>
+                <p className="text-sm text-neutral-600">אין תשלומים ממתינים.</p>
+                <Link href="/admin/payouts" className={`inline-flex ${primaryCta}`}>
+                  ניהול שכר וסליקה
+                </Link>
+              </div>
             ) : (
-              <div className="overflow-x-auto border border-slate-800 rounded-2xl">
-                <table className="w-full text-right text-xs min-w-[720px]">
-                  <thead className="bg-slate-900/80 text-slate-400">
-                    <tr>
-                      <th className="p-3 font-bold">מורה</th>
-                      <th className="p-3 font-bold">סכום</th>
-                      <th className="p-3 font-bold">פרטי בנק</th>
-                      <th className="p-3 font-bold">שיעור</th>
-                      <th className="p-3 font-bold">סטטוס</th>
-                      <th className="p-3 font-bold">פעולה</th>
+              <div className={`${frostCard} overflow-x-auto`}>
+                <table className="w-full text-start text-xs min-w-[720px]">
+                  <thead className="bg-neutral-50/80 text-neutral-500">
+                    <tr className="border-b border-neutral-100">
+                      <th className="px-5 py-4 font-medium">מורה</th>
+                      <th className="px-5 py-4 font-medium">סכום</th>
+                      <th className="px-5 py-4 font-medium">פרטי בנק</th>
+                      <th className="px-5 py-4 font-medium">שיעור</th>
+                      <th className="px-5 py-4 font-medium">סטטוס</th>
+                      <th className="px-5 py-4 font-medium">פעולה</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800">
+                  <tbody>
                     {payouts.map((p) => (
-                      <tr key={p.id} className="bg-slate-900/40">
-                        <td className="p-3">
-                          <div className="font-bold text-white">{p.teacher.name}</div>
-                          <div className="text-slate-500" dir="ltr">
+                      <tr
+                        key={p.id}
+                        className="border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50/80 transition-colors"
+                      >
+                        <td className="px-5 py-4">
+                          <div className="font-medium text-neutral-900">{p.teacher.name}</div>
+                          <div className="text-neutral-500 font-mono text-[10px]" dir="ltr">
                             {p.teacher.phone}
                           </div>
                         </td>
-                        <td className="p-3 font-black text-emerald-400">
+                        <td className="px-5 py-4 font-semibold text-emerald-800">
                           ₪{p.amount}
                           {p.currency !== "ILS" ? ` ${p.currency}` : ""}
                         </td>
-                        <td className="p-3 text-slate-300">
+                        <td className="px-5 py-4 text-neutral-700">
                           {p.teacher.bank &&
                           (p.teacher.bank.bankName || p.teacher.bank.accountNumber) ? (
                             <div className="space-y-0.5">
@@ -882,36 +893,38 @@ export default function AdminPage() {
                                   ? ` · סניף ${p.teacher.bank.bankBranch}`
                                   : ""}
                               </div>
-                              <div dir="ltr">{p.teacher.bank.accountNumber ?? "—"}</div>
-                              <div className="text-slate-500">
+                              <div className="font-mono text-[10px]" dir="ltr">
+                                {p.teacher.bank.accountNumber ?? "—"}
+                              </div>
+                              <div className="text-neutral-500">
                                 {p.teacher.bank.accountHolderName ?? "—"}
                               </div>
                             </div>
                           ) : (
-                            <span className="text-amber-400">חסרים פרטי בנק</span>
+                            <span className={badgeWarning}>חסרים פרטי בנק</span>
                           )}
                         </td>
-                        <td className="p-3 text-slate-400">
+                        <td className="px-5 py-4 text-neutral-500">
                           {p.lesson
                             ? `${p.lesson.title ?? "שיעור"} · ${new Date(
                                 p.lesson.scheduledAt
                               ).toLocaleDateString("he-IL")}`
                             : "—"}
                         </td>
-                        <td className="p-3">
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                            {p.status}
-                          </span>
+                        <td className="px-5 py-4">
+                          <span className={badgeWarning}>{p.status}</span>
                         </td>
-                        <td className="p-3">
-                          <button
-                            type="button"
-                            disabled={actionLoading === p.id}
-                            onClick={() => markPayoutAsPaid(p.id)}
-                            className="text-[11px] font-bold py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
-                          >
-                            {actionLoading === p.id ? "..." : "סמן כשולם"}
-                          </button>
+                        <td className="px-5 py-4">
+                          <div className={`${ledgerCard} inline-block p-2`}>
+                            <button
+                              type="button"
+                              disabled={actionLoading === p.id}
+                              onClick={() => markPayoutAsPaid(p.id)}
+                              className="text-[11px] font-medium py-1.5 px-3 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
+                            >
+                              {actionLoading === p.id ? "..." : "סמן כשולם"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -924,10 +937,10 @@ export default function AdminPage() {
 
         {tab === "appeals" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-black text-white">ערעורים ממתינים</h2>
-                <p className="text-xs text-slate-400">
+                <h2 className="text-lg font-semibold text-neutral-900">ערעורים ממתינים</h2>
+                <p className="text-xs text-neutral-500">
                   Approve מזכה תלמיד ומבטל קנס מורה · Reject משאיר את הקנס בתוקף.
                 </p>
               </div>
@@ -936,50 +949,55 @@ export default function AdminPage() {
                 onClick={() =>
                   loadAppeals().catch(() => toast.error("שגיאה בטעינת ערעורים"))
                 }
-                className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-xl border border-slate-700"
+                className={secondaryCta}
               >
                 רענון
               </button>
             </div>
             {appeals.length === 0 ? (
-              <p className="text-sm text-slate-400">אין ערעורים ממתינים.</p>
+              <div className={emptyState}>
+                <p className="text-sm text-neutral-600">אין ערעורים ממתינים.</p>
+              </div>
             ) : (
-              <div className="overflow-x-auto border border-slate-800 rounded-2xl">
-                <table className="w-full text-right text-xs min-w-[720px]">
-                  <thead className="bg-slate-900/80 text-slate-400">
-                    <tr>
-                      <th className="p-3 font-bold">שיעור</th>
-                      <th className="p-3 font-bold">מורה</th>
-                      <th className="p-3 font-bold">תלמיד</th>
-                      <th className="p-3 font-bold">מועד</th>
-                      <th className="p-3 font-bold">סטטוס</th>
-                      <th className="p-3 font-bold">פעולות</th>
+              <div className={`${frostCard} overflow-x-auto`}>
+                <table className="w-full text-start text-xs min-w-[720px]">
+                  <thead className="bg-neutral-50/80 text-neutral-500">
+                    <tr className="border-b border-neutral-100">
+                      <th className="px-5 py-4 font-medium">שיעור</th>
+                      <th className="px-5 py-4 font-medium">מורה</th>
+                      <th className="px-5 py-4 font-medium">תלמיד</th>
+                      <th className="px-5 py-4 font-medium">מועד</th>
+                      <th className="px-5 py-4 font-medium">סטטוס</th>
+                      <th className="px-5 py-4 font-medium">פעולות</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800">
+                  <tbody>
                     {appeals.map((a) => (
-                      <tr key={a.id} className="bg-slate-900/40">
-                        <td className="p-3">
-                          <div className="font-bold text-white">{a.title ?? "שיעור פרטי"}</div>
-                          <div className="text-slate-500 font-mono text-[10px]">{a.id}</div>
+                      <tr
+                        key={a.id}
+                        className="border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50/80 transition-colors"
+                      >
+                        <td className="px-5 py-4">
+                          <div className="font-medium text-neutral-900">
+                            {a.title ?? "שיעור פרטי"}
+                          </div>
+                          <div className="text-neutral-400 font-mono text-[10px]">{a.id}</div>
                         </td>
-                        <td className="p-3 text-slate-300">{a.teacher.name}</td>
-                        <td className="p-3 text-slate-300">{a.student.name}</td>
-                        <td className="p-3 text-slate-400">
+                        <td className="px-5 py-4 text-neutral-700">{a.teacher.name}</td>
+                        <td className="px-5 py-4 text-neutral-700">{a.student.name}</td>
+                        <td className="px-5 py-4 text-neutral-500">
                           {new Date(a.scheduledAt).toLocaleString("he-IL")}
                         </td>
-                        <td className="p-3">
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                            {a.appealStatus}
-                          </span>
+                        <td className="px-5 py-4">
+                          <span className={badgeWarning}>{a.appealStatus}</span>
                         </td>
-                        <td className="p-3">
-                          <div className="flex flex-wrap gap-2 justify-end">
+                        <td className="px-5 py-4">
+                          <div className="flex flex-wrap gap-2 justify-start">
                             <button
                               type="button"
                               disabled={actionLoading !== null}
                               onClick={() => resolveAppeal(a.id, "APPROVE")}
-                              className="text-[11px] font-bold py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
+                              className="text-[11px] font-medium py-1.5 px-3 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white disabled:opacity-50"
                             >
                               Approve
                             </button>
@@ -987,7 +1005,7 @@ export default function AdminPage() {
                               type="button"
                               disabled={actionLoading !== null}
                               onClick={() => resolveAppeal(a.id, "REJECT")}
-                              className="text-[11px] font-bold py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white disabled:opacity-50"
+                              className={dangerCta}
                             >
                               Reject
                             </button>

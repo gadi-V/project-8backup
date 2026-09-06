@@ -8,7 +8,7 @@
 
 | Gate | Command | Expected | Result |
 |---|---|---|---|
-| **G1 — Production Healthcheck** | `npx tsx scripts/production-healthcheck.ts` | `VERDICT: HEALTHY` | ✅ PASS — DB, 4 pages, env keys; 1 live CRITICAL data event (NO_TEACHER_ASSIGNED) — infra OK |
+| **G1 — Production Healthcheck** | `npx tsx scripts/production-healthcheck.ts` | `VERDICT: HEALTHY` | ✅ PASS — 26 topics, quiet desk (0 CRITICAL), 10/10 surfaces |
 | **G2 — TypeScript** | `npx tsc --noEmit` | `TSC EXIT: 0` | ✅ PASS |
 | **G3 — Agent Hive Daemon** | `python3 agents_hive/run_hive.py` (graceful SIGTERM) | starts MCP + HOD, exits 0 | ✅ PASS — venv auto-reexec + supervised shutdown |
 | **G4 — Production Build** | `npm run build` (step 6) | 60/60 pages | ✅ PASS (prior step) |

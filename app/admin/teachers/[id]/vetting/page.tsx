@@ -1,7 +1,22 @@
 "use client";
 
 import React, { useEffect, useState, use } from "react";
+import Link from "next/link";
 import { VettingStepName, VettingStepStatus, VettingStatus } from "@prisma/client";
+import {
+  pageCanvas,
+  frostCard,
+  primaryCta,
+  secondaryCta,
+  dangerCta,
+  fieldClass,
+  badgeSuccess,
+  badgeWarning,
+  badgeDanger,
+  badgeNeutral,
+  emptyState,
+  eyebrow,
+} from "../../../../../lib/ui";
 
 interface VettingStepLog {
   id: string;
@@ -101,7 +116,6 @@ export default function TeacherVettingAdminPage({
       const initialNotes: Record<number, string> = {};
       json.steps.forEach((s) => {
         if (s.adminNotes) initialNotes[s.stepNumber] = s.adminNotes;
-
       });
       setNotesInput(initialNotes);
     } catch (err: unknown) {
@@ -185,18 +199,21 @@ export default function TeacherVettingAdminPage({
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 font-sans" dir="rtl">
-        <div className="text-lg font-medium text-slate-600">טוען נתוני משפך סינון...</div>
+      <div className={`${pageCanvas} flex items-center justify-center`} dir="rtl">
+        <div className="text-sm font-medium text-neutral-500">טוען נתוני משפך סינון...</div>
       </div>
     );
   }
 
   if (errorMsg || !data) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 font-sans" dir="rtl">
-        <div className="rounded-lg bg-red-50 p-6 text-red-700 shadow">
-          <p className="font-bold">שגיאה בטעינת הנתונים</p>
-          <p className="text-sm">{errorMsg || "פרופיל המורה לא נמצא"}</p>
+      <div className={`${pageCanvas} flex items-center justify-center p-8`} dir="rtl">
+        <div className={`${emptyState} max-w-md`}>
+          <p className="font-medium text-neutral-900">שגיאה בטעינת הנתונים</p>
+          <p className="text-sm text-neutral-600">{errorMsg || "פרופיל המורה לא נמצא"}</p>
+          <Link href="/admin/teachers" className={`inline-flex ${primaryCta}`}>
+            חזרה לרשימת מורים
+          </Link>
         </div>
       </div>
     );
@@ -205,53 +222,58 @@ export default function TeacherVettingAdminPage({
   const { profile, steps } = data;
   const logsMap = new Map(steps.map((s) => [s.stepNumber, s]));
 
+  const funnelBadge =
+    profile.vettingStatus === VettingStatus.APPROVED
+      ? badgeSuccess
+      : profile.vettingStatus === VettingStatus.REJECTED
+        ? badgeDanger
+        : badgeWarning;
+
+  const stepStatusBadge = (status: VettingStepStatus) => {
+    if (status === VettingStepStatus.PASSED) return badgeSuccess;
+    if (status === VettingStepStatus.FAILED) return badgeDanger;
+    if (status === VettingStepStatus.SKIPPED) return badgeNeutral;
+    if (status === VettingStepStatus.PENDING) return badgeWarning;
+    return badgeNeutral;
+  };
+
   return (
-    <div className="min-h-screen bg-slate-100 p-8 font-sans text-slate-900" dir="rtl">
+    <div className={`${pageCanvas} p-8`} dir="rtl">
       <div className="mx-auto max-w-5xl space-y-6">
-        {/* כותרת ופרטי מורה */}
-        <div className="rounded-xl bg-white p-6 shadow-sm border border-slate-200">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div className={`${frostCard} p-6`}>
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-100 pb-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">
-                משפך סינון וקליטה: {profile.user.name || "ללא שם"}
+              <p className={eyebrow}>משפך סינון</p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-900">
+                {profile.user.name || "ללא שם"}
               </h1>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-neutral-500">
                 אימייל: {profile.user.email} | טלפון: {profile.user.phone || "לא צוין"}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-600">סטטוס משפך כללי:</span>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  profile.vettingStatus === VettingStatus.APPROVED
-                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                    : profile.vettingStatus === VettingStatus.REJECTED
-                    ? "bg-rose-100 text-rose-800 border border-rose-300"
-                    : "bg-amber-100 text-amber-800 border border-amber-300"
-                }`}
-              >
-                {profile.vettingStatus}
-              </span>
+              <span className="text-sm font-medium text-neutral-600">סטטוס משפך:</span>
+              <span className={funnelBadge}>{profile.vettingStatus}</span>
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 text-sm text-slate-600">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 text-sm text-neutral-600">
             <div>
-              <span className="font-semibold text-slate-700">סוג תשלום: </span>
+              <span className="font-medium text-neutral-800">סוג תשלום: </span>
               {profile.payoutType}
             </div>
             <div>
-              <span className="font-semibold text-slate-700">חשבון בנק: </span>
+              <span className="font-medium text-neutral-800">חשבון בנק: </span>
               {profile.bankName ? `${profile.bankName} (${profile.accountNumber})` : "לא הוזן"}
             </div>
             <div>
-              <span className="font-semibold text-slate-700">קורות חיים: </span>
+              <span className="font-medium text-neutral-800">קורות חיים: </span>
               {profile.cvUrl ? (
                 <a
                   href={profile.cvUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-indigo-600 underline hover:text-indigo-800"
+                  className="text-neutral-900 underline underline-offset-2 hover:text-neutral-700"
                 >
                   צפה בקובץ CV
                 </a>
@@ -261,10 +283,9 @@ export default function TeacherVettingAdminPage({
             </div>
           </div>
 
-          {/* הערכה מילולית מובנית: חוזקות / חולשות פדגוגיות */}
-          <div className="mt-4 grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-3 border-t border-neutral-100 pt-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-bold text-slate-700">
+              <label className="mb-1 block text-xs font-medium text-neutral-700">
                 חוזקות פדגוגיות
               </label>
               <textarea
@@ -272,11 +293,11 @@ export default function TeacherVettingAdminPage({
                 onChange={(e) => setStrengthsInput(e.target.value)}
                 placeholder="למשל: הסבר מסודר, סבלנות, שליטה בחומר 5 יח״ל..."
                 rows={2}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
+                className={fieldClass}
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-bold text-slate-700">
+              <label className="mb-1 block text-xs font-medium text-neutral-700">
                 חולשות / נקודות לשיפור
               </label>
               <textarea
@@ -284,70 +305,88 @@ export default function TeacherVettingAdminPage({
                 onChange={(e) => setWeaknessesInput(e.target.value)}
                 placeholder="למשל: ניהול זמן, היערכות לשיעור ראשון..."
                 rows={2}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
+                className={fieldClass}
               />
             </div>
             <button
               type="button"
               disabled={savingPedagogy || (!strengthsInput.trim() && !weaknessesInput.trim())}
               onClick={() => handleSavePedagogicalAssessment()}
-              className="justify-self-start rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+              className={`justify-self-start ${primaryCta}`}
             >
               {savingPedagogy ? "שומר..." : "שמירת הערכה פדגוגית"}
             </button>
           </div>
         </div>
 
-        {/* דיאגרמת שלבים ויזואלית: V הושלם · - ממתין · X נדחה */}
-        <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-200">
-          <h2 className="mb-4 text-sm font-black text-slate-800">דיאגרמת שלבי הקליטה</h2>
+        <div className={`${frostCard} p-5`}>
+          <h2 className="mb-4 text-sm font-semibold text-neutral-900">דיאגרמת שלבי הקליטה</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {ORDERED_STEPS.map((stepName, idx) => {
               const stepNumber = idx + 1;
               const log = logsMap.get(stepNumber);
               const status = log ? log.status : VettingStepStatus.PENDING;
-              const isPassed =
-                status === VettingStepStatus.PASSED ||
-                status === VettingStepStatus.SKIPPED;
+              const isSkipped =
+                status === VettingStepStatus.SKIPPED || Boolean(log?.bypassedByAdmin);
+              const isPassed = status === VettingStepStatus.PASSED;
               const isFailed = status === VettingStepStatus.FAILED;
+              const isDone = isPassed || isSkipped;
 
               return (
                 <div
                   key={stepName}
-                  className={`rounded-xl border p-3 text-center transition ${
+                  className={`rounded-2xl border p-3 text-center transition-colors ${
                     isFailed
-                      ? "border-rose-300 bg-rose-50"
-                      : isPassed
-                        ? "border-emerald-300 bg-emerald-50"
-                        : "border-slate-200 bg-slate-50"
+                      ? "border-red-200 bg-red-50"
+                      : isSkipped
+                        ? "border-neutral-300 bg-neutral-100"
+                        : isPassed
+                          ? "border-emerald-200 bg-emerald-50"
+                          : "border-neutral-200 bg-neutral-50"
                   }`}
                 >
                   <div
-                    className={`mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full text-sm font-black ${
+                    className={`mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
                       isFailed
-                        ? "bg-rose-600 text-white"
-                        : isPassed
-                          ? "bg-emerald-600 text-white"
-                          : "bg-slate-200 text-slate-600"
+                        ? "bg-red-700 text-white"
+                        : isSkipped
+                          ? "bg-neutral-700 text-white"
+                          : isPassed
+                            ? "bg-emerald-700 text-white"
+                            : "bg-neutral-200 text-neutral-600"
                     }`}
                   >
-                    {isFailed ? "X" : isPassed ? "V" : "-"}
+                    {isFailed ? "X" : isSkipped ? "V" : isPassed ? "V" : "-"}
                   </div>
-                  <p className="text-[11px] font-black text-slate-700">
+                  <p className="text-[11px] font-medium text-neutral-800">
                     {STEP_LABELS[stepName].title.replace(/^\d+\.\s*/, "")}
                   </p>
-                  <p className="mt-0.5 text-[10px] font-bold text-slate-500">
-                    {isFailed ? "נדחה" : isPassed ? "הושלם" : "ממתין"}
+                  <p
+                    className={`mt-0.5 text-[10px] font-medium ${
+                      isSkipped ? "text-neutral-700" : "text-neutral-500"
+                    }`}
+                  >
+                    {isFailed
+                      ? "נדחה"
+                      : isSkipped
+                        ? "Skipped"
+                        : isPassed
+                          ? "הושלם"
+                          : "ממתין"}
                   </p>
+                  {isDone && log?.bypassedByAdmin && (
+                    <p className="mt-0.5 text-[9px] font-medium text-neutral-500">
+                      Super-Override
+                    </p>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* 6 שלבי המשפך */}
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-slate-800">שלבי הסינון (6 שלבים מלאים)</h2>
+          <h2 className="text-lg font-semibold text-neutral-900">שלבי הסינון (6 שלבים מלאים)</h2>
           {ORDERED_STEPS.map((stepName, idx) => {
             const stepNumber = idx + 1;
             const log = logsMap.get(stepNumber);
@@ -356,90 +395,83 @@ export default function TeacherVettingAdminPage({
             const stepInfo = STEP_LABELS[stepName];
 
             return (
-              <div
-                key={stepName}
-                className="rounded-xl bg-white p-5 shadow-sm border border-slate-200 transition hover:border-slate-300"
-              >
+              <div key={stepName} className={`${frostCard} p-5`}>
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      <span className="text-base font-bold text-slate-800">{stepInfo.title}</span>
-                      <span
-                        className={`rounded px-2.5 py-0.5 text-xs font-semibold ${
-                          status === VettingStepStatus.PASSED
-                            ? "bg-emerald-100 text-emerald-700"
-                            : status === VettingStepStatus.FAILED
-                            ? "bg-rose-100 text-rose-700"
-                            : status === VettingStepStatus.SKIPPED
-                            ? "bg-purple-100 text-purple-700"
-                            : status === VettingStepStatus.PENDING
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {status}
+                  <div className="space-y-1 text-start">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-base font-semibold text-neutral-900">
+                        {stepInfo.title}
                       </span>
+                      <span className={stepStatusBadge(status)}>{status}</span>
                     </div>
-                    <p className="text-xs text-slate-500">{stepInfo.desc}</p>
+                    <p className="text-xs text-neutral-500">{stepInfo.desc}</p>
                     {log?.completedAt && (
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-neutral-400">
                         הושלם בתאריך: {new Date(log.completedAt).toLocaleString("he-IL")}
                       </p>
                     )}
                   </div>
 
-                  {/* כפתורי פעולה */}
                   <div className="flex flex-wrap items-center gap-2">
                     <button
+                      type="button"
                       disabled={isUpdating}
                       onClick={() =>
                         handleUpdateStatus(stepNumber, stepName, VettingStepStatus.PASSED)
                       }
-                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+                      className="rounded-full bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
                     >
                       {isUpdating ? "מעדכן..." : "אשר שלב (Pass)"}
                     </button>
                     <button
+                      type="button"
                       disabled={isUpdating}
                       onClick={() =>
                         handleUpdateStatus(stepNumber, stepName, VettingStepStatus.FAILED)
                       }
-                      className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-rose-700 disabled:opacity-50"
+                      className={dangerCta}
                     >
                       פסול (Fail)
                     </button>
                     <button
+                      type="button"
                       disabled={isUpdating}
                       onClick={() =>
                         handleUpdateStatus(stepNumber, stepName, VettingStepStatus.SKIPPED, true)
                       }
-                      className="rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300 disabled:opacity-50"
+                      className={secondaryCta}
                     >
                       דלג מנהל (Bypass)
                     </button>
 
-                    {/* Skip Exam Stage — ייעודי לשלב 4 (מבחן 581) */}
                     {stepName === VettingStepName.EXAM_581 && (
                       <button
-                        disabled={isUpdating}
+                        type="button"
+                        disabled={
+                          isUpdating ||
+                          status === VettingStepStatus.SKIPPED ||
+                          Boolean(log?.bypassedByAdmin)
+                        }
                         onClick={() =>
                           handleUpdateStatus(stepNumber, stepName, VettingStepStatus.SKIPPED, true)
                         }
-                        className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-purple-700 disabled:opacity-50"
-                        title="מאשר את השלב עבור מורים מצטיינים / בעלי ותק מוכח — ללא מבחן"
+                        className={primaryCta}
+                        title="דילוג על מבחן 581 ע״י מנהל — מגדיר bypassedByAdmin=true"
                       >
-                        Skip Exam Stage
+                        {log?.bypassedByAdmin || status === VettingStepStatus.SKIPPED
+                          ? "Exam Skipped"
+                          : "Skip Exam Stage (Super-Override)"}
                       </button>
                     )}
 
-                    {/* אישור סופי — מעביר את השלב האחרון ופותח את המורה */}
                     {stepName === VettingStepName.FINAL_APPROVAL && (
                       <button
+                        type="button"
                         disabled={isUpdating}
                         onClick={() =>
                           handleUpdateStatus(stepNumber, stepName, VettingStepStatus.PASSED)
                         }
-                        className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50"
+                        className="rounded-full bg-emerald-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-900 disabled:opacity-50"
                         title="מאשר את המורה סופית — פותח לו דף שעות שבועי"
                       >
                         אישור סופי (Approve Teacher)
@@ -448,23 +480,26 @@ export default function TeacherVettingAdminPage({
                   </div>
                 </div>
 
-                {/* הערות מנהל לשלב */}
-                <div className="mt-3 border-t border-slate-100 pt-3">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="הוסף הערת מנהל לשלב זה..."
-                      value={notesInput[stepNumber] || ""}
-                      onChange={(e) =>
-                        setNotesInput((prev) => ({ ...prev, [stepNumber]: e.target.value }))
-                      }
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                    />
-                  </div>
+                <div className="mt-3 border-t border-neutral-100 pt-3">
+                  <input
+                    type="text"
+                    placeholder="הוסף הערת מנהל לשלב זה..."
+                    value={notesInput[stepNumber] || ""}
+                    onChange={(e) =>
+                      setNotesInput((prev) => ({ ...prev, [stepNumber]: e.target.value }))
+                    }
+                    className={fieldClass}
+                  />
                 </div>
               </div>
             );
           })}
+        </div>
+
+        <div className="pt-2">
+          <Link href="/admin/teachers" className={secondaryCta}>
+            חזרה לרשימת מורים
+          </Link>
         </div>
       </div>
     </div>

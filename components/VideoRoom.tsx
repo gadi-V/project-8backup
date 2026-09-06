@@ -35,7 +35,7 @@ const ParticipantTile = ({ id }: { id: string }) => {
   }, [audioTrack]);
 
   return (
-    <div className="relative bg-slate-800 rounded-xl overflow-hidden aspect-video sm:aspect-square md:aspect-video flex items-center justify-center">
+    <div className="relative bg-neutral-900 rounded-xl overflow-hidden aspect-video sm:aspect-square md:aspect-video flex items-center justify-center">
       {videoTrack?.persistentTrack ? (
         <video
           ref={videoRef}
@@ -45,7 +45,7 @@ const ParticipantTile = ({ id }: { id: string }) => {
           className="w-full h-full object-cover"
         />
       ) : (
-        <div className="text-slate-500 font-bold text-sm">מצלמה כבויה</div>
+        <div className="text-neutral-400 font-medium text-sm">מצלמה כבויה</div>
       )}
       <audio ref={audioRef} autoPlay />
     </div>
@@ -66,14 +66,14 @@ const Controls = () => {
   const toggleVideo = () => daily.setLocalVideo(!isVideoEnabled);
 
   return (
-    <div className="p-4 bg-slate-900 border-t border-slate-700 flex justify-center gap-4">
+    <div className="p-3 bg-white/80 backdrop-blur-md border-t border-neutral-200/80 flex justify-center gap-3">
       <button
         type="button"
         onClick={toggleAudio}
-        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
           isAudioEnabled
-            ? "bg-slate-700 text-white hover:bg-slate-600"
-            : "bg-red-500 text-white hover:bg-red-600"
+            ? "bg-neutral-900 text-white hover:bg-neutral-800"
+            : "bg-red-600 text-white hover:bg-red-700"
         }`}
       >
         {isAudioEnabled ? "השתק מיקרופון" : "הפעל מיקרופון"}
@@ -82,10 +82,10 @@ const Controls = () => {
       <button
         type="button"
         onClick={toggleVideo}
-        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
           isVideoEnabled
-            ? "bg-slate-700 text-white hover:bg-slate-600"
-            : "bg-red-500 text-white hover:bg-red-600"
+            ? "border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700"
+            : "bg-red-600 text-white hover:bg-red-700"
         }`}
       >
         {isVideoEnabled ? "כבה מצלמה" : "הפעל מצלמה"}
@@ -98,13 +98,13 @@ const CallContainer = () => {
   const participantIds = useParticipantIds();
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 rounded-xl overflow-hidden border border-slate-700 shadow-sm">
-      <div className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto">
+    <div className="flex flex-col h-full bg-white/80 backdrop-blur-md rounded-2xl overflow-hidden border border-neutral-200/80 shadow-sm">
+      <div className="flex-1 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto bg-neutral-100">
         {participantIds.map((id) => (
           <ParticipantTile key={id} id={id} />
         ))}
         {participantIds.length === 0 && (
-          <div className="col-span-full h-full flex items-center justify-center text-slate-500 text-sm font-bold">
+          <div className="col-span-full h-full flex items-center justify-center text-neutral-500 text-sm font-medium">
             ממתין למשתתפים...
           </div>
         )}
@@ -121,10 +121,10 @@ const CallContainer = () => {
  */
 function MockVideoBox() {
   return (
-    <div className="flex flex-col h-full min-h-[220px] w-full items-center justify-center gap-3 bg-slate-900 border border-slate-700 rounded-xl px-6 text-center">
-      <div className="h-10 w-10 rounded-full bg-slate-700 flex items-center justify-center">
+    <div className="flex flex-col h-full min-h-[220px] w-full items-center justify-center gap-3 bg-white/80 backdrop-blur-md border border-neutral-200/80 rounded-2xl px-6 text-center">
+      <div className="h-10 w-10 rounded-full bg-neutral-100 border border-neutral-200 flex items-center justify-center">
         <svg
-          className="h-5 w-5 text-slate-400"
+          className="h-5 w-5 text-neutral-400"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -135,10 +135,10 @@ function MockVideoBox() {
           <path d="m22 8-5 3 5 3V8Z" />
         </svg>
       </div>
-      <div className="text-slate-200 font-bold text-sm">
+      <div className="text-neutral-800 font-medium text-sm">
         חדר וידאו בסביבת בדיקות
       </div>
-      <div className="text-slate-400 text-xs font-medium leading-relaxed max-w-xs">
+      <div className="text-neutral-500 text-xs font-medium leading-relaxed max-w-xs">
         ממתין לחיבור — חדר הווידאו זמין כש־Daily מוגדר בסביבת הייצור. ניתן
         להמשיך עם הלוח והצ&apos;אט.
       </div>

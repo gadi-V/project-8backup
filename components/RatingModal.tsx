@@ -50,16 +50,15 @@ export default function RatingModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 backdrop-blur-sm p-4"
       dir="rtl"
     >
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 flex flex-col gap-6">
+      <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-sm border border-neutral-200/80 w-full max-w-md p-8 flex flex-col gap-6">
         <div className="text-center">
-          <div className="text-4xl mb-3">🎓</div>
-          <h2 className="text-2xl font-black text-slate-900">
+          <h2 className="text-2xl font-bold text-neutral-900">
             איך היה השיעור?
           </h2>
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-neutral-500 text-sm mt-1">
             הדירוג עוזר לנו לשפר את חוויית הלמידה עבורך
           </p>
         </div>
@@ -77,12 +76,12 @@ export default function RatingModal({
                 onMouseLeave={() => setHoveredStar(0)}
                 onClick={() => setSelectedStar(star)}
               >
-                {star <= displayStars ? "⭐" : "☆"}
+                {star <= displayStars ? "★" : "☆"}
               </button>
             ))}
           </div>
           {displayStars > 0 && (
-            <span className="text-sm font-bold text-indigo-600">
+            <span className="text-sm font-bold text-neutral-800">
               {starLabel(displayStars)}
             </span>
           )}
@@ -92,7 +91,7 @@ export default function RatingModal({
         <div className="flex flex-col gap-2">
           <label
             htmlFor="review-comment"
-            className="text-sm font-bold text-slate-700"
+            className="text-sm font-bold text-neutral-700"
           >
             הערות נוספות (אופציונלי)
           </label>
@@ -103,9 +102,9 @@ export default function RatingModal({
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="שתף את החוויה שלך מהשיעור..."
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+            className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 resize-none"
           />
-          <span className="text-xs text-slate-400 text-left">
+          <span className="text-xs text-neutral-400 text-start">
             {comment.length}/1000
           </span>
         </div>
@@ -116,7 +115,7 @@ export default function RatingModal({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || selectedStar === 0}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black py-3 px-6 rounded-xl shadow-lg transition-all text-sm"
+            className="flex-1 bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 text-white font-medium py-3 px-6 rounded-full transition-colors text-sm"
           >
             {isSubmitting ? "שומר..." : "שלח דירוג"}
           </button>
@@ -124,7 +123,7 @@ export default function RatingModal({
             type="button"
             onClick={onSkip}
             disabled={isSubmitting}
-            className="px-5 py-3 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 font-bold text-sm transition-all"
+            className="px-5 py-3 rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50 font-medium text-sm transition-colors"
           >
             דלג
           </button>

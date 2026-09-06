@@ -9,6 +9,7 @@ import {
   roomNameFromDailyUrl,
 } from "../../../lib/daily";
 import { generateStreamToken } from "../../../lib/stream";
+import { resolveLessonStreamChannelId } from "../../../lib/package-chat";
 import LessonRoomUI from "./LessonRoomUI";
 
 export default async function LessonPage(props: {
@@ -75,6 +76,17 @@ export default async function LessonPage(props: {
   const streamApiKey =
     process.env.NEXT_PUBLIC_STREAM_API_KEY || process.env.STREAM_API_KEY || null;
 
+  // Prefer UnifiedPackageChat when the lesson is package-linked so chat history
+  // persists across all lessons in the package; otherwise use per-lesson ChatChannel.
+  let streamChannelId: string | null =
+    lesson.chatChannel?.streamChannelId ?? null;
+  try {
+    streamChannelId =
+      (await resolveLessonStreamChannelId(lesson)) ?? streamChannelId;
+  } catch (error) {
+    console.error("Failed to resolve lesson Stream channel:", error);
+  }
+
   // Pedagogical Brief for Teacher / Manager / Admin
   let studentPedagogicalBrief: {
     studentName: string;
@@ -124,7 +136,9 @@ export default async function LessonPage(props: {
         streamApiKey,
         scheduledAt: lesson.scheduledAt.toISOString(),
         createdAt: lesson.createdAt.toISOString(),
-        chatChannel: lesson.chatChannel,
+        chatChannel: streamChannelId
+          ? { streamChannelId }
+          : lesson.chatChannel,
         durationMinutes: lesson.durationMinutes,
         packageId: lesson.packageId ?? null,
       }}

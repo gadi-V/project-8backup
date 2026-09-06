@@ -2,6 +2,15 @@
 
 import { useState } from "react";
 import { toast } from "react-hot-toast";
+import {
+  badgeDanger,
+  badgeSuccess,
+  badgeWarning,
+  dangerCta,
+  frostCard,
+  primaryCta,
+  secondaryCta,
+} from "../lib/ui";
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
@@ -50,6 +59,16 @@ type RescheduleResponse = {
 
 type AvailabilityResponse = AvailabilitySlot[];
 
+function statusBadgeClass(status: string): string {
+  if (status === "SCHEDULED" || status === "IN_PROGRESS" || status === "COMPLETED") {
+    return badgeSuccess;
+  }
+  if (status === "CANCELLED" || status === "CANCELLED_LATE") {
+    return badgeDanger;
+  }
+  return badgeWarning;
+}
+
 export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -97,7 +116,6 @@ export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProp
 
   const peerLabel = isTeacher ? "תלמיד" : "מורה";
   const peerName = isTeacher ? lesson.student.name : lesson.teacher.name;
-  const peerColorClass = isTeacher ? "text-indigo-300 mt-1" : "text-blue-300 mt-1";
   const liveButtonText = isTeacher ? "התחל שיעור בלייב" : "כניסה לשיעור בלייב";
 
   const openCancelModal = () => {
@@ -187,13 +205,13 @@ export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProp
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-4 text-xs gap-3">
-      <div className="text-right">
-        <div className="font-bold text-white">{lesson.title || "שיעור פרטי"}</div>
-        <div className={peerColorClass}>
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white/80 backdrop-blur-md border border-neutral-200/80 rounded-xl px-4 py-4 text-xs gap-3 shadow-sm">
+      <div className="text-start">
+        <div className="font-semibold text-neutral-900">{lesson.title || "שיעור פרטי"}</div>
+        <div className="text-neutral-600 mt-1">
           {peerLabel}: {peerName}
         </div>
-        <div className="text-slate-400 mt-0.5">
+        <div className="text-neutral-500 mt-0.5">
           {new Date(lesson.scheduledAt).toLocaleString("he-IL")}
         </div>
       </div>
@@ -204,20 +222,20 @@ export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProp
             <button
               type="button"
               onClick={() => setIsMenuOpen((v) => !v)}
-              className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center transition-all text-sm"
+              className="text-neutral-500 hover:text-neutral-900 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-lg w-8 h-8 flex items-center justify-center transition-all text-sm"
               aria-label="תפריט פעולות"
             >
               ⚙️
             </button>
 
             {isMenuOpen && (
-              <div className="absolute end-0 top-full mt-1 z-30 min-w-[160px] bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-2xl">
+              <div className="absolute end-0 top-full mt-1 z-30 min-w-[160px] bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-lg">
                 {canAppeal ? (
                   <button
                     type="button"
                     onClick={handleAppeal}
                     disabled={isAppealing}
-                    className="w-full text-right px-3 py-2.5 text-[11px] font-bold text-red-400 hover:bg-slate-700 transition-all disabled:opacity-50"
+                    className="w-full text-start px-3 py-2.5 text-[11px] font-medium text-red-700 hover:bg-red-50 transition-all disabled:opacity-50"
                   >
                     {isAppealing ? "מגיש ערעור..." : "הגש ערעור על הקנס"}
                   </button>
@@ -226,14 +244,14 @@ export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProp
                     <button
                       type="button"
                       onClick={openRescheduleModal}
-                      className="w-full text-right px-3 py-2.5 text-[11px] font-bold text-blue-400 hover:bg-slate-700 transition-all border-b border-slate-700"
+                      className="w-full text-start px-3 py-2.5 text-[11px] font-medium text-neutral-700 hover:bg-neutral-50 transition-all border-b border-neutral-100"
                     >
-                      הזזת מועד שיעור 📅
+                      הזזת מועד שיעור
                     </button>
                     <button
                       type="button"
                       onClick={openCancelModal}
-                      className="w-full text-right px-3 py-2.5 text-[11px] font-bold text-red-400 hover:bg-slate-700 transition-all"
+                      className="w-full text-start px-3 py-2.5 text-[11px] font-medium text-red-700 hover:bg-red-50 transition-all"
                     >
                       ביטול שיעור
                     </button>
@@ -244,15 +262,10 @@ export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProp
           </div>
         )}
 
-        <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded text-center">
-          {lesson.status}
-        </span>
+        <span className={statusBadgeClass(lesson.status)}>{lesson.status}</span>
 
         {(lesson.status === "SCHEDULED" || lesson.status === "IN_PROGRESS") && (
-          <a
-            href={`/lessons/${lesson.id}`}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-xl shadow-lg transition-all"
-          >
+          <a href={`/lessons/${lesson.id}`} className={primaryCta}>
             {liveButtonText}
           </a>
         )}
@@ -260,16 +273,16 @@ export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProp
 
       {/* Cancel modal */}
       {isCancelModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full space-y-4 text-right shadow-2xl">
-            <h3 className="text-base font-black text-white">ביטול שיעור</h3>
-            <p className="text-xs text-slate-300 leading-relaxed">{warningMessage}</p>
+        <div className="fixed inset-0 bg-neutral-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`${frostCard} p-6 max-w-md w-full space-y-4 text-start shadow-lg`}>
+            <h3 className="text-base font-semibold text-neutral-900">ביטול שיעור</h3>
+            <p className="text-xs text-neutral-600 leading-relaxed">{warningMessage}</p>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 disabled={isCancelling}
                 onClick={closeCancelModal}
-                className="text-xs font-bold py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 disabled:opacity-50"
+                className={secondaryCta}
               >
                 ביטול
               </button>
@@ -277,11 +290,11 @@ export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProp
                 type="button"
                 disabled={isCancelling}
                 onClick={handleConfirmCancel}
-                className={`text-xs font-bold py-2.5 px-4 rounded-xl text-white transition-all ${
+                className={
                   isWithin24h && isTeacher
-                    ? "bg-amber-600 hover:bg-amber-500"
-                    : "bg-red-600 hover:bg-red-500"
-                } disabled:opacity-50`}
+                    ? "bg-amber-600 text-white hover:bg-amber-500 rounded-full px-5 py-2.5 text-sm font-medium transition-colors disabled:opacity-40"
+                    : dangerCta
+                }
               >
                 {isCancelling ? "מבטל..." : "אישור ביטול"}
               </button>
@@ -292,21 +305,24 @@ export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProp
 
       {/* Reschedule modal */}
       {isRescheduleModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full space-y-4 text-right shadow-2xl">
+        <div className="fixed inset-0 bg-neutral-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`${frostCard} p-6 max-w-md w-full space-y-4 text-start shadow-lg`}>
             <div>
-              <h3 className="text-base font-black text-white">הזזת מועד שיעור</h3>
-              <p className="text-xs text-slate-400 mt-1">
+              <h3 className="text-base font-semibold text-neutral-900">הזזת מועד שיעור</h3>
+              <p className="text-xs text-neutral-500 mt-1">
                 בחרו מועד חלופי מהשעות הפנויות של המורה. השיעור יישמר ללא קנס ביטול.
               </p>
             </div>
 
             {isSlotsLoading ? (
-              <p className="text-xs text-slate-400">טוען שעות פנויות...</p>
+              <p className="text-xs text-neutral-500">טוען שעות פנויות...</p>
             ) : availableSlots.length === 0 ? (
-              <p className="text-xs text-slate-400">
-                אין שעות פנויות זמינות כרגע. ניתן לבטל את השיעור או לנסות שוב מאוחר יותר.
-              </p>
+              <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 text-center space-y-2">
+                <p className="text-sm font-medium text-neutral-900">אין שעות פנויות</p>
+                <p className="text-xs text-neutral-500">
+                  ניתן לבטל את השיעור או לנסות שוב מאוחר יותר.
+                </p>
+              </div>
             ) : (
               <div className="space-y-1.5 max-h-64 overflow-y-auto">
                 {availableSlots.map((slot) => (
@@ -314,10 +330,10 @@ export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProp
                     key={slot.id}
                     type="button"
                     onClick={() => setSelectedNewSlotId(slot.id)}
-                    className={`w-full text-right px-3 py-2.5 rounded-xl border transition-all text-xs font-bold ${
+                    className={`w-full text-start px-3 py-2.5 rounded-xl border transition-all text-xs font-medium ${
                       selectedNewSlotId === slot.id
-                        ? "bg-blue-600/20 border-blue-500 text-white"
-                        : "bg-slate-800 border-slate-700 text-slate-300 hover:border-blue-500/50"
+                        ? "bg-neutral-900 border-neutral-900 text-white"
+                        : "bg-neutral-50 border-neutral-200 text-neutral-700 hover:border-neutral-400"
                     }`}
                   >
                     {new Date(slot.startTime).toLocaleString("he-IL", {
@@ -328,7 +344,7 @@ export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProp
                       minute: "2-digit",
                     })}
                     {selectedNewSlotId === slot.id && (
-                      <span className="ms-2 text-blue-400">✓</span>
+                      <span className="ms-2 text-emerald-300">✓</span>
                     )}
                   </button>
                 ))}
@@ -340,7 +356,7 @@ export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProp
                 type="button"
                 disabled={isRescheduling}
                 onClick={closeRescheduleModal}
-                className="text-xs font-bold py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 disabled:opacity-50"
+                className={secondaryCta}
               >
                 ביטול
               </button>
@@ -348,7 +364,7 @@ export default function LessonRow({ lesson, userRole, onRefresh }: LessonRowProp
                 type="button"
                 disabled={isRescheduling || !selectedNewSlotId}
                 onClick={handleConfirmReschedule}
-                className="text-xs font-bold py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-all"
+                className={primaryCta}
               >
                 {isRescheduling ? "מזיז..." : "אישור הזזה"}
               </button>

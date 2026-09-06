@@ -1,1 +1,99 @@
 @import "tailwindcss";
+
+/* -------------------------------------------------------------------------- */
+/* Ambient canvas base — orbs in AmbientCanvas sit above this tone */
+/* -------------------------------------------------------------------------- */
+html,
+body {
+  background-color: #f5f6fa;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Ruri Liquid Glass — pure CSS backdrop-filter (no SVG displacement)         */
+/* Semi-transparent frost so ambient mesh orbs read through the surface.      */
+/* -------------------------------------------------------------------------- */
+.liquid-glass {
+  position: relative;
+  background: rgba(255, 255, 255, 0.52) !important;
+  backdrop-filter: blur(28px) saturate(190%) contrast(105%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) contrast(105%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  box-shadow:
+    0 20px 40px -15px rgba(0, 0, 0, 0.05),
+    inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.03) !important;
+}
+
+.liquid-glass-selected {
+  position: relative;
+  background: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(28px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
+  border: 1.5px solid rgba(23, 23, 23, 0.85) !important;
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.08),
+    inset 0 2px 2px 0 rgba(255, 255, 255, 1) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Elite Selection & Scrollbar                                                */
+/* -------------------------------------------------------------------------- */
+::selection {
+  background-color: #171717;
+  color: #ffffff;
+}
+
+/* Minimalist translucent scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(163, 163, 163, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(115, 115, 115, 0.5);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(163, 163, 163, 0.3) transparent;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Structured Skeleton Shimmer                                                */
+/* -------------------------------------------------------------------------- */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: rgba(229, 229, 229, 0.5);
+  border-radius: 0.75rem;
+}
+
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 70%
+  );
+  animation: shimmer 1.8s ease-in-out infinite;
+}

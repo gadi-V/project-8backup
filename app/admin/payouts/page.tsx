@@ -3,6 +3,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
+import {
+  pageCanvas,
+  frostCard,
+  primaryCta,
+  secondaryCta,
+  badgeSuccess,
+  badgeWarning,
+  badgeDanger,
+  emptyState,
+  ledgerCard,
+  eyebrow,
+} from "../../../lib/ui";
 
 /**
  * עמוד ניהול שכר וסליקה מרוכז למנהל (ADMIN/MANAGER).
@@ -136,19 +148,22 @@ export default function AdminPayoutsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 font-sans" dir="rtl">
-        <div className="text-lg font-medium text-slate-600">טוען תור סליקה...</div>
+      <div className={`${pageCanvas} flex items-center justify-center`} dir="rtl">
+        <div className="text-sm font-medium text-neutral-500">טוען תור סליקה...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 sm:p-8 font-sans text-slate-900" dir="rtl">
+    <div className={`${pageCanvas} p-4 sm:p-8`} dir="rtl">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white p-6 shadow-sm border border-slate-200">
+        <div className={`${frostCard} flex flex-wrap items-center justify-between gap-4 p-6`}>
           <div className="space-y-1">
-            <h1 className="text-2xl font-black text-slate-800">ניהול שכר וסליקה</h1>
-            <p className="text-sm text-slate-500">
+            <p className={eyebrow}>סליקה · Ledger</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
+              ניהול שכר וסליקה
+            </h1>
+            <p className="text-sm text-neutral-500">
               {payouts.length} תשלומים בתור · סה״כ {totalAmount.toLocaleString("he-IL")} ₪
             </p>
           </div>
@@ -157,101 +172,116 @@ export default function AdminPayoutsPage() {
               type="button"
               onClick={exportMasavCsv}
               disabled={payouts.length === 0}
-              className="rounded-lg bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-700 disabled:opacity-40"
+              className={primaryCta}
             >
-              ייצוא קובץ מס"ב (CSV)
+              ייצוא קובץ מס&quot;ב (CSV)
             </button>
-            <Link
-              href="/admin"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-            >
+            <Link href="/admin" className={secondaryCta}>
               חזרה לדשבורד
             </Link>
           </div>
         </div>
 
         {errorMsg && (
-          <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm font-bold text-rose-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">
             {errorMsg}
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-xl bg-white shadow-sm border border-slate-200">
-          <table className="w-full min-w-[820px] text-sm">
+        <div className={`${frostCard} overflow-x-auto`}>
+          <table className="w-full min-w-[820px] text-sm text-start">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-right text-xs font-black text-slate-600">
-                <th className="px-4 py-3 ps-5 pe-4">מורה</th>
-                <th className="px-4 py-3">פרטי בנק</th>
-                <th className="px-4 py-3">סכום</th>
-                <th className="px-4 py-3">סטטוס</th>
-                <th className="px-4 py-3">פריט</th>
-                <th className="px-4 py-3">פעולה</th>
+              <tr className="border-b border-neutral-100 bg-neutral-50/80 text-xs font-medium text-neutral-500">
+                <th className="px-5 py-4">מורה</th>
+                <th className="px-5 py-4">פרטי בנק</th>
+                <th className="px-5 py-4">סכום</th>
+                <th className="px-5 py-4">סטטוס</th>
+                <th className="px-5 py-4">פריט</th>
+                <th className="px-5 py-4">פעולה</th>
               </tr>
             </thead>
             <tbody>
               {payouts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-sm font-bold text-slate-400">
-                    אין תשלומים ממתינים לסליקה כרגע
+                  <td colSpan={6} className="px-5 py-6">
+                    <div className={emptyState}>
+                      <p className="text-sm text-neutral-600">
+                        אין תשלומים ממתינים לסליקה כרגע
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void fetchPayouts()}
+                        className={`inline-flex ${primaryCta}`}
+                      >
+                        רענון תור
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 payouts.map((p) => {
                   const bank = p.teacher.bank;
                   return (
-                    <tr key={p.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-                      <td className="px-4 py-3 ps-5 pe-4">
-                        <p className="font-black text-slate-800">{p.teacher.name}</p>
-                        <p className="text-xs text-slate-500">
+                    <tr
+                      key={p.id}
+                      className="border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50/80 transition-colors"
+                    >
+                      <td className="px-5 py-4">
+                        <p className="font-medium text-neutral-900">{p.teacher.name}</p>
+                        <p className="text-xs text-neutral-500">
                           {p.teacher.phone} · {p.teacher.email ?? ""}
                         </p>
+                        <p className="mt-0.5 font-mono text-[10px] text-neutral-400">{p.id}</p>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-600">
+                      <td className="px-5 py-4 text-xs text-neutral-600">
                         {bank?.bankName ? (
                           <>
-                            <p className="font-bold">{bank.bankName}</p>
+                            <p className="font-medium text-neutral-800">{bank.bankName}</p>
                             <p>
-                              סניף {bank.bankBranch ?? "—"} · {bank.accountNumber ?? "—"}
+                              סניף {bank.bankBranch ?? "—"} ·{" "}
+                              <span className="font-mono">{bank.accountNumber ?? "—"}</span>
                             </p>
                             <p>{bank.accountHolderName ?? ""}</p>
                           </>
                         ) : (
-                          <span className="text-slate-400">לא הוזנו פרטי בנק</span>
+                          <span className={badgeWarning}>לא הוזנו פרטי בנק</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 font-black text-slate-800">
+                      <td className="px-5 py-4 font-semibold text-neutral-900">
                         {Number(p.amount).toLocaleString("he-IL")} {p.currency}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-4">
                         <span
-                          className={`rounded-full px-2.5 py-0.5 text-[11px] font-black ${
+                          className={
                             p.status === "PAID"
-                              ? "bg-emerald-100 text-emerald-700 border border-emerald-300"
+                              ? badgeSuccess
                               : p.status === "FAILED"
-                                ? "bg-rose-100 text-rose-700 border border-rose-300"
-                                : "bg-amber-100 text-amber-700 border border-amber-300"
-                          }`}
+                                ? badgeDanger
+                                : badgeWarning
+                          }
                         >
                           {p.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-600">
+                      <td className="px-5 py-4 text-xs text-neutral-600">
                         {p.lesson
                           ? `${p.lesson.title ?? "שיעור"} · ${new Date(p.lesson.scheduledAt).toLocaleDateString("he-IL")}`
                           : "—"}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-4">
                         {p.status === "SCHEDULED" || p.status === "PROCESSING" ? (
-                          <button
-                            type="button"
-                            disabled={settlingId === p.id}
-                            onClick={() => handleSettle(p.id)}
-                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-                          >
-                            {settlingId === p.id ? "מעדכן..." : "סמן כשולם"}
-                          </button>
+                          <div className={`${ledgerCard} inline-block p-2`}>
+                            <button
+                              type="button"
+                              disabled={settlingId === p.id}
+                              onClick={() => handleSettle(p.id)}
+                              className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                            >
+                              {settlingId === p.id ? "מעדכן..." : "סמן כשולם"}
+                            </button>
+                          </div>
                         ) : (
-                          <span className="text-xs font-bold text-emerald-700">שולם</span>
+                          <span className="text-xs font-medium text-emerald-800">שולם</span>
                         )}
                       </td>
                     </tr>

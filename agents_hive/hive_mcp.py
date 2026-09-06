@@ -15,7 +15,10 @@ PROJECT_ROOT = "/Users/gaditzumi/project8"
 HIVE_DIR = os.path.join(PROJECT_ROOT, "agents_hive")
 
 ENV_PATH = Path(HIVE_DIR) / ".env"
+ROOT_ENV_PATH = Path(PROJECT_ROOT) / ".env"
+# Hive-local first, then root .env fills missing keys (HIVE_MONITOR_SECRET, APP_URL).
 load_dotenv(dotenv_path=ENV_PATH)
+load_dotenv(dotenv_path=ROOT_ENV_PATH)
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
@@ -257,10 +260,31 @@ def verify_git_safety() -> str:
 # ---------------------------------------------------------------------------
 
 MONITOR_SECRET = os.getenv("HIVE_MONITOR_SECRET", "").strip()
-NEXT_BASE_URL = (os.getenv("NEXT_PUBLIC_APP_URL") or os.getenv("APP_URL") or "http://localhost:3000").rstrip("/")
+# App origin (no trailing /api) — tool paths already include `/api/...`.
+API_BASE = (
+    os.getenv("APP_URL")
+    or os.getenv("NEXT_PUBLIC_APP_URL")
+    or "http://localhost:3000"
+).rstrip("/")
+NEXT_BASE_URL = API_BASE
+
+
+def _refresh_m2m_config() -> None:
+    """Re-read hive + root .env so a long-lived MCP process picks up mirrored secrets."""
+    global MONITOR_SECRET, API_BASE, NEXT_BASE_URL
+    load_dotenv(dotenv_path=ENV_PATH, override=True)
+    load_dotenv(dotenv_path=ROOT_ENV_PATH, override=False)
+    MONITOR_SECRET = os.getenv("HIVE_MONITOR_SECRET", "").strip()
+    API_BASE = (
+        os.getenv("APP_URL")
+        or os.getenv("NEXT_PUBLIC_APP_URL")
+        or "http://localhost:3000"
+    ).rstrip("/")
+    NEXT_BASE_URL = API_BASE
 
 
 def _next_headers() -> dict:
+    _refresh_m2m_config()
     headers = {"Content-Type": "application/json"}
     if MONITOR_SECRET:
         headers["Authorization"] = f"Bearer {MONITOR_SECRET}"
@@ -272,9 +296,10 @@ def _next_call(method: str, path: str, body: Optional[dict] = None) -> dict:
     import urllib.request
     import urllib.error
 
-    url = f"{NEXT_BASE_URL}{path}"
+    headers = _next_headers()
+    url = f"{API_BASE}{path}"
     data = json.dumps(body).encode("utf-8") if body is not None else None
-    req = urllib.request.Request(url, data=data, headers=_next_headers(), method=method)
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             raw = resp.read().decode("utf-8")
@@ -328,16 +353,19 @@ def handle_package_whatsapp_flow(
 def complete_lesson_and_settle(
     lessonId: str,
     requireAuth: bool = True,
+    feedback: Optional[str] = None,
+    masteredTopics: Optional[List[str]] = None,
 ) -> str:
     """Closes a lesson (status → COMPLETED), updates the student's knowledge
     gaps (identifiedGaps), and registers the tutor's payout entitlement in the
     immutable BillingLedger (PAYOUT against the original CHARGE, split 70/30)."""
     try:
-        result = _next_call(
-            "POST",
-            f"/api/lessons/{lessonId}/complete",
-            {"requireAuth": requireAuth},
-        )
+        payload: dict = {"lessonId": lessonId, "requireAuth": requireAuth}
+        if feedback is not None:
+            payload["feedback"] = feedback
+        if masteredTopics is not None:
+            payload["masteredTopics"] = masteredTopics
+        result = _next_call("POST", "/api/lessons/complete", payload)
         return json.dumps(result, ensure_ascii=False)
     except Exception as e:  # pragma: no cover
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)

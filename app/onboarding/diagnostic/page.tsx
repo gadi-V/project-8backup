@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, type SVGProps } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import MathFormula from "../../../components/MathFormula";
 import {
-  DIAGNOSTIC_3_DOMAIN_QUESTIONS,
+  getOnboardingChallengeQuestions,
   type DiagnosticQuestion,
 } from "../../../lib/diagnostic-questions";
 import {
@@ -20,6 +19,42 @@ import {
   SCREENING_SECTORS,
   type DiagnosticTrackType,
 } from "../../../lib/diagnostic-taxonomy";
+import {
+  frostCard,
+  pageCanvas,
+  primaryCta,
+  secondaryCta,
+  fieldClass,
+  eyebrow as eyebrowClass,
+} from "../../../lib/ui";
+
+/** RTL back — points right (toward previous in Hebrew reading order) */
+function ArrowRight(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={props.className} width={16} height={16}>
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </svg>
+  );
+}
+
+/** RTL proceed — points left (toward next in Hebrew reading order) */
+function ArrowLeft(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={props.className} width={16} height={16}>
+      <path d="M19 12H5" />
+      <path d="m12 19-7-7 7-7" />
+    </svg>
+  );
+}
+
+function LockIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" />
+    </svg>
+  );
+}
 
 type MaskedTopic = {
   id: string;
@@ -77,12 +112,32 @@ const LEARNING_GOALS = [
   { id: "HIGH_SCORE_BOOST", title: "הגעה למצטיינים (95+ / דפ״ר 90)", desc: "ליטוש טקטי ותרגול שאלות קצה ברמת קושי מקסימלית" },
 ];
 
-export default function OnboardingDiagnosticPage() {
-  const router = useRouter();
+const fieldClassSm =
+  "w-full bg-neutral-50/90 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-neutral-900 text-start focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400";
+const labelClass = "block text-xs font-medium text-neutral-600 mb-1.5 text-start";
+const trackBadge =
+  "bg-neutral-900/[0.04] border border-neutral-900/[0.08] text-neutral-800 text-xs px-3 py-1 rounded-full font-medium";
+const backBtnClass = `${secondaryCta} inline-flex items-center gap-1.5 text-sm`;
+const proceedBtnClass = `${primaryCta} flex-1 inline-flex items-center justify-center gap-2`;
 
+function choiceCardClass(isSelected: boolean): string {
+  return `w-full p-3.5 rounded-2xl text-start transition-all flex items-center justify-between ${
+    isSelected
+      ? "border-2 border-neutral-900 bg-neutral-50"
+      : "border border-neutral-200 bg-white hover:border-neutral-300 hover:shadow-sm"
+  }`;
+}
+
+function checkDotClass(isSelected: boolean): string {
+  return `w-5 h-5 rounded-full border flex items-center justify-center text-xs shrink-0 ${
+    isSelected ? "bg-neutral-900 border-neutral-900 text-white" : "border-neutral-300"
+  }`;
+}
+
+export default function OnboardingDiagnosticPage() {
   // Navigation state machine
   const [activeTrack, setActiveTrack] = useState<DiagnosticTrackType>("BAGRUT");
-  // microStep: 
+  // microStep:
   // 1: Track Selection
   // 2: Track-Specific Parameters
   // 3: Contact & Institution Info
@@ -92,8 +147,6 @@ export default function OnboardingDiagnosticPage() {
   // 7: Unlocked Knowledge Tree
   const [microStep, setMicroStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7>(1);
   const [loading, setLoading] = useState(false);
-  const [unlocking, setUnlocking] = useState(false);
-  const [dispatchWorking, setDispatchWorking] = useState(false);
 
   // Common Contact & Profile Fields
   const [studentName, setStudentName] = useState("");
@@ -110,7 +163,7 @@ export default function OnboardingDiagnosticPage() {
   // Track 1: Bagrut Fields
   const [bagrutSubjectId, setBagrutSubjectId] = useState("math");
   const [bagrutUnitCount, setBagrutUnitCount] = useState<number>(5);
-  const [bagrutExamCode, setBagrutExamCode] = useState("582");
+  const [bagrutExamCode, setBagrutExamCode] = useState("35582");
 
   // Track 2: Academic Fields
   const [degreeFieldId, setDegreeFieldId] = useState("cs_sw_eng");
@@ -176,18 +229,46 @@ export default function OnboardingDiagnosticPage() {
   const totalFunnelSteps = 5;
   const progressPercent = Math.min(100, Math.round((microStep / totalFunnelSteps) * 100));
 
-  const activeQuestion: DiagnosticQuestion = DIAGNOSTIC_3_DOMAIN_QUESTIONS[currentQuestionIdx];
+  // Track-bound challenge suite (exam/course → parent category → track default)
+  const challengeQuestions: DiagnosticQuestion[] = useMemo(
+    () =>
+      getOnboardingChallengeQuestions({
+        trackType: activeTrack,
+        examCode: activeTrack === "BAGRUT" ? bagrutExamCode : null,
+        subjectId: activeTrack === "BAGRUT" ? bagrutSubjectId : null,
+        courseId: activeTrack === "ACADEMIC" ? selectedCourse : null,
+        mechinaSubject: activeTrack === "MECHINA" ? mechinaSubject : null,
+        screeningBattery: activeTrack === "SCREENING_INST" ? screeningBattery : null,
+      }),
+    [
+      activeTrack,
+      bagrutExamCode,
+      bagrutSubjectId,
+      selectedCourse,
+      mechinaSubject,
+      screeningBattery,
+    ]
+  );
+
+  const activeQuestion: DiagnosticQuestion | undefined =
+    challengeQuestions[Math.min(currentQuestionIdx, Math.max(0, challengeQuestions.length - 1))];
+
+  // Reset answers/index when the track-bound question bank changes
+  useEffect(() => {
+    setCurrentQuestionIdx(0);
+    setAnswers({});
+  }, [challengeQuestions]);
 
   const handleSelectOption = (questionId: string, optionId: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
   };
 
   const handleNextQuestion = () => {
-    if (!answers[activeQuestion.id]) {
+    if (!activeQuestion || !answers[activeQuestion.id]) {
       toast.error("יש לבחור תשובה כדי להמשיך לשאלה הבאה");
       return;
     }
-    if (currentQuestionIdx < DIAGNOSTIC_3_DOMAIN_QUESTIONS.length - 1) {
+    if (currentQuestionIdx < challengeQuestions.length - 1) {
       setCurrentQuestionIdx((prev) => prev + 1);
     }
   };
@@ -217,29 +298,32 @@ export default function OnboardingDiagnosticPage() {
   };
 
   const handleSubmitDiagnostic = async () => {
-    if (!answers[activeQuestion.id]) {
+    if (!activeQuestion || !answers[activeQuestion.id]) {
       toast.error("יש לבחור תשובה לשאלה הנוכחית");
       return;
     }
 
     let correctCount = 0;
     const answerSummaries: string[] = [];
+    const weakDomains: string[] = [];
 
-    DIAGNOSTIC_3_DOMAIN_QUESTIONS.forEach((q) => {
+    challengeQuestions.forEach((q) => {
       const selectedOptId = answers[q.id];
       const opt = q.options.find((o) => o.id === selectedOptId);
       if (opt?.isCorrect) {
         correctCount++;
+      } else {
+        weakDomains.push(q.domain);
       }
       answerSummaries.push(`${q.domain}: ${opt?.mathText || opt?.plainText || "לא נענה"}`);
     });
 
     const timeframeObj = EXAM_TIMEFRAMES.find((t) => t.id === selectedTimeframe);
     const resolvedSubject = getDerivedSubject();
-    const resolvedAgeGroup = activeTrack === "ACADEMIC" || activeTrack === "MECHINA" || activeTrack === "PSYCHOMETRIC" 
-      ? "ACADEMIC" 
-      : activeTrack === "SCREENING_INST" 
-        ? "ACADEMIC" 
+    const resolvedAgeGroup = activeTrack === "ACADEMIC" || activeTrack === "MECHINA" || activeTrack === "PSYCHOMETRIC"
+      ? "ACADEMIC"
+      : activeTrack === "SCREENING_INST"
+        ? "ACADEMIC"
         : "HIGH_SCHOOL";
 
     setLoading(true);
@@ -279,8 +363,10 @@ export default function OnboardingDiagnosticPage() {
           challenge: `${learningGoal} - ${resolvedSubject}`,
           challengeAnswer: answerSummaries.join(" | "),
           correctCount,
-          totalQuestions: DIAGNOSTIC_3_DOMAIN_QUESTIONS.length,
-          isChallengeCorrect: correctCount === DIAGNOSTIC_3_DOMAIN_QUESTIONS.length,
+          totalQuestions: challengeQuestions.length,
+          isChallengeCorrect: correctCount === challengeQuestions.length,
+          weakDomains,
+          topicIds: [],
         }),
       });
 
@@ -303,203 +389,124 @@ export default function OnboardingDiagnosticPage() {
     }
   };
 
-  const handleOpenQuadEcosystem = async () => {
-    if (!teaserData?.id) return;
-    setDispatchWorking(true);
-    try {
-      const pkg = teaserData.recommendation?.packageRecommendation ?? "TRIO";
-      const res = await fetch("/api/whatsapp/dispatch-channel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          packageType: pkg,
-          studentName: studentName.trim() || "תלמיד",
-          gapTopicsCount: teaserData.topicsCount,
-          gapTopicsNames: teaserData.maskedTopics?.map((m) => m.maskedName) ?? [],
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "פתיחת קבוצת הליווי נכשלה");
-      }
-      toast.success("נפתחה קבוצת WhatsApp מרובעת ייעודית");
-      if (data.data.quadGroupUrl) {
-        window.open(data.data.quadGroupUrl, "_blank", "noopener,noreferrer");
-      }
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "שגיאה בפתיחת קבוצת הליווי");
-    } finally {
-      setDispatchWorking(false);
-    }
-  };
+  const recommendedPackage =
+    teaserData?.recommendation?.packageRecommendation ??
+    (teaserData && teaserData.topicsCount >= 3 ? "MULTI" : "TRIO");
+  const recommendedLessons =
+    teaserData?.recommendation?.lessons ?? (recommendedPackage === "MULTI" ? 5 : 3);
 
-  const handleUnlockAndMatch = async () => {
-    if (!teaserData?.id) return;
-    setUnlocking(true);
-    try {
-      const res = await fetch("/api/diagnostic/unlock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ diagnosticId: teaserData.id }),
-      });
-
-      const data = await res.json();
-      if (res.status === 401) {
-        toast("יש להתחבר כדי לפתוח את הדו״ח המלא", { icon: "🔒" });
-        router.push("/login?from=/onboarding/diagnostic");
-        return;
-      }
-
-      if (res.status === 402 || data.requiresPurchase) {
-        toast.error("נדרשת יתרת שיעורים לפתיחת העץ הפדגוגי ושיבוץ המורה");
-        router.push("/pricing");
-        return;
-      }
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "פתיחת הדו״ח נכשלה");
-      }
-
-      setTeaserData(data.data);
-      setMicroStep(7);
-      toast.success("העץ הפדגוגי נפתח ושובץ מורה מומחה! 🎓");
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "שגיאה בפתיחת הדו״ח");
-    } finally {
-      setUnlocking(false);
-    }
-  };
+  const stepLabel =
+    microStep === 1 ? "בחירת מסלול לימודים" :
+    microStep === 2 ? "אפיון מקצוע ודרישות" :
+    microStep === 3 ? "פרטי התקשרות ומוסד" :
+    microStep === 4 ? "דחיפות וציון בסיס" : `שאלות עומק (${currentQuestionIdx + 1}/3)`;
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white selection:bg-violet-500 selection:text-white" dir="rtl">
-      {/* Top Header */}
-      <header className="border-b border-slate-800/80 bg-slate-900/50 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center font-black text-white text-base shadow-lg shadow-violet-500/25">
-              P8
-            </span>
-            <span className="text-lg font-black tracking-tight text-white">Project8 Academy</span>
-          </Link>
-
-          <div className="flex items-center gap-2 text-xs font-bold bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 px-3 py-1.5 rounded-full">
-            <span>🛡️</span>
-            <span>Quad-Ecosystem: מורים שכירים + התחייבות לתוצאות</span>
-          </div>
-        </div>
-      </header>
-
+    <div className={`${pageCanvas}`} dir="rtl">
       <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12 space-y-8">
-        {/* Dynamic Journey Progress Bar */}
         {microStep <= 5 && (
           <div className="space-y-2 max-w-md mx-auto">
-            <div className="flex items-center justify-between text-xs font-black text-slate-400">
-              <span className="text-violet-400">
-                שלב {microStep} מתוך {totalFunnelSteps}: {
-                  microStep === 1 ? "בחירת מסלול לימודים" :
-                  microStep === 2 ? "אפיון מקצוע ודרישות" :
-                  microStep === 3 ? "פרטי התקשרות ומוסד" :
-                  microStep === 4 ? "דחיפות וציון בסיס" : `שאלות עומק (${currentQuestionIdx + 1}/3)`
-                }
+            <div className="flex items-center justify-between text-xs font-medium text-neutral-500">
+              <span className="text-neutral-900">
+                שלב {microStep} מתוך {totalFunnelSteps}: {stepLabel}
               </span>
               <span>{progressPercent}%</span>
             </div>
-            <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-1.5 w-full bg-neutral-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-violet-600 to-indigo-500 transition-all duration-300 rounded-full"
+                className="h-full bg-neutral-900 transition-all duration-300 rounded-full"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
           </div>
         )}
 
-        {/* ================================================================== */}
-        {/* MICRO-STEP 1: TRACK SELECTION (5 Main Tracks)                      */}
-        {/* ================================================================== */}
+        {/* MICRO-STEP 1: TRACK SELECTION */}
         {microStep === 1 && (
-          <section className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl shadow-violet-950/20">
-            <div>
-              <span className="text-xs font-black uppercase tracking-widest text-violet-400">שלב 1: מסלול לימודים מרכזי</span>
-              <h1 className="text-2xl sm:text-3xl font-black text-white mt-1">באיזה תחום אתם צריכים שדרוג הישגים?</h1>
-              <p className="text-sm text-slate-400 font-medium mt-1">
-                מערכת ה-AI תתאים את תוכנית ההכשרה, מוקדי הידע ומבחן האתגר בהתאם למסלול הנבחר.
+          <section className={`${frostCard} p-6 sm:p-8 space-y-6`}>
+            <div className="text-start">
+              <span className={eyebrowClass}>שלב 1: מסלול לימודים מרכזי</span>
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-neutral-900 mt-1 [text-wrap:balance]">
+                באיזה תחום לימוד תרצו להתמקד?
+              </h1>
+              <p className="text-sm text-neutral-500 font-medium mt-2">
+                התאמת תוכנית הלמידה והמיקוד לפי תחום הלימוד שנבחר
               </p>
             </div>
 
             <div className="grid gap-3.5 sm:grid-cols-1">
-              {TRACK_OPTIONS.map((track) => (
-                <button
-                  key={track.id}
-                  type="button"
-                  onClick={() => setActiveTrack(track.id)}
-                  className={`p-4 sm:p-5 rounded-2xl border text-right transition-all flex items-center justify-between group ${
-                    activeTrack === track.id
-                      ? "bg-violet-950/70 border-violet-500 ring-2 ring-violet-500/30"
-                      : "bg-slate-950 border-slate-800 hover:border-slate-700"
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="text-3xl p-3 bg-slate-900 rounded-2xl border border-slate-800 group-hover:border-slate-700">
-                      {track.icon}
-                    </span>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-base font-black text-white">{track.title}</span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-800 text-violet-300 border border-slate-700">
-                          {track.tag}
-                        </span>
+              {TRACK_OPTIONS.map((track) => {
+                const isSelected = activeTrack === track.id;
+                return (
+                  <button
+                    key={track.id}
+                    type="button"
+                    onClick={() => setActiveTrack(track.id)}
+                    className={`p-4 sm:p-5 rounded-2xl text-start transition-all flex items-center justify-between group ${
+                      isSelected
+                        ? "border-2 border-neutral-900 bg-neutral-50"
+                        : "border border-neutral-200 bg-white hover:border-neutral-300 hover:shadow-sm"
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-semibold tracking-tight text-neutral-700 p-3 bg-neutral-50 rounded-2xl border border-neutral-200 min-w-[3rem] text-center">
+                        {track.icon}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-semibold text-neutral-900">{track.title}</span>
+                          <span className={trackBadge}>{track.tag}</span>
+                        </div>
+                        <p className="text-xs text-neutral-500 font-medium mt-1">{track.subtitle}</p>
                       </div>
-                      <p className="text-xs text-slate-400 font-medium mt-1">{track.subtitle}</p>
                     </div>
-                  </div>
 
-                  <span className={`w-5 h-5 rounded-full border flex items-center justify-center text-xs shrink-0 ${
-                    activeTrack === track.id ? "bg-violet-600 border-violet-500 text-white" : "border-slate-700"
-                  }`}>
-                    {activeTrack === track.id && "✓"}
-                  </span>
-                </button>
-              ))}
+                    <span className={checkDotClass(isSelected)}>
+                      {isSelected && "✓"}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             <button
               type="button"
               onClick={() => setMicroStep(2)}
-              className="w-full bg-violet-600 hover:bg-violet-500 text-white font-black py-3.5 rounded-xl transition-all shadow-lg shadow-violet-600/30 flex items-center justify-center gap-2"
+              className={`${primaryCta} w-full inline-flex items-center justify-center gap-2`}
             >
-              המשך לאפיון המסלול ←
+              <ArrowLeft className="me-2" />
+              המשך לאפיון המסלול
             </button>
           </section>
         )}
 
-        {/* ================================================================== */}
-        {/* MICRO-STEP 2: TRACK-SPECIFIC CASCADING TAXONOMY                    */}
-        {/* ================================================================== */}
+        {/* MICRO-STEP 2: TRACK-SPECIFIC TAXONOMY */}
         {microStep === 2 && (
-          <section className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
-            <div>
-              <span className="text-xs font-black uppercase tracking-widest text-violet-400">
-                שלב 2: אפיון מקצוע ושאלון ({TRACK_OPTIONS.find(t => t.id === activeTrack)?.title})
+          <section className={`${frostCard} p-6 sm:p-8 space-y-6`}>
+            <div className="text-start">
+              <span className={eyebrowClass}>
+                שלב 2: אפיון מקצוע ושאלון ({TRACK_OPTIONS.find((t) => t.id === activeTrack)?.title})
               </span>
-              <h2 className="text-2xl font-black text-white mt-1">הגדירו את המקצוע ורמת הקושי המדויקת</h2>
+              <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 mt-1 [text-wrap:balance]">
+                הגדירו את המקצוע ורמת הקושי המדויקת
+              </h2>
             </div>
 
-            {/* TRACK 1: BAGRUT CASCADING */}
             {activeTrack === "BAGRUT" && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">מקצוע בגרות</label>
+                  <label className={labelClass}>מקצוע בגרות</label>
                   <select
                     value={bagrutSubjectId}
                     onChange={(e) => {
                       setBagrutSubjectId(e.target.value);
-                      const subj = BAGRUT_SUBJECTS.find(s => s.id === e.target.value);
+                      const subj = BAGRUT_SUBJECTS.find((s) => s.id === e.target.value);
                       if (subj && subj.units[0]) {
                         setBagrutUnitCount(subj.units[0].unitCount);
                         setBagrutExamCode(subj.units[0].examPapers[0]?.code || "");
                       }
                     }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 font-medium"
+                    className={fieldClass}
                   >
                     {BAGRUT_SUBJECTS.map((sub) => (
                       <option key={sub.id} value={sub.id}>{sub.name}</option>
@@ -509,18 +516,18 @@ export default function OnboardingDiagnosticPage() {
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">מספר יחידות לימוד</label>
+                    <label className={labelClass}>מספר יחידות לימוד</label>
                     <select
                       value={bagrutUnitCount}
                       onChange={(e) => {
                         const count = Number(e.target.value);
                         setBagrutUnitCount(count);
-                        const unitObj = availableBagrutUnits.find(u => u.unitCount === count);
+                        const unitObj = availableBagrutUnits.find((u) => u.unitCount === count);
                         if (unitObj && unitObj.examPapers[0]) {
                           setBagrutExamCode(unitObj.examPapers[0].code);
                         }
                       }}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 font-medium"
+                      className={fieldClass}
                     >
                       {availableBagrutUnits.map((u) => (
                         <option key={u.unitCount} value={u.unitCount}>{u.label}</option>
@@ -529,11 +536,11 @@ export default function OnboardingDiagnosticPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">מספר שאלון יעד</label>
+                    <label className={labelClass}>מספר שאלון יעד</label>
                     <select
                       value={bagrutExamCode}
                       onChange={(e) => setBagrutExamCode(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 font-medium"
+                      className={fieldClass}
                     >
                       {selectedBagrutUnit.examPapers.map((paper) => (
                         <option key={paper.code} value={paper.code}>{paper.name}</option>
@@ -544,22 +551,21 @@ export default function OnboardingDiagnosticPage() {
               </div>
             )}
 
-            {/* TRACK 2: ACADEMIC CASCADING */}
             {activeTrack === "ACADEMIC" && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">תחום התואר האקדמי</label>
+                  <label className={labelClass}>תחום התואר האקדמי</label>
                   <select
                     value={degreeFieldId}
                     onChange={(e) => {
                       setDegreeFieldId(e.target.value);
-                      const field = ACADEMIC_DEGREE_FIELDS.find(d => d.id === e.target.value);
+                      const field = ACADEMIC_DEGREE_FIELDS.find((d) => d.id === e.target.value);
                       if (field && field.years[0]) {
                         setAcademicYearId(field.years[0].yearId);
                         setSelectedCourse(field.years[0].courses[0] || "");
                       }
                     }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 font-medium"
+                    className={fieldClass}
                   >
                     {ACADEMIC_DEGREE_FIELDS.map((deg) => (
                       <option key={deg.id} value={deg.id}>{deg.name}</option>
@@ -569,17 +575,17 @@ export default function OnboardingDiagnosticPage() {
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">שנת לימודים</label>
+                    <label className={labelClass}>שנת לימודים</label>
                     <select
                       value={academicYearId}
                       onChange={(e) => {
                         setAcademicYearId(e.target.value);
-                        const yr = selectedDegreeField.years.find(y => y.yearId === e.target.value);
+                        const yr = selectedDegreeField.years.find((y) => y.yearId === e.target.value);
                         if (yr && yr.courses[0]) {
                           setSelectedCourse(yr.courses[0]);
                         }
                       }}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 font-medium"
+                      className={fieldClass}
                     >
                       {selectedDegreeField.years.map((y) => (
                         <option key={y.yearId} value={y.yearId}>{y.label}</option>
@@ -588,11 +594,11 @@ export default function OnboardingDiagnosticPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">קורס הליבה המבוקש</label>
+                    <label className={labelClass}>קורס הליבה המבוקש</label>
                     <select
                       value={selectedCourse}
                       onChange={(e) => setSelectedCourse(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 font-medium"
+                      className={fieldClass}
                     >
                       {selectedYear.courses.map((course) => (
                         <option key={course} value={course}>{course}</option>
@@ -603,15 +609,14 @@ export default function OnboardingDiagnosticPage() {
               </div>
             )}
 
-            {/* TRACK 3: MECHINA CASCADING */}
             {activeTrack === "MECHINA" && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">מקצוע מכינה מבוקש</label>
+                  <label className={labelClass}>מקצוע מכינה מבוקש</label>
                   <select
                     value={mechinaSubject}
                     onChange={(e) => setMechinaSubject(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 font-medium"
+                    className={fieldClass}
                   >
                     {MECHINA_SUBJECTS.map((sub) => (
                       <option key={sub} value={sub}>{sub}</option>
@@ -620,11 +625,11 @@ export default function OnboardingDiagnosticPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">מסלול המכינה</label>
+                  <label className={labelClass}>מסלול המכינה</label>
                   <select
                     value={mechinaTrackType}
                     onChange={(e) => setMechinaTrackType(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 font-medium"
+                    className={fieldClass}
                   >
                     {MECHINA_TRACK_TYPES.map((tr) => (
                       <option key={tr} value={tr}>{tr}</option>
@@ -634,16 +639,15 @@ export default function OnboardingDiagnosticPage() {
               </div>
             )}
 
-            {/* TRACK 4: PSYCHOMETRIC CASCADING */}
             {activeTrack === "PSYCHOMETRIC" && (
               <div className="space-y-5">
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">יחידות מתמטיקה בתיכון</label>
+                    <label className={labelClass}>יחידות מתמטיקה בתיכון</label>
                     <select
                       value={hsMathUnits}
                       onChange={(e) => setHsMathUnits(Number(e.target.value))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-medium"
+                      className={fieldClass}
                     >
                       {HS_UNIT_OPTIONS.map((opt) => (
                         <option key={opt.val} value={opt.val}>{opt.label}</option>
@@ -651,11 +655,11 @@ export default function OnboardingDiagnosticPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">יחידות אנגלית בתיכון</label>
+                    <label className={labelClass}>יחידות אנגלית בתיכון</label>
                     <select
                       value={hsEnglishUnits}
                       onChange={(e) => setHsEnglishUnits(Number(e.target.value))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-medium"
+                      className={fieldClass}
                     >
                       {HS_UNIT_OPTIONS.map((opt) => (
                         <option key={opt.val} value={opt.val}>{opt.label}</option>
@@ -665,13 +669,17 @@ export default function OnboardingDiagnosticPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-300">האם נגשת כבר לפסיכומטרי בעבר?</label>
+                  <label className="block text-xs font-medium text-neutral-600 text-start">
+                    האם נגשת כבר לפסיכומטרי בעבר?
+                  </label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setIsFirstPsychometric(true)}
-                      className={`p-3 rounded-xl border text-xs font-bold transition-all ${
-                        isFirstPsychometric ? "bg-violet-950 border-violet-500 text-white" : "bg-slate-950 border-slate-800 text-slate-400"
+                      className={`p-3 rounded-2xl text-xs font-medium transition-all ${
+                        isFirstPsychometric
+                          ? "border-2 border-neutral-900 bg-neutral-50 text-neutral-900"
+                          : "border border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300"
                       }`}
                     >
                       פעם ראשונה שלי
@@ -679,8 +687,10 @@ export default function OnboardingDiagnosticPage() {
                     <button
                       type="button"
                       onClick={() => setIsFirstPsychometric(false)}
-                      className={`p-3 rounded-xl border text-xs font-bold transition-all ${
-                        !isFirstPsychometric ? "bg-violet-950 border-violet-500 text-white" : "bg-slate-950 border-slate-800 text-slate-400"
+                      className={`p-3 rounded-2xl text-xs font-medium transition-all ${
+                        !isFirstPsychometric
+                          ? "border-2 border-neutral-900 bg-neutral-50 text-neutral-900"
+                          : "border border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300"
                       }`}
                     >
                       נגשתי בעבר (שיפור ציון)
@@ -690,11 +700,11 @@ export default function OnboardingDiagnosticPage() {
 
                 {isFirstPsychometric ? (
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">מועד בחינה יעד</label>
+                    <label className={labelClass}>מועד בחינה יעד</label>
                     <select
                       value={targetPsychSession}
                       onChange={(e) => setTargetPsychSession(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 font-medium"
+                      className={fieldClass}
                     >
                       {PSYCHOMETRIC_TEST_SESSIONS.map((sess) => (
                         <option key={sess} value={sess}>{sess}</option>
@@ -702,51 +712,51 @@ export default function OnboardingDiagnosticPage() {
                     </select>
                   </div>
                 ) : (
-                  <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-3">
-                    <h4 className="text-xs font-black text-violet-300">ציוני מבחן קודם (מיקוד פערים)</h4>
+                  <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-2xl space-y-3">
+                    <h4 className="text-xs font-semibold text-neutral-700 text-start">ציוני מבחן קודם (מיקוד פערים)</h4>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-400 mb-1">ציון כללי</label>
+                        <label className="block text-[11px] font-medium text-neutral-500 mb-1 text-start">ציון כללי</label>
                         <input
                           type="number"
                           min={200}
                           max={800}
                           value={prevPsychTotal}
                           onChange={(e) => setPrevPsychTotal(Number(e.target.value))}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs font-mono text-center"
+                          className="w-full bg-white border border-neutral-200 rounded-lg p-2 text-xs font-mono text-center"
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-400 mb-1">כמותי (50-150)</label>
+                        <label className="block text-[11px] font-medium text-neutral-500 mb-1 text-start">כמותי (50-150)</label>
                         <input
                           type="number"
                           min={50}
                           max={150}
                           value={prevPsychQuant}
                           onChange={(e) => setPrevPsychQuant(Number(e.target.value))}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs font-mono text-center"
+                          className="w-full bg-white border border-neutral-200 rounded-lg p-2 text-xs font-mono text-center"
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-400 mb-1">מילולי (50-150)</label>
+                        <label className="block text-[11px] font-medium text-neutral-500 mb-1 text-start">מילולי (50-150)</label>
                         <input
                           type="number"
                           min={50}
                           max={150}
                           value={prevPsychVerbal}
                           onChange={(e) => setPrevPsychVerbal(Number(e.target.value))}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs font-mono text-center"
+                          className="w-full bg-white border border-neutral-200 rounded-lg p-2 text-xs font-mono text-center"
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-400 mb-1">אנגלית (50-150)</label>
+                        <label className="block text-[11px] font-medium text-neutral-500 mb-1 text-start">אנגלית (50-150)</label>
                         <input
                           type="number"
                           min={50}
                           max={150}
                           value={prevPsychEnglish}
                           onChange={(e) => setPrevPsychEnglish(Number(e.target.value))}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs font-mono text-center"
+                          className="w-full bg-white border border-neutral-200 rounded-lg p-2 text-xs font-mono text-center"
                         />
                       </div>
                     </div>
@@ -755,22 +765,21 @@ export default function OnboardingDiagnosticPage() {
               </div>
             )}
 
-            {/* TRACK 5: SCREENING INSTITUTES CASCADING */}
             {activeTrack === "SCREENING_INST" && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">5.1 גוף יעד / סקטור מיונים</label>
+                  <label className={labelClass}>5.1 גוף יעד / סקטור מיונים</label>
                   <select
                     value={screeningSectorId}
                     onChange={(e) => {
                       setScreeningSectorId(e.target.value);
-                      const sec = SCREENING_SECTORS.find(s => s.id === e.target.value);
+                      const sec = SCREENING_SECTORS.find((s) => s.id === e.target.value);
                       if (sec && sec.institutes[0]) {
                         setScreeningInstituteId(sec.institutes[0].id);
                         setScreeningBattery(sec.institutes[0].batteries[0] || "");
                       }
                     }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 font-medium"
+                    className={fieldClass}
                   >
                     {SCREENING_SECTORS.map((sec) => (
                       <option key={sec.id} value={sec.id}>{sec.name}</option>
@@ -779,17 +788,17 @@ export default function OnboardingDiagnosticPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">5.2 מכון מיון / מסגרת בחינה</label>
+                  <label className={labelClass}>5.2 מכון מיון / מסגרת בחינה</label>
                   <select
                     value={screeningInstituteId}
                     onChange={(e) => {
                       setScreeningInstituteId(e.target.value);
-                      const inst = selectedScreeningSector.institutes.find(i => i.id === e.target.value);
+                      const inst = selectedScreeningSector.institutes.find((i) => i.id === e.target.value);
                       if (inst && inst.batteries[0]) {
                         setScreeningBattery(inst.batteries[0]);
                       }
                     }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 font-medium"
+                    className={fieldClass}
                   >
                     {selectedScreeningSector.institutes.map((inst) => (
                       <option key={inst.id} value={inst.id}>{inst.name}</option>
@@ -798,11 +807,11 @@ export default function OnboardingDiagnosticPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">5.3 סוללת מבחנים מבוקשת</label>
+                  <label className={labelClass}>5.3 סוללת מבחנים מבוקשת</label>
                   <select
                     value={screeningBattery}
                     onChange={(e) => setScreeningBattery(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 font-medium"
+                    className={fieldClass}
                   >
                     {selectedScreeningInstitute.batteries.map((bat) => (
                       <option key={bat} value={bat}>{bat}</option>
@@ -816,37 +825,39 @@ export default function OnboardingDiagnosticPage() {
               <button
                 type="button"
                 onClick={() => setMicroStep(1)}
-                className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors"
+                className={backBtnClass}
               >
                 חזרה למסלולים
+                <ArrowRight className="ms-2" />
               </button>
               <button
                 type="button"
                 onClick={() => setMicroStep(3)}
-                className="flex-1 bg-violet-600 hover:bg-violet-500 text-white font-black py-3 rounded-xl transition-all shadow-lg shadow-violet-600/30"
+                className={proceedBtnClass}
               >
-                המשך לפרטי התקשרות ←
+                <ArrowLeft className="me-2" />
+                המשך לפרטי התקשרות
               </button>
             </div>
           </section>
         )}
 
-        {/* ================================================================== */}
-        {/* MICRO-STEP 3: CONTACT & INSTITUTION INFO                           */}
-        {/* ================================================================== */}
+        {/* MICRO-STEP 3: CONTACT & INSTITUTION */}
         {microStep === 3 && (
-          <section className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
-            <div>
-              <span className="text-xs font-black uppercase tracking-widest text-violet-400">שלב 3: מוסד לימודים וחיבור הורים</span>
-              <h2 className="text-2xl font-black text-white mt-1">פרטי התקשרות והצטרפות ל-Quad Ecosystem</h2>
-              <p className="text-xs text-slate-400 font-medium mt-1">
-                מערכת ה-Quad מחברת את התלמיד, ההורים, מורה מומחה ומנהל פדגוגי לעדכונים שוטפים.
+          <section className={`${frostCard} p-6 sm:p-8 space-y-6`}>
+            <div className="text-start">
+              <span className={eyebrowClass}>שלב 3: מוסד לימודים וחיבור הורים</span>
+              <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 mt-1 [text-wrap:balance]">
+                פרטי התקשרות לליווי משותף
+              </h2>
+              <p className="text-xs text-neutral-500 font-medium mt-1">
+                קבוצת הווטסאפ המרובעת מחברת מנהל פדגוגי, מורה מומחה, הורה ותלמיד לעדכונים שוטפים.
               </p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5" htmlFor="f-school">
+                <label className={labelClass} htmlFor="f-school">
                   שם בית ספר / מכללה / אוניברסיטה / יחידה
                 </label>
                 <input
@@ -855,14 +866,14 @@ export default function OnboardingDiagnosticPage() {
                   placeholder="לדוגמה: תיכון הריאלי חיפה, אוניברסיטת תל אביב, מכינת הטכניון"
                   value={schoolName}
                   onChange={(e) => setSchoolName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-violet-500 font-medium"
+                  className={`${fieldClass} text-xs`}
                 />
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1" htmlFor="f-sname">
-                    שם התלמיד/ה <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-medium text-neutral-500 mb-1 text-start" htmlFor="f-sname">
+                    שם התלמיד/ה <span className="text-rose-500">*</span>
                   </label>
                   <input
                     id="f-sname"
@@ -871,12 +882,12 @@ export default function OnboardingDiagnosticPage() {
                     placeholder="לדוגמה: יונתן כהן"
                     value={studentName}
                     onChange={(e) => setStudentName(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-violet-500 font-medium"
+                    className={fieldClassSm}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1" htmlFor="f-sphone">
-                    טלפון תלמיד/ה <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-medium text-neutral-500 mb-1 text-start" htmlFor="f-sphone">
+                    טלפון תלמיד/ה <span className="text-rose-500">*</span>
                   </label>
                   <input
                     id="f-sphone"
@@ -885,14 +896,14 @@ export default function OnboardingDiagnosticPage() {
                     placeholder="050-0000000"
                     value={studentPhone}
                     onChange={(e) => setStudentPhone(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-violet-500 font-medium"
+                    className={fieldClassSm}
                   />
                 </div>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1" htmlFor="f-pname">
+                  <label className="block text-xs font-medium text-neutral-500 mb-1 text-start" htmlFor="f-pname">
                     שם ההורה (למעקב משותף)
                   </label>
                   <input
@@ -901,11 +912,11 @@ export default function OnboardingDiagnosticPage() {
                     placeholder="לדוגמה: רונית כהן"
                     value={parentName}
                     onChange={(e) => setParentName(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-violet-500"
+                    className={fieldClassSm}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1" htmlFor="f-pphone">
+                  <label className="block text-xs font-medium text-neutral-500 mb-1 text-start" htmlFor="f-pphone">
                     WhatsApp הורה לקבלת סיכומי שיעור
                   </label>
                   <input
@@ -914,7 +925,7 @@ export default function OnboardingDiagnosticPage() {
                     placeholder="052-0000000"
                     value={parentPhone}
                     onChange={(e) => setParentPhone(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-violet-500"
+                    className={fieldClassSm}
                   />
                 </div>
               </div>
@@ -924,9 +935,10 @@ export default function OnboardingDiagnosticPage() {
               <button
                 type="button"
                 onClick={() => setMicroStep(2)}
-                className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors"
+                className={backBtnClass}
               >
                 חזרה
+                <ArrowRight className="ms-2" />
               </button>
               <button
                 type="button"
@@ -937,82 +949,83 @@ export default function OnboardingDiagnosticPage() {
                   }
                   setMicroStep(4);
                 }}
-                className="flex-1 bg-violet-600 hover:bg-violet-500 text-white font-black py-3 rounded-xl transition-all shadow-lg shadow-violet-600/30"
+                className={proceedBtnClass}
               >
-                המשך לקביעת יעד ודחיפות ←
+                <ArrowLeft className="me-2" />
+                המשך לקביעת יעד ודחיפות
               </button>
             </div>
           </section>
         )}
 
-        {/* ================================================================== */}
-        {/* MICRO-STEP 4: URGENCY, GOAL & BASELINE GRADE                       */}
-        {/* ================================================================== */}
+        {/* MICRO-STEP 4: URGENCY, GOAL & BASELINE */}
         {microStep === 4 && (
-          <section className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
-            <div>
-              <span className="text-xs font-black uppercase tracking-widest text-violet-400">שלב 4: מטרות ודחיפות</span>
-              <h2 className="text-2xl font-black text-white mt-1">מתי המבחן הקרוב ומה ציון היעד?</h2>
+          <section className={`${frostCard} p-6 sm:p-8 space-y-6`}>
+            <div className="text-start">
+              <span className={eyebrowClass}>שלב 4: מטרות ודחיפות</span>
+              <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 mt-1 [text-wrap:balance]">
+                מתי המבחן הקרוב ומה ציון היעד?
+              </h2>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-2">דחיפות לוח זמנים</label>
+                <label className="block text-xs font-medium text-neutral-600 mb-2 text-start">דחיפות לוח זמנים</label>
                 <div className="space-y-2">
-                  {EXAM_TIMEFRAMES.map((tf) => (
-                    <button
-                      key={tf.id}
-                      type="button"
-                      onClick={() => setSelectedTimeframe(tf.id)}
-                      className={`w-full p-3.5 rounded-xl border text-right transition-all flex items-center justify-between text-xs font-black ${
-                        selectedTimeframe === tf.id
-                          ? "bg-violet-950/60 border-violet-500 text-white"
-                          : "bg-slate-950 border-slate-800 text-slate-300"
-                      }`}
-                    >
-                      <span>{tf.label}</span>
-                      <span>{selectedTimeframe === tf.id ? "✓" : ""}</span>
-                    </button>
-                  ))}
+                  {EXAM_TIMEFRAMES.map((tf) => {
+                    const isSelected = selectedTimeframe === tf.id;
+                    return (
+                      <button
+                        key={tf.id}
+                        type="button"
+                        onClick={() => setSelectedTimeframe(tf.id)}
+                        className={`${choiceCardClass(isSelected)} text-xs font-medium`}
+                      >
+                        <span className={isSelected ? "text-neutral-900" : "text-neutral-600"}>{tf.label}</span>
+                        <span className={checkDotClass(isSelected)}>{isSelected ? "✓" : ""}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-2">מטרת העל שלכם</label>
+                <label className="block text-xs font-medium text-neutral-600 mb-2 text-start">מטרת העל שלכם</label>
                 <div className="space-y-2">
-                  {LEARNING_GOALS.map((g) => (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => setLearningGoal(g.id)}
-                      className={`w-full p-3.5 rounded-xl border text-right transition-all flex items-center justify-between ${
-                        learningGoal === g.id
-                          ? "bg-violet-950/60 border-violet-500"
-                          : "bg-slate-950 border-slate-800"
-                      }`}
-                    >
-                      <div>
-                        <span className="text-xs font-black text-white block">{g.title}</span>
-                        <span className="text-[11px] text-slate-400 font-medium block mt-0.5">{g.desc}</span>
-                      </div>
-                      <span className="text-xs font-bold text-violet-400">{learningGoal === g.id ? "✓" : ""}</span>
-                    </button>
-                  ))}
+                  {LEARNING_GOALS.map((g) => {
+                    const isSelected = learningGoal === g.id;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => setLearningGoal(g.id)}
+                        className={choiceCardClass(isSelected)}
+                      >
+                        <div>
+                          <span className="text-xs font-semibold text-neutral-900 block">{g.title}</span>
+                          <span className="text-[11px] text-neutral-500 font-medium block mt-0.5">{g.desc}</span>
+                        </div>
+                        <span className={checkDotClass(isSelected)}>{isSelected ? "✓" : ""}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-2">ציון אחרון במקצוע / ציון בסיס נוכחי: {lastGrade}</label>
-                <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-2">
+                <label className="block text-xs font-medium text-neutral-600 mb-2 text-start">
+                  ציון אחרון במקצוע / ציון בסיס נוכחי: {lastGrade}
+                </label>
+                <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-2xl space-y-2">
                   <input
                     type="range"
                     min={30}
                     max={100}
                     value={lastGrade}
                     onChange={(e) => setLastGrade(Number(e.target.value))}
-                    className="w-full accent-violet-500 cursor-pointer"
+                    className="w-full accent-neutral-900 cursor-pointer"
                   />
-                  <div className="flex justify-between text-[11px] text-slate-500 font-bold">
+                  <div className="flex justify-between text-[11px] text-neutral-400 font-medium">
                     <span>30 (פער עמוק)</span>
                     <span>65 (בינוני)</span>
                     <span>100 (מצוינות)</span>
@@ -1025,55 +1038,51 @@ export default function OnboardingDiagnosticPage() {
               <button
                 type="button"
                 onClick={() => setMicroStep(3)}
-                className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors"
+                className={backBtnClass}
               >
                 חזרה
+                <ArrowRight className="ms-2" />
               </button>
               <button
                 type="button"
                 onClick={() => setMicroStep(5)}
-                className="flex-1 bg-violet-600 hover:bg-violet-500 text-white font-black py-3 rounded-xl transition-all shadow-lg shadow-violet-600/30"
+                className={proceedBtnClass}
               >
-                מעבר למבחן 3 שאלות העומק ⚡
+                <ArrowLeft className="me-2" />
+                מעבר לשאלות העומק
               </button>
             </div>
           </section>
         )}
 
-        {/* ================================================================== */}
-        {/* MICRO-STEP 5: 3-DOMAIN LATEX EXAM SUITE                            */}
-        {/* ================================================================== */}
+        {/* MICRO-STEP 5: 3-DOMAIN QUESTIONS */}
         {microStep === 5 && activeQuestion && (
-          <section className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
-            <div className="absolute -top-12 -start-12 w-40 h-40 bg-violet-600/20 blur-3xl -z-0" />
-
+          <section className={`${frostCard} p-6 sm:p-8 space-y-6`}>
             <div className="flex items-center justify-between">
-              <span className="inline-block px-3 py-1 bg-rose-950/80 border border-rose-800/80 text-rose-300 rounded-full text-xs font-black">
-                ⚠️ שאלת עומק {currentQuestionIdx + 1} מתוך 3: {activeQuestion.domain}
+              <span className={`${trackBadge} text-neutral-700`}>
+                שאלת עומק {currentQuestionIdx + 1} מתוך 3: {activeQuestion.domain}
               </span>
-              <span className="text-xs font-mono font-bold text-slate-400">
-                שאלה {currentQuestionIdx + 1} / {DIAGNOSTIC_3_DOMAIN_QUESTIONS.length}
+              <span className="text-xs font-mono font-medium text-neutral-400">
+                שאלה {currentQuestionIdx + 1} / {challengeQuestions.length}
               </span>
             </div>
 
-            <div>
-              <h2 className="text-xl sm:text-2xl font-black text-white">
+            <div className="text-start">
+              <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-neutral-900 [text-wrap:balance]">
                 {activeQuestion.title}
               </h2>
-              <p className="text-xs font-bold text-slate-400 mt-1">
+              <p className="text-xs font-medium text-neutral-500 mt-1">
                 {activeQuestion.context}
               </p>
             </div>
 
-            {/* LaTeX Formula Display Card with strict LTR isolation */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3">
-              <p className="text-xs text-slate-300 font-medium">{activeQuestion.instruction}</p>
-              <div className="py-2 px-3 bg-slate-900/90 border border-slate-800 rounded-xl">
-                <MathFormula math={activeQuestion.formulaLatex} block className="text-base sm:text-lg text-indigo-300" />
+            <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 space-y-3">
+              <p className="text-xs text-neutral-600 font-medium text-start">{activeQuestion.instruction}</p>
+              <div className="py-2 px-3 bg-white border border-neutral-200 rounded-xl">
+                <MathFormula math={activeQuestion.formulaLatex} block className="text-base sm:text-lg text-neutral-800" />
               </div>
             </div>
 
-            {/* Answer Options */}
             <div className="space-y-3">
               {activeQuestion.options.map((opt) => {
                 const isSelected = answers[activeQuestion.id] === opt.id;
@@ -1082,22 +1091,16 @@ export default function OnboardingDiagnosticPage() {
                     key={opt.id}
                     type="button"
                     onClick={() => handleSelectOption(activeQuestion.id, opt.id)}
-                    className={`w-full p-4 rounded-xl border text-right transition-all flex items-center justify-between ${
-                      isSelected
-                        ? "bg-violet-950/80 border-violet-500 ring-2 ring-violet-500/30"
-                        : "bg-slate-950 border-slate-800 hover:border-slate-700"
-                    }`}
+                    className={choiceCardClass(isSelected)}
                   >
                     <div className="flex-1 pe-3">
                       {opt.mathText ? (
-                        <MathFormula math={opt.mathText} className="text-sm font-bold text-slate-100" />
+                        <MathFormula math={opt.mathText} className="text-sm font-medium text-neutral-800" />
                       ) : (
-                        <span className="text-sm font-bold text-slate-100">{opt.plainText}</span>
+                        <span className="text-sm font-medium text-neutral-800">{opt.plainText}</span>
                       )}
                     </div>
-                    <span className={`w-5 h-5 rounded-full border flex items-center justify-center text-xs shrink-0 ${
-                      isSelected ? "bg-violet-600 border-violet-500 text-white" : "border-slate-700"
-                    }`}>
+                    <span className={checkDotClass(isSelected)}>
                       {isSelected && "✓"}
                     </span>
                   </button>
@@ -1105,227 +1108,180 @@ export default function OnboardingDiagnosticPage() {
               })}
             </div>
 
-            {/* Navigation Buttons for 3-Domain Questions */}
             <div className="flex gap-3 pt-2">
               {currentQuestionIdx > 0 ? (
                 <button
                   type="button"
                   onClick={handlePrevQuestion}
-                  className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors"
+                  className={backBtnClass}
                 >
                   שאלה קודמת
+                  <ArrowRight className="ms-2" />
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={() => setMicroStep(4)}
-                  className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors"
+                  className={backBtnClass}
                 >
                   חזרה
+                  <ArrowRight className="ms-2" />
                 </button>
               )}
 
-              {currentQuestionIdx < DIAGNOSTIC_3_DOMAIN_QUESTIONS.length - 1 ? (
+              {currentQuestionIdx < challengeQuestions.length - 1 ? (
                 <button
                   type="button"
                   disabled={!answers[activeQuestion.id]}
                   onClick={handleNextQuestion}
-                  className="flex-1 bg-violet-600 hover:bg-violet-500 text-white font-black py-3.5 rounded-xl transition-all shadow-lg shadow-violet-600/30 disabled:opacity-40"
+                  className={proceedBtnClass}
                 >
-                  שאלה הבאה ←
+                  <ArrowLeft className="me-2" />
+                  שאלה הבאה
                 </button>
               ) : (
                 <button
                   type="button"
                   disabled={loading || !answers[activeQuestion.id]}
                   onClick={handleSubmitDiagnostic}
-                  className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-black py-3.5 rounded-xl transition-all shadow-lg shadow-violet-600/30 disabled:opacity-40"
+                  className={proceedBtnClass}
                 >
-                  {loading ? "מחשב מדד מוכנות פדגוגי משוקלל..." : "חשב מדד מוכנות סופי למבחן 🎯"}
+                  <ArrowLeft className="me-2" />
+                  {loading ? "מחשב מדד מוכנות..." : "חשב מדד מוכנות למבחן"}
                 </button>
               )}
             </div>
           </section>
         )}
 
-        {/* ================================================================== */}
-        {/* MICRO-STEP 6: TEASER PAYWALL & WAKE-UP GAUGE                       */}
-        {/* ================================================================== */}
+        {/* MICRO-STEP 6: TEASER PAYWALL — readiness gauge only + locked gap tree */}
         {microStep === 6 && teaserData && (
           <section className="space-y-6">
-            {/* Urgency Readiness Gauge */}
-            <div className="bg-gradient-to-b from-slate-900 to-slate-950 border border-rose-900/60 rounded-3xl p-6 sm:p-8 text-center space-y-4 shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 start-1/2 -translate-x-1/2 w-72 h-36 bg-rose-600/20 blur-3xl -z-0" />
+            <div className={`${frostCard} p-6 sm:p-8 space-y-4`}>
+              <div className="text-start">
+                <span className={trackBadge}>מדד מוכנות</span>
+                <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-neutral-900 mt-2 text-start [text-wrap:balance]">
+                  <span className="tabular-nums">{teaserData.estimatedScore}%</span> מדד מוכנות נוכחי
+                </h2>
+              </div>
 
-              <span className="inline-block px-3 py-1 rounded-full text-xs font-black bg-rose-950/90 text-rose-300 border border-rose-800/80">
-                🚨 התראת מוכנות פדגוגית קריטית
-              </span>
-
-              <h2 className="text-xl sm:text-2xl font-black text-white">
-                מדד מוכנות למבחן ({getDerivedSubject()}): {teaserData.estimatedScore}%
-              </h2>
-
-              <div className="flex items-center justify-center my-4">
-                <div className="relative w-40 h-40 rounded-full border-4 border-rose-500/50 flex items-center justify-center bg-slate-950/90 shadow-2xl shadow-rose-950/50">
+              <div className="flex items-center justify-center my-2">
+                <div className="relative w-40 h-40 rounded-full border border-white/70 flex items-center justify-center liquid-glass">
                   <div className="text-center">
-                    <span className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-amber-300 to-rose-300">
+                    <span className="text-4xl sm:text-5xl font-semibold tracking-tight text-neutral-900">
                       {teaserData.estimatedScore}%
                     </span>
-                    <span className="block text-[10px] font-bold text-rose-400 uppercase tracking-widest mt-1">
-                      רמת סיכון גבוהה
+                    <span className="block text-[10px] font-medium text-neutral-500 tracking-widest mt-1">
+                      מדד מוכנות נוכחי
                     </span>
                   </div>
                 </div>
               </div>
-
-              <div className="bg-slate-950/90 border border-rose-900/50 rounded-2xl p-4 max-w-lg mx-auto text-xs font-bold text-rose-200 leading-relaxed">
-                {teaserData.recommendationSummary}
-              </div>
             </div>
 
-            {/* Hard Gated Blurred Knowledge Tree Paywall */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-black text-white">עץ פערי הידע של תכנית הלימודים</h3>
-                  <p className="text-xs font-medium text-slate-400 mt-0.5">
-                    זוהו {teaserData.topicsCount} מוקדי פער קריטיים שעלולים להכשיל בבחינה
-                  </p>
-                </div>
-                <span className="text-xs font-bold text-amber-400 bg-amber-950/60 border border-amber-800/60 px-3 py-1 rounded-full flex items-center gap-1.5">
-                  <span>🔒</span> נעול עד רכישה
-                </span>
+            <div className={`${frostCard} p-6 sm:p-8 space-y-4`}>
+              <div className="text-start">
+                <h3 className="text-lg font-semibold text-neutral-900 text-start">עץ פערי ידע</h3>
+                <p className="text-xs font-medium text-neutral-500 mt-0.5 text-start">
+                  מיפוי פדגוגי מפורט — נעול עד רכישת חבילת למידה
+                </p>
               </div>
 
-              {/* Blurred Masked Topic Cards (Guaranteed zero real data leak) */}
-              <div className="space-y-3 relative">
-                <div className="space-y-3 filter blur-md select-none pointer-events-none opacity-40" aria-hidden="true">
-                  {teaserData.maskedTopics?.map((t, idx) => (
-                    <div key={idx} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-black text-slate-200">{t.maskedName}</span>
-                        <span className="text-xs font-black text-violet-400 bg-violet-950 px-2.5 py-1 rounded-lg">
+              <div className="relative overflow-hidden max-h-[340px] rounded-2xl">
+                <div className="space-y-3 select-none pointer-events-none" aria-hidden="true">
+                  {(teaserData.maskedTopics && teaserData.maskedTopics.length > 0
+                    ? teaserData.maskedTopics
+                    : ([
+                        { id: "gap-a", maskedName: "מוקד פער א׳", weightInExam: 0.22, isLocked: true },
+                        { id: "gap-b", maskedName: "מוקד פער ב׳", weightInExam: 0.18, isLocked: true },
+                        { id: "gap-c", maskedName: "מוקד פער ג׳", weightInExam: 0.15, isLocked: true },
+                      ] as MaskedTopic[])
+                  ).map((t) => (
+                    <div
+                      key={t.id}
+                      className="liquid-glass rounded-2xl p-4 space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-neutral-800 text-start">{t.maskedName}</span>
+                        <span className={trackBadge}>
                           {Math.round(t.weightInExam * 100)}% משקל בבחינה
                         </span>
                       </div>
-                      <div className="flex gap-2">
-                        <span className="h-4 w-28 bg-slate-800 rounded-md" />
-                        <span className="h-4 w-36 bg-slate-800 rounded-md" />
+                      <div className="flex flex-wrap gap-2 justify-start">
+                        <span className="h-4 w-28 bg-neutral-100/80 rounded-md" />
+                        <span className="h-4 w-36 bg-neutral-100/80 rounded-md" />
+                        <span className="h-4 w-20 bg-neutral-100/80 rounded-md" />
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Overlaid Hard Paywall & Quad Value Proposition */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-950/90 backdrop-blur-lg rounded-2xl border border-violet-500/50 text-center space-y-4 shadow-2xl">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-2xl shadow-lg shadow-violet-500/40">
-                    🛡️
+                <div className="absolute inset-0 backdrop-blur-xl bg-white/70 flex flex-col items-center justify-center p-6 text-center z-20 space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-neutral-900 text-white flex items-center justify-center">
+                    <LockIcon className="w-5 h-5" />
                   </div>
-
-                  <div className="max-w-md space-y-2">
-                    <h4 className="text-base sm:text-xl font-black text-white">
-                      פתיחת מעטפת הליווי והצלת ציון הבגרות
-                    </h4>
-                    <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                      חיבור מיידי של התלמיד, מורה שכיר מומחה, ההורים והמנהל הפדגוגי לקבוצת WhatsApp ייעודית עם תוכנית עבודה אישית לסגירת הפערים.
-                    </p>
-                    {teaserData.recommendation && (
-                      <div className="inline-flex items-center gap-2 rounded-xl bg-violet-950/70 border border-violet-700/60 px-3 py-1.5 text-xs font-black text-violet-200">
-                        <span>ההמלצה הפדגוגית עבורך</span>
-                        <span className="rounded-lg bg-violet-600 px-2 py-0.5 text-white">
-                          {teaserData.recommendation.packageRecommendation === "MULTI"
-                            ? "Multi · 5 שיעורים"
-                            : "Trio · 3 שיעורים"}
-                        </span>
-                        <span>
-                          ({teaserData.topicsCount} {teaserData.topicsCount === 1 ? "נושא" : "נושאים"})
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm pt-2">
-                    <button
-                      type="button"
-                      disabled={unlocking}
-                      onClick={handleUnlockAndMatch}
-                      className="flex-1 bg-violet-600 hover:bg-violet-500 text-white text-xs font-black py-3.5 rounded-xl transition-all shadow-lg shadow-violet-600/30"
-                    >
-                      {unlocking ? "משבץ מורה מומחה..." : "פתח עם שיעורים קיימים ✓"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={dispatchWorking}
-                      onClick={handleOpenQuadEcosystem}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-600/30 disabled:opacity-50"
-                    >
-                      {dispatchWorking ? "פותח קבוצת ליווי..." : "כניסה למעטפת הליווי ופתיחת קבוצה מרובעת"}
-                    </button>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
-                    <Link
-                      href={
-                        teaserData.recommendation?.packageRecommendation === "MULTI"
-                          ? "/pricing?package=MULTI"
-                          : "/pricing?package=TRIO"
-                      }
-                      className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black py-3.5 rounded-xl text-center transition-all shadow-lg shadow-emerald-600/30"
-                    >
-                      רכישת החבילה המומלצת ⚡
-                    </Link>
-                    <Link
-                      href="/pricing"
-                      className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold py-3.5 rounded-xl text-center transition-colors"
-                    >
-                      לכל החבילות
-                    </Link>
-                  </div>
+                  <h4 className="text-base sm:text-lg font-semibold text-neutral-900">
+                    מיפוי פערי הידע המלא נעול
+                  </h4>
+                  <p className="max-w-md text-sm font-medium text-neutral-700 leading-relaxed">
+                    הגישה למערך התרגול המותאם, תוכנית הלמידה האישית ושיבוץ המרצה פתוחים לרוכשי חבילות למידה בלבד.
+                  </p>
                 </div>
               </div>
+            </div>
+
+            <div className={`${frostCard} p-6 sm:p-8 space-y-5`}>
+              <div className="text-start space-y-1">
+                <span className={trackBadge}>המלצת חבילה לפי עומק הפערים</span>
+                <h3 className="text-lg sm:text-xl font-semibold tracking-tight text-neutral-900 text-start mt-2">
+                  {recommendedPackage === "MULTI"
+                    ? "חבילת MULTI — 5 שיעורים · ₪800"
+                    : "חבילת TRIO — 3 שיעורים · ₪510"}
+                </h3>
+                <p className="text-xs text-neutral-500 font-medium text-start leading-relaxed">
+                  {recommendedPackage === "MULTI"
+                    ? "זוהו 3+ מוקדי פער — מומלץ מסלול MULTI לכיסוי מעמיק לפני הבחינה."
+                    : "זוהו 1–2 מוקדי פער — חבילת TRIO מספיקה למיקוד ממוקד ופתיחת הדו״ח המלא."}
+                </p>
+              </div>
+              <Link
+                href={`/pricing?package=${recommendedPackage}`}
+                className={`${primaryCta} inline-flex items-center justify-center gap-2 text-sm w-full`}
+              >
+                <ArrowLeft className="me-2" />
+                פתיחת הדו״ח המלא ורכישת חבילת למידה
+              </Link>
+              <p className="text-[11px] text-neutral-400 font-medium text-start">
+                {recommendedLessons} שיעורים · עץ הפערים המלא נפתח לאחר הרכישה בלבד · ללא שיבוץ שיעור לפני תשלום
+              </p>
             </div>
           </section>
         )}
 
-        {/* ================================================================== */}
-        {/* MICRO-STEP 7: UNLOCKED KNOWLEDGE TREE                              */}
-        {/* ================================================================== */}
+        {/* MICRO-STEP 7: UNLOCKED KNOWLEDGE TREE (paid / credited only) */}
         {microStep === 7 && teaserData && (
-          <section className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-5">
-              <div>
-                <span className="text-xs font-black text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-800/60">
-                  ✓ דו״ח פדגוגי פתוח ומאומת
-                </span>
-                <h2 className="text-2xl font-black text-white mt-2">
-                  עץ פערי ידע מלא — {getDerivedSubject()}
-                </h2>
-                <p className="text-xs text-slate-400 font-medium mt-1">
-                  ציון מוכנות נוכחי: {teaserData.estimatedScore}%
-                </p>
-              </div>
-
-              <Link
-                href="/dashboard"
-                className="bg-violet-600 hover:bg-violet-500 text-white text-xs font-black px-4 py-2.5 rounded-xl transition-colors shrink-0"
-              >
-                מעבר ללוח השעות ←
-              </Link>
+          <section className={`${frostCard} p-6 sm:p-8 space-y-6`}>
+            <div className="border-b border-neutral-200/80 pb-5 text-start">
+              <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 [text-wrap:balance]">
+                עץ פערי ידע מלא — {getDerivedSubject()}
+              </h2>
+              <p className="text-xs text-neutral-500 font-medium mt-1">
+                {teaserData.estimatedScore}% מדד מוכנות
+              </p>
             </div>
 
-            {/* Matched Teacher & Quad Group Hub */}
             {teaserData.matchedTeacher && (
-              <div className="bg-gradient-to-r from-violet-950/60 to-indigo-950/60 border border-violet-800/50 rounded-2xl p-5 space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="bg-neutral-900/[0.03] border border-neutral-900/[0.08] rounded-2xl p-5 space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-3">
-                    <span className="w-10 h-10 rounded-full bg-violet-600 flex items-center justify-center text-lg font-black">
-                      👨‍🏫
+                    <span className="w-10 h-10 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-medium">
+                      מ
                     </span>
-                    <div>
-                      <h4 className="text-sm font-black text-white">
+                    <div className="text-start">
+                      <h4 className="text-sm font-semibold text-neutral-900">
                         המורה המומחה שלך: {teaserData.matchedTeacher.teacherName}
                       </h4>
-                      <p className="text-xs text-violet-300 font-medium">
+                      <p className="text-xs text-neutral-500 font-medium">
                         ציון התאמה פדגוגי: {teaserData.matchedTeacher.matchScore}% · {teaserData.matchedTeacher.openSlotsCount} משבצות פנויות
                       </p>
                     </div>
@@ -1336,18 +1292,18 @@ export default function OnboardingDiagnosticPage() {
                       href={teaserData.quadGroupUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black px-3.5 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                      className={`${primaryCta} text-xs py-2 px-4`}
                     >
-                      <span>💬</span> כניסה לקבוצת ה-Quad ב-WhatsApp
+                      כניסה לקבוצת הווטסאפ המרובעת
                     </a>
                   )}
                 </div>
 
                 {teaserData.matchedTeacher.reasons.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
+                  <div className="flex flex-wrap gap-2 justify-start pt-1">
                     {teaserData.matchedTeacher.reasons.map((r, i) => (
-                      <span key={i} className="text-[10px] font-bold bg-violet-900/50 text-violet-200 px-2 py-0.5 rounded-md">
-                        ✓ {r}
+                      <span key={i} className={trackBadge}>
+                        {r}
                       </span>
                     ))}
                   </div>
@@ -1355,30 +1311,26 @@ export default function OnboardingDiagnosticPage() {
               </div>
             )}
 
-            {/* Unlocked Topics List */}
             <div className="space-y-3">
-              <h3 className="text-sm font-black text-slate-300">נושאי מיקוד הדורשים ליטוש מיידי:</h3>
+              <h3 className="text-sm font-semibold text-neutral-700 text-start">נושאי מיקוד הדורשים ליטוש:</h3>
               {teaserData.topics && teaserData.topics.length > 0 ? (
                 teaserData.topics.map((t) => (
                   <div
                     key={t.id}
-                    className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2 hover:border-slate-700 transition-colors"
+                    className={`${frostCard} p-4 space-y-2`}
                   >
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-black text-white">{t.topicName}</h4>
-                      <span className="text-xs font-black bg-indigo-950 text-indigo-300 border border-indigo-800/50 px-2.5 py-1 rounded-lg">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-sm font-semibold text-neutral-900 text-start">{t.topicName}</h4>
+                      <span className={trackBadge}>
                         {Math.round(t.weightInExam * 100)}% משקל בבחינה
                       </span>
                     </div>
 
                     {Array.isArray(t.subTopics) && t.subTopics.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-2 justify-start">
                         {t.subTopics.map((sub: string, i: number) => (
-                          <span
-                            key={i}
-                            className="text-[11px] font-bold bg-slate-900 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-lg"
-                          >
-                            🎯 {sub}
+                          <span key={i} className={trackBadge}>
+                            {sub}
                           </span>
                         ))}
                       </div>
@@ -1386,28 +1338,14 @@ export default function OnboardingDiagnosticPage() {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-6 text-slate-500 text-xs font-bold">
+                <div className="py-6 text-neutral-400 text-xs font-medium text-start">
                   לא זוהו נושאים ספציפיים במערכת — המורה המומחה יבצע מיפוי פרטני בשיעור הראשון.
                 </div>
               )}
             </div>
-
-            {/* Action Bar */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
-              <div>
-                <p className="text-xs font-black text-slate-200">מוכנים לשיעור הראשון?</p>
-                <p className="text-[11px] text-slate-400 font-medium">המורה המומחה והמנהל הפדגוגי כבר קיבלו את דו״ח האבחון המלא שלך.</p>
-              </div>
-              <Link
-                href="/dashboard"
-                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20"
-              >
-                בחירת מועד לשיעור בלוח ⚡
-              </Link>
-            </div>
           </section>
         )}
       </div>
-    </main>
+    </div>
   );
 }

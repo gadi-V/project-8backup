@@ -13,12 +13,18 @@ import {
   generateStreamToken,
 } from "../../../lib/stream";
 import { lessonAntiCollisionWindow } from "../../../lib/scheduling";
+import {
+  ensureUnifiedPackageStreamChannel,
+  resolveLessonStreamChannelId,
+} from "../../../lib/package-chat";
 
 async function attachLessonCredentials<
   T extends {
     id: string;
     dailyRoomUrl: string | null;
     teacherId: string;
+    studentId: string;
+    packageId: string | null;
     scheduledAt: Date;
     durationMinutes: number | null;
     chatChannel?: { streamChannelId: string } | null;
@@ -27,6 +33,7 @@ async function attachLessonCredentials<
   const roomUrl = lesson.dailyRoomUrl;
   let dailyToken: string | null = null;
   let streamToken: string | null = null;
+  let streamChannelId: string | null = null;
 
   if (roomUrl) {
     const roomName =
@@ -49,12 +56,22 @@ async function attachLessonCredentials<
     console.error(`Stream token generation failed for user ${userId}:`, error);
   }
 
+  try {
+    streamChannelId = await resolveLessonStreamChannelId(lesson);
+  } catch (error) {
+    console.error(
+      `Stream channel resolution failed for lesson ${lesson.id}:`,
+      error
+    );
+    streamChannelId = lesson.chatChannel?.streamChannelId ?? null;
+  }
+
   return {
     ...lesson,
     roomUrl,
     dailyToken,
     streamToken,
-    streamChannelId: lesson.chatChannel?.streamChannelId ?? null,
+    streamChannelId,
   };
 }
 
@@ -145,16 +162,32 @@ export async function GET(request: Request) {
         teacher: { select: { id: true, name: true } },
         student: { select: { id: true, name: true } },
         chatChannel: { select: { streamChannelId: true } },
+        package: { include: { chat: { select: { streamChannelId: true } } } },
       },
       orderBy: { scheduledAt: "asc" },
       take: 30,
     });
 
-    const payload = lessons.map((lesson) => ({
-      ...lesson,
-      roomUrl: lesson.dailyRoomUrl,
-      streamChannelId: lesson.chatChannel?.streamChannelId ?? null,
-    }));
+    const payload = await Promise.all(
+      lessons.map(async (lesson) => {
+        let streamChannelId =
+          lesson.chatChannel?.streamChannelId ?? null;
+        if (lesson.packageId) {
+          try {
+            streamChannelId =
+              (await resolveLessonStreamChannelId(lesson)) ?? streamChannelId;
+          } catch {
+            streamChannelId =
+              lesson.package?.chat?.streamChannelId ?? streamChannelId;
+          }
+        }
+        return {
+          ...lesson,
+          roomUrl: lesson.dailyRoomUrl,
+          streamChannelId,
+        };
+      })
+    );
 
     return NextResponse.json(payload, { status: 200 });
   } catch (error: unknown) {
@@ -169,10 +202,39 @@ export async function POST(request: Request) {
     if (auth.error) return auth.error;
 
     const body = await request.json();
-    const { slotId } = body;
+    const { slotId, packageId: bodyPackageId } = body as {
+      slotId?: string;
+      packageId?: string | null;
+    };
 
     if (!slotId) {
       return NextResponse.json({ error: "מזהה חלון זמן הוא שדה חובה" }, { status: 400 });
+    }
+
+    // Prefer explicit packageId; else link to the student's latest diagnostic package.
+    let resolvedPackageId: string | null =
+      typeof bodyPackageId === "string" && bodyPackageId.trim()
+        ? bodyPackageId.trim()
+        : null;
+
+    if (resolvedPackageId) {
+      const pkg = await prisma.package.findUnique({
+        where: { id: resolvedPackageId },
+        select: { id: true },
+      });
+      if (!pkg) {
+        return NextResponse.json({ error: "חבילה לא נמצאה" }, { status: 404 });
+      }
+    } else {
+      const latestDiagnostic = await prisma.diagnosticQuiz.findFirst({
+        where: {
+          studentId: auth.user.id,
+          packageId: { not: null },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { packageId: true },
+      });
+      resolvedPackageId = latestDiagnostic?.packageId ?? null;
     }
 
     // Atomic: credit check, overlap check, slot lock, lesson create
@@ -180,6 +242,7 @@ export async function POST(request: Request) {
       lessonId: string;
       teacherId: string;
       studentId: string;
+      packageId: string | null;
       newCredits: number;
       scheduledAt: Date;
       durationMinutes: number;
@@ -259,6 +322,7 @@ export async function POST(request: Request) {
             dailyRoomUrl: null,
             // Canonical lesson duration per platform rules: 50 min lesson + 10 min break = 60-min calendar block.
             durationMinutes: 50,
+            packageId: resolvedPackageId,
           },
         });
 
@@ -266,6 +330,7 @@ export async function POST(request: Request) {
           lessonId: newLesson.id,
           teacherId: newLesson.teacherId,
           studentId: newLesson.studentId,
+          packageId: newLesson.packageId,
           newCredits: updatedStudent.lessonCredits,
           scheduledAt: newLesson.scheduledAt,
           durationMinutes: newLesson.durationMinutes ?? 60,
@@ -324,7 +389,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2) Stream Chat channel — compensate DB + Daily room on failure
+    // 2) Stream Chat channel — package-scoped UnifiedPackageChat when linked,
+    //    otherwise a standalone lesson_${id} channel. Compensate DB + Daily on failure.
     let streamChannelId: string | null = null;
     try {
       const managers = await prisma.user.findMany({
@@ -338,14 +404,24 @@ export async function POST(request: Request) {
         ...managers.map((m) => m.id),
       ];
 
-      streamChannelId = await createStreamChannel(result.lessonId, memberIds);
+      if (result.packageId) {
+        // Shared channel across all lessons in the package (no ChatChannel row —
+        // ChatChannel.streamChannelId is unique and cannot point multiple lessons
+        // at the same package Stream id).
+        streamChannelId = await ensureUnifiedPackageStreamChannel(
+          result.packageId,
+          memberIds
+        );
+      } else {
+        streamChannelId = await createStreamChannel(result.lessonId, memberIds);
 
-      await prisma.chatChannel.create({
-        data: {
-          lessonId: result.lessonId,
-          streamChannelId,
-        },
-      });
+        await prisma.chatChannel.create({
+          data: {
+            lessonId: result.lessonId,
+            streamChannelId,
+          },
+        });
+      }
     } catch (streamError) {
       console.error("Stream channel creation failed after booking:", streamError);
       await compensateBooking(result.lessonId, slotId, result.studentId, roomName);
@@ -359,10 +435,11 @@ export async function POST(request: Request) {
       id: result.lessonId,
       teacherId: result.teacherId,
       studentId: result.studentId,
+      packageId: result.packageId,
       dailyRoomUrl: roomUrl,
       roomUrl,
       streamChannelId,
-      chatChannel: { streamChannelId },
+      chatChannel: streamChannelId ? { streamChannelId } : null,
     };
 
     return NextResponse.json(

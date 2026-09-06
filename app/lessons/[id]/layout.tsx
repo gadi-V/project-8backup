@@ -10,7 +10,7 @@ export default function LessonClassroomLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900 overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-stone-50 overflow-hidden">
       {children}
     </div>
   );

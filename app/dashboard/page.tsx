@@ -11,6 +11,17 @@ import StudentTimePreferenceBar, {
 } from "../../components/StudentTimePreferenceBar";
 import { ACTIVITY_HOUR_SLOTS } from "../../lib/matching";
 import type { TeacherOnboardingStatus } from "../../lib/teacher-onboarding";
+import {
+  badgeSuccess,
+  badgeWarning,
+  emptyState,
+  eyebrow,
+  fieldClass,
+  frostCard,
+  pageCanvas,
+  primaryCta,
+  secondaryCta,
+} from "../../lib/ui";
 
 function emptyTimePreference(): StudentTimePreference {
   return { requestedDays: [], requestedTimes: [], timeWindows: [] };
@@ -725,37 +736,40 @@ export default function DashboardPage() {
     router.replace("/login");
   };
 
-  if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">טוען...</div>;
+  if (loading) {
+    return (
+      <div className={`${pageCanvas} flex items-center justify-center`}>
+        <p className="text-sm font-medium text-neutral-500">טוען...</p>
+      </div>
+    );
+  }
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-6 sm:p-8 pt-12" dir="rtl">
+    <div className={`${pageCanvas} p-6 sm:p-8 pt-12`} dir="rtl">
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* כותרת עליונה */}
-        <div className="flex justify-between items-center bg-slate-800/30 border border-slate-800 p-6 rounded-2xl backdrop-blur-md">
+        <div className={`${frostCard} p-6 flex justify-between items-center`}>
           <div>
-            <span className="text-xs font-bold text-blue-400 block mb-1">
+            <span className={`${eyebrow} block mb-1`}>
               {user.role === "ADMIN" || user.role === "MANAGER"
                 ? user.role === "MANAGER"
-                  ? "📋 מנהל תפעול"
-                  : "🛡️ מנהל מערכת"
+                  ? "מנהל תפעול"
+                  : "מנהל מערכת"
                 : user.role === "TEACHER"
-                  ? "👨‍🏫 מורה פרימיום - יומן עבודה"
-                  : "🎓 אזור סטודנטים והורים"}
+                  ? "מורה פרימיום - יומן עבודה"
+                  : "אזור סטודנטים והורים"}
             </span>
-            <h1 className="text-2xl font-black">שלום, {user.name} 👋</h1>
+            <h1 className="text-2xl font-semibold text-neutral-900">שלום, {user.name}</h1>
           </div>
           <div className="flex items-center gap-3">
             {(user.role === "ADMIN" || user.role === "MANAGER") && (
-              <a
-                href="/admin"
-                className="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white py-2 px-4 rounded-xl"
-              >
+              <a href="/admin" className={primaryCta}>
                 לוח ניהול
               </a>
             )}
-            <button onClick={handleLogout} className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-xl border border-slate-700">
+            <button onClick={handleLogout} className={secondaryCta}>
               התנתקות
             </button>
           </div>
@@ -763,32 +777,29 @@ export default function DashboardPage() {
 
         {/* אדמין / מנהל */}
         {(user.role === "ADMIN" || user.role === "MANAGER") && (
-          <div className="bg-violet-500/10 border border-violet-500/40 p-8 rounded-2xl text-right space-y-4">
-            <h2 className="text-xl font-black text-violet-300">
+          <div className={`${frostCard} p-8 text-start space-y-4`}>
+            <h2 className="text-xl font-semibold text-neutral-900">
               {user.role === "MANAGER" ? "ממשק מנהל תפעול" : "ממשק מנהל מערכת"}
             </h2>
-            <p className="text-sm text-slate-300 leading-relaxed">
+            <p className="text-sm text-neutral-600 leading-relaxed">
               כאן תוכלו לאשר מורים, לטפל בלידים ולצפות באבחונים של תלמידים.
             </p>
-            <a
-              href="/admin"
-              className="inline-block bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold py-3 px-6 rounded-xl"
-            >
-              כניסה ללוח הניהול ←
+            <a href="/admin" className={`${primaryCta} inline-block`}>
+              כניסה ללוח הניהול
             </a>
           </div>
         )}
 
         {/* מורה — מסלול קליטה מאחורי הקלעים */}
         {user.role === "TEACHER" && teacherOnboarding && !teacherOnboarding.isFullyActive && (
-          <div className="bg-amber-500/10 border border-amber-500/40 p-8 rounded-2xl text-right space-y-5">
+          <div className={`${frostCard} p-8 text-start space-y-5 border-amber-200/80 bg-amber-50/40`}>
             <div className="space-y-2">
-              <h2 className="text-xl font-black text-amber-300">
+              <h2 className="text-xl font-semibold text-neutral-900">
                 {user.isApproved
                   ? "השלמת פרופיל המורה"
                   : "חשבון המורה ממתין לאישור צוות"}
               </h2>
-              <p className="text-sm text-slate-300 leading-relaxed">
+              <p className="text-sm text-neutral-600 leading-relaxed">
                 {user.isApproved
                   ? "החשבון אושר. השלימו את השלבים הבאים כדי להתחיל לקבל שיבוצים מתלמידים."
                   : "ההרשמה התקבלה בהצלחה. צוות PROJECT8 מלווה את תהליך הקליטה — עדכונים יופיעו כאן."}
@@ -798,29 +809,28 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ======================= 🎓 חלק א': תצוגת סטודנט / הורה ======================= */}
+        {/* ======================= חלק א': תצוגת סטודנט / הורה ======================= */}
         {user.role === "STUDENT" && (
           <div className="space-y-8">
             
             {!hasCompletedQuiz ? (
-              <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md shadow-2xl space-y-6 max-w-2xl mx-auto">
+              <div className={`${frostCard} p-8 space-y-6 max-w-2xl mx-auto`}>
                 
                 {/* 1. מסך פתיחה ומבוא */}
                 {quizStep === "welcome" && (
                   <div className="text-center space-y-6 py-4">
-                    <div className="w-14 h-14 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center mx-auto text-xl">🎯</div>
+                    <div className="w-14 h-14 bg-neutral-100 border border-neutral-200 rounded-2xl flex items-center justify-center mx-auto text-xs font-semibold text-neutral-700">P8</div>
                     <div className="space-y-2">
-                      <h2 className="text-xl font-black text-white">התאמת מורה פרטי ברמת פרימיום</h2>
-                      <p className="text-xs text-slate-400 leading-relaxed max-w-md mx-auto">
+                      <h2 className="text-xl font-semibold text-neutral-900">התאמת מורה פרטי ברמת פרימיום</h2>
+                      <p className="text-xs text-neutral-500 leading-relaxed max-w-md mx-auto">
                         כדי שנוכל לסווג את הפרופיל הלימודי המדויק ולהתאים לכם מרצה מומחה, נשמח לעבור אפיון מקצועי קצרצר.
                       </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-                      <button onClick={() => setQuizStep("branch_select")} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl text-xs transition-all shadow-lg shadow-blue-600/10">
-                        התחל אבחון דיאגנוסטי מודרך 🚀
+                      <button onClick={() => setQuizStep("branch_select")} className={primaryCta}>
+                        התחל אבחון דיאגנוסטי מודרך
                       </button>
-                      {/* 🔥 הכפתור המדויק והחכם שלך שמדלג ישירות לבחירת הקושי בענף */}
-                      <button onClick={() => { setQuizStep("branch_select"); }} className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 px-6 rounded-xl text-xs border border-slate-700 transition-all">
+                      <button onClick={() => { setQuizStep("branch_select"); }} className={secondaryCta}>
                         יודע כבר במה הקושי?
                       </button>
                     </div>
@@ -830,68 +840,64 @@ export default function DashboardPage() {
                 {/* 2. מסך פיצול הענפים המרכזי */}
                 {quizStep === "branch_select" && (
                   <div className="space-y-4">
-                    <h2 className="text-lg font-black text-white text-center">אנא בחרו את מסלול הלימודים הרלוונטי:</h2>
+                    <h2 className="text-lg font-semibold text-neutral-900 text-center">אנא בחרו את מסלול הלימודים הרלוונטי:</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                      <button onClick={() => { setQuizBranch("school"); setQuizStep("school_form"); }} className="bg-slate-900 hover:bg-slate-950 border border-slate-800 hover:border-blue-500 p-6 rounded-2xl text-right transition-all flex flex-col justify-between h-32 group">
-                        <span className="text-2xl">🎒</span>
+                      <button onClick={() => { setQuizBranch("school"); setQuizStep("school_form"); }} className="bg-neutral-50 hover:bg-white border border-neutral-200 hover:border-neutral-400 p-6 rounded-2xl text-start transition-all flex flex-col justify-between h-32">
+                        <span className="text-xs font-medium text-neutral-500 tracking-wide">בית ספר</span>
                         <div>
-                          <span className="block font-black text-sm text-white">תלמיד בית ספר / הורה</span>
-                          <span className="text-[11px] text-slate-400 block mt-0.5">יסודי, חטיבה, תיכון והכנה לבגרויות</span>
+                          <span className="block font-semibold text-sm text-neutral-900">תלמיד בית ספר / הורה</span>
+                          <span className="text-[11px] text-neutral-500 block mt-0.5">יסודי, חטיבה, תיכון והכנה לבגרויות</span>
                         </div>
                       </button>
 
-                      <button onClick={() => { setQuizBranch("academia"); setQuizStep("academia_form"); }} className="bg-slate-900 hover:bg-slate-950 border border-slate-800 hover:border-blue-500 p-6 rounded-2xl text-right transition-all flex flex-col justify-between h-32 group">
-                        <span className="text-2xl">🎓</span>
+                      <button onClick={() => { setQuizBranch("academia"); setQuizStep("academia_form"); }} className="bg-neutral-50 hover:bg-white border border-neutral-200 hover:border-neutral-400 p-6 rounded-2xl text-start transition-all flex flex-col justify-between h-32">
+                        <span className="text-xs font-medium text-neutral-500 tracking-wide">אקדמיה</span>
                         <div>
-                          <span className="block font-black text-sm text-white">סטודנט באקדמיה</span>
-                          <span className="text-[11px] text-slate-400 block mt-0.5">קורסים אקדמיים באוניברסיטאות ומכללות</span>
+                          <span className="block font-semibold text-sm text-neutral-900">סטודנט באקדמיה</span>
+                          <span className="text-[11px] text-neutral-500 block mt-0.5">קורסים אקדמיים באוניברסיטאות ומכללות</span>
                         </div>
                       </button>
                     </div>
                   </div>
                 )}
 
-                {/* 🎒 ענף א': טופס ממוקד בית ספר (תמיכה מלאה בכל המקצועות + בחירה חופשית) */}
+                {/* ענף א': טופס ממוקד בית ספר */}
                 {quizStep === "school_form" && (
                   <div className="space-y-5">
-                    <h2 className="text-lg font-black text-white border-b border-slate-800 pb-2">📋 אפיון ממוקד - מסלול בית ספר</h2>
+                    <h2 className="text-lg font-semibold text-neutral-900 border-b border-neutral-200 pb-2">אפיון ממוקד - מסלול בית ספר</h2>
                     
-                    {/* א. בחירת מקצוע מורחב */}
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-400">באיזה מקצוע הקושי? (חובה)</label>
+                      <label className="text-xs font-medium text-neutral-500">באיזה מקצוע הקושי? (חובה)</label>
                       <div className="grid grid-cols-3 gap-2">
                         {["מתמטיקה", "אנגלית", "פיזיקה", "כימיה/ביולוגיה", "לשון והבעה", "אחר"].map((sub) => (
-                          <button key={sub} type="button" onClick={() => setSchoolSubject(sub)} className={`py-2 px-3 text-center text-xs font-bold rounded-xl border transition-all ${schoolSubject === sub ? "bg-blue-600 border-blue-500 text-white" : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700"}`}>
+                          <button key={sub} type="button" onClick={() => setSchoolSubject(sub)} className={`py-2 px-3 text-center text-xs font-medium rounded-xl border transition-all ${schoolSubject === sub ? "bg-neutral-900 border-neutral-900 text-white" : "bg-neutral-50 border-neutral-200 text-neutral-600 hover:border-neutral-400"}`}>
                             {sub}
                           </button>
                         ))}
                       </div>
                       {schoolSubject === "אחר" && (
-                        <input type="text" value={customSubject} onChange={(e) => setCustomSubject(e.target.value)} placeholder="הקלידו כאן את שם המקצוע המבוקש..." className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-white placeholder-slate-500 mt-2 focus:border-blue-500 focus:outline-none" />
+                        <input type="text" value={customSubject} onChange={(e) => setCustomSubject(e.target.value)} placeholder="הקלידו כאן את שם המקצוע המבוקש..." className={`${fieldClass} mt-2`} />
                       )}
                     </div>
 
-                    {/* ב. כיתה והקבצה */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-400">כיתה</label>
-                        <input type="text" value={schoolGrade} onChange={(e) => setSchoolGrade(e.target.value)} placeholder="למשל: י', ח', יא'" className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500" />
+                        <label className="text-xs font-medium text-neutral-500">כיתה</label>
+                        <input type="text" value={schoolGrade} onChange={(e) => setSchoolGrade(e.target.value)} placeholder="למשל: י', ח', יא'" className={fieldClass} />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-400">הקבצה / רמת יחידות</label>
-                        <input type="text" value={schoolLevel} onChange={(e) => setSchoolLevel(e.target.value)} placeholder="למשל: 4 יח', 5 יח', הקבצה א'" className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500" />
+                        <label className="text-xs font-medium text-neutral-500">הקבצה / רמת יחידות</label>
+                        <input type="text" value={schoolLevel} onChange={(e) => setSchoolLevel(e.target.value)} placeholder="למשל: 4 יח', 5 יח', הקבצה א'" className={fieldClass} />
                       </div>
                     </div>
 
-                    {/* ג. נושאים ספציפיים */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-400">אילו נושאים ספציפיים צריכים חיזוק?</label>
-                      <input type="text" value={schoolTopics} onChange={(e) => setSchoolTopics(e.target.value)} placeholder="למשל: גאומטריה, זמנים באנגלית, בעיות תנועה..." className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500" />
+                      <label className="text-xs font-medium text-neutral-500">אילו נושאים ספציפיים צריכים חיזוק?</label>
+                      <input type="text" value={schoolTopics} onChange={(e) => setSchoolTopics(e.target.value)} placeholder="למשל: גאומטריה, זמנים באנגלית, בעיות תנועה..." className={fieldClass} />
                     </div>
 
-                    {/* ד. שורש הבעיה */}
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-400">סמנו בקליק: איפה עיקר הקושי בא לידי ביטוי?</label>
+                      <label className="text-xs font-medium text-neutral-500">סמנו בקליק: איפה עיקר הקושי בא לידי ביטוי?</label>
                       <div className="space-y-2">
                         {[
                           "חרדת בחינות וצורך בטכניקות מענה לחומר",
@@ -899,90 +905,87 @@ export default function DashboardPage() {
                           "חוסר משמעת עצמית, סדר וארגון זמן למידה",
                           "הבנת חומר מצוינת - רצון להצטיין ולהתקדם מעבר לכיתה"
                         ].map((ch) => (
-                          <button key={ch} type="button" onClick={() => setSchoolChallenge(ch)} className={`w-full text-right p-3 rounded-xl text-xs font-bold border transition-all flex justify-between items-center ${schoolChallenge === ch ? "bg-blue-600/20 border-blue-500 text-white" : "bg-slate-900 border-slate-800 text-slate-400"}`}>
-                            <span>🔍 {ch}</span>
-                            {schoolChallenge === ch && <span className="text-blue-400 text-xs">✓</span>}
+                          <button key={ch} type="button" onClick={() => setSchoolChallenge(ch)} className={`w-full text-start p-3 rounded-xl text-xs font-medium border transition-all flex justify-between items-center ${schoolChallenge === ch ? "bg-neutral-900 border-neutral-900 text-white" : "bg-neutral-50 border-neutral-200 text-neutral-600"}`}>
+                            <span>{ch}</span>
+                            {schoolChallenge === ch && <span className="text-emerald-300 text-xs">✓</span>}
                           </button>
                         ))}
                       </div>
                     </div>
 
-                    {/* ה. יעד המפגשים */}
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-400">מהו יעד הלימודים המרכזי?</label>
+                      <label className="text-xs font-medium text-neutral-500">מהו יעד הלימודים המרכזי?</label>
                       <div className="grid grid-cols-2 gap-3">
                         {[
-                          { label: "🎯 מרתון ממוקד למבחן קרוב", val: "MARATHON" },
-                          { label: "🛡️ ליווי שוטף ארוך טווח", val: "LONG_TERM" }
+                          { label: "מרתון ממוקד למבחן קרוב", val: "MARATHON" },
+                          { label: "ליווי שוטף ארוך טווח", val: "LONG_TERM" }
                         ].map((t) => (
-                          <button key={t.val} type="button" onClick={() => setSchoolTarget(t.label)} className={`p-4 rounded-xl text-center text-xs font-bold border transition-all ${schoolTarget === t.label ? "bg-blue-600 border-blue-500 text-white" : "bg-slate-900 border-slate-800 text-slate-400"}`}>
+                          <button key={t.val} type="button" onClick={() => setSchoolTarget(t.label)} className={`p-4 rounded-xl text-center text-xs font-medium border transition-all ${schoolTarget === t.label ? "bg-neutral-900 border-neutral-900 text-white" : "bg-neutral-50 border-neutral-200 text-neutral-600"}`}>
                             {t.label}
                           </button>
                         ))}
                       </div>
                     </div>
 
-                    <button onClick={() => handleSaveQuiz("school")} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-lg mt-4">
-                      שמור נתוני אבחון ונעל פרופיל תלמיד 🔒
+                    <button onClick={() => handleSaveQuiz("school")} className={`${primaryCta} w-full mt-4`}>
+                      שמור נתוני אבחון ונעל פרופיל תלמיד
                     </button>
                   </div>
                 )}
 
-                {/* 🎓 ענף ב': טופס ממוקד אקדמיה וקורסים אקדמיים */}
+                {/* ענף ב': טופס ממוקד אקדמיה */}
                 {quizStep === "academia_form" && (
                   <div className="space-y-5">
-                    <h2 className="text-lg font-black text-white border-b border-slate-800 pb-2">📋 אפיון ממוקד - מסלול אקדמיה</h2>
+                    <h2 className="text-lg font-semibold text-neutral-900 border-b border-neutral-200 pb-2">אפיון ממוקד - מסלול אקדמיה</h2>
                     
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-400">מוסד הלימודים Academic Institution</label>
-                        <input type="text" value={academyInstitution} onChange={(e) => setAcademyInstitution(e.target.value)} placeholder="למשל: הטכניון, אוניברסיטת תל אביב" className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500" />
+                        <label className="text-xs font-medium text-neutral-500">מוסד הלימודים Academic Institution</label>
+                        <input type="text" value={academyInstitution} onChange={(e) => setAcademyInstitution(e.target.value)} placeholder="למשל: הטכניון, אוניברסיטת תל אביב" className={fieldClass} />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-400">מסלול התואר / פקולטה</label>
-                        <input type="text" value={academyDegree} onChange={(e) => setAcademyDegree(e.target.value)} placeholder="למשל: מדעי המחשב, כלכלה, הנדסה" className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500" />
+                        <label className="text-xs font-medium text-neutral-500">מסלול התואר / פקולטה</label>
+                        <input type="text" value={academyDegree} onChange={(e) => setAcademyDegree(e.target.value)} placeholder="למשל: מדעי המחשב, כלכלה, הנדסה" className={fieldClass} />
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-400">מהו שם הקורס המדויק שבו נדרשת עזרה?</label>
-                      <input type="text" value={academyCourse} onChange={(e) => setAcademyCourse(e.target.value)} placeholder="למשל: אינפי 1, אלגברה ליניארית ת', מבני נתונים..." className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500" />
+                      <label className="text-xs font-medium text-neutral-500">מהו שם הקורס המדויק שבו נדרשת עזרה?</label>
+                      <input type="text" value={academyCourse} onChange={(e) => setAcademyCourse(e.target.value)} placeholder="למשל: אינפי 1, אלגברה ליניארית ת', מבני נתונים..." className={fieldClass} />
                     </div>
 
-                    {/* יעד לימודים אקדמי */}
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-400">מהו אופי הליווי המבוקש?</label>
+                      <label className="text-xs font-medium text-neutral-500">מהו אופי הליווי המבוקש?</label>
                       <div className="grid grid-cols-2 gap-3">
                         {[
-                          { label: "🎯 מרתון ממוקד למבחן (מועד א'/ב')", val: "EXAM" },
-                          { label: "🛡️ ליווי שוטף לאורך כל הסמסטר", val: "SEMESTER" }
+                          { label: "מרתון ממוקד למבחן (מועד א'/ב')", val: "EXAM" },
+                          { label: "ליווי שוטף לאורך כל הסמסטר", val: "SEMESTER" }
                         ].map((t) => (
-                          <button key={t.val} type="button" onClick={() => setAcademyTarget(t.label)} className={`p-4 rounded-xl text-center text-xs font-bold border transition-all ${academyTarget === t.label ? "bg-blue-600 border-blue-500 text-white" : "bg-slate-900 border-slate-800 text-slate-400"}`}>
+                          <button key={t.val} type="button" onClick={() => setAcademyTarget(t.label)} className={`p-4 rounded-xl text-center text-xs font-medium border transition-all ${academyTarget === t.label ? "bg-neutral-900 border-neutral-900 text-white" : "bg-neutral-50 border-neutral-200 text-neutral-600"}`}>
                             {t.label}
                           </button>
                         ))}
                       </div>
                     </div>
 
-                    {/* מוקד קושי אקדמי */}
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-400">איפה ממוקם הקושי המרכזי בקורס?</label>
+                      <label className="text-xs font-medium text-neutral-500">איפה ממוקם הקושי המרכזי בקורס?</label>
                       <div className="space-y-2">
                         {[
-                          "🧩 קושי בהבנת קונספטים מופשטים ותיאורטיים של המרצה בהרצאות",
-                          "✍️ חוסר הצלחה ופרקטיקה בפתרון תרגילי הבית והבנת גיליונות התרגול",
-                          "⏰ לחץ זמן חריג וצורך בטכניקות מעשיות לניהול זמן בבחינה עצמה"
+                          "קושי בהבנת קונספטים מופשטים ותיאורטיים של המרצה בהרצאות",
+                          "חוסר הצלחה ופרקטיקה בפתרון תרגילי הבית והבנת גיליונות התרגול",
+                          "לחץ זמן חריג וצורך בטכניקות מעשיות לניהול זמן בבחינה עצמה"
                         ].map((ch) => (
-                          <button key={ch} type="button" onClick={() => setAcademyChallenge(ch)} className={`w-full text-right p-3 rounded-xl text-xs font-bold border transition-all flex justify-between items-center ${academyChallenge === ch ? "bg-blue-600/20 border-blue-500 text-white" : "bg-slate-900 border-slate-800 text-slate-400"}`}>
+                          <button key={ch} type="button" onClick={() => setAcademyChallenge(ch)} className={`w-full text-start p-3 rounded-xl text-xs font-medium border transition-all flex justify-between items-center ${academyChallenge === ch ? "bg-neutral-900 border-neutral-900 text-white" : "bg-neutral-50 border-neutral-200 text-neutral-600"}`}>
                             <span>{ch}</span>
-                            {academyChallenge === ch && <span className="text-blue-400 text-xs">✓</span>}
+                            {academyChallenge === ch && <span className="text-emerald-300 text-xs">✓</span>}
                           </button>
                         ))}
                       </div>
                     </div>
 
-                    <button onClick={() => handleSaveQuiz("academia")} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-lg mt-4">
-                      שמור נתוני אבחון ונעל פרופיל אקדמי 🔒
+                    <button onClick={() => handleSaveQuiz("academia")} className={`${primaryCta} w-full mt-4`}>
+                      שמור נתוני אבחון ונעל פרופיל אקדמי
                     </button>
                   </div>
                 )}
@@ -990,7 +993,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               
-              /* 🟢 הדאשבורד של הסטודנט נפתח במלואו רק לאחר שמירת האבחון בענן */
+              /* הדאשבורד של הסטודנט נפתח במלואו רק לאחר שמירת האבחון בענן */
               <div className="space-y-6 animate-fadeIn">
                 <StudentTimePreferenceBar
                   value={timePreference}
@@ -1000,23 +1003,23 @@ export default function DashboardPage() {
                 />
 
                 {matchNotice && (
-                  <p className="text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 text-right">
+                  <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-start">
                     {matchNotice}
                   </p>
                 )}
 
                 {(matchLoading || recommendedMatch || rankedMatches.length > 0) && (
-                  <div className="bg-gradient-to-br from-violet-600/15 to-slate-900/40 border border-violet-500/30 p-6 rounded-2xl text-right space-y-4">
+                  <div className={`${frostCard} p-6 text-start space-y-4`}>
                     <div>
-                      <h3 className="text-sm font-bold text-violet-300">
+                      <h3 className="text-sm font-semibold text-neutral-900">
                         מורים פנויים — דירוג Fair Dispatch
                       </h3>
-                      <p className="text-[11px] text-slate-500 mt-1">
+                      <p className="text-[11px] text-neutral-500 mt-1">
                         מקצוע וחומר לימוד · חפיפת שעות · עומס שבועי מאוזן. לחצו על כרטיס לפתיחת הלוח.
                       </p>
                     </div>
                     {matchLoading && rankedMatches.length === 0 ? (
-                      <p className="text-xs text-slate-400">מחשב התאמה שוויונית...</p>
+                      <p className="text-xs text-neutral-500">מחשב התאמה שוויונית...</p>
                     ) : rankedMatches.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {rankedMatches.slice(0, 6).map((match, index) => {
@@ -1026,22 +1029,22 @@ export default function DashboardPage() {
                               key={match.teacherId}
                               type="button"
                               onClick={() => selectMatchedTeacher(match)}
-                              className={`w-full text-right p-4 rounded-xl border transition-all ${
+                              className={`w-full text-start p-4 rounded-xl border transition-all ${
                                 isSelected
-                                  ? "bg-violet-600/20 border-violet-400 ring-1 ring-violet-400/40"
-                                  : "bg-slate-900/50 border-slate-800 hover:border-violet-500/40"
+                                  ? "bg-neutral-900 border-neutral-900 text-white ring-1 ring-neutral-900/20"
+                                  : "bg-neutral-50 border-neutral-200 hover:border-neutral-400"
                               }`}
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="space-y-1 min-w-0">
                                   <div className="flex flex-wrap items-center gap-2">
                                     {index === 0 && (
-                                      <span className="text-[10px] font-black uppercase bg-violet-500/20 text-violet-200 px-2 py-0.5 rounded">
+                                      <span className={isSelected ? "inline-flex items-center rounded-full bg-white/15 text-white text-[10px] font-medium px-2.5 py-1" : badgeSuccess}>
                                         מומלץ ביותר
                                       </span>
                                     )}
                                     {match.exactAvailabilityMatch && (
-                                      <span className="text-[10px] font-black uppercase bg-emerald-500/15 text-emerald-300 px-2 py-0.5 rounded">
+                                      <span className={isSelected ? "inline-flex items-center rounded-full bg-emerald-400/20 text-emerald-100 text-[10px] font-medium px-2.5 py-1" : badgeSuccess}>
                                         {typeof match.overlapCount === "number" &&
                                         match.overlapCount > 0
                                           ? `${match.overlapCount} חפיפות`
@@ -1049,15 +1052,15 @@ export default function DashboardPage() {
                                       </span>
                                     )}
                                     {match.isSoftRecommendation && (
-                                      <span className="text-[10px] font-black uppercase bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded">
+                                      <span className={isSelected ? "inline-flex items-center rounded-full bg-amber-400/20 text-amber-100 text-[10px] font-medium px-2.5 py-1" : badgeWarning}>
                                         המלצה רכה
                                       </span>
                                     )}
-                                    <span className="text-sm font-black text-white">
+                                    <span className={`text-sm font-semibold ${isSelected ? "text-white" : "text-neutral-900"}`}>
                                       {match.teacherName}
                                     </span>
                                   </div>
-                                  <p className="text-[11px] text-slate-400">
+                                  <p className={`text-[11px] ${isSelected ? "text-neutral-300" : "text-neutral-500"}`}>
                                     ציון {match.matchScore}
                                     {typeof match.weeklyLessonCount === "number" &&
                                       ` · עומס שבועי ${match.weeklyLessonCount}`}
@@ -1067,7 +1070,7 @@ export default function DashboardPage() {
                                       : "אין שעות פנויות כרגע"}
                                   </p>
                                   {match.nearestSlotStart && !match.exactAvailabilityMatch && (
-                                    <p className="text-[11px] text-amber-200/80">
+                                    <p className={`text-[11px] ${isSelected ? "text-amber-200" : "text-amber-800"}`}>
                                       חלון קרוב:{" "}
                                       {new Date(match.nearestSlotStart).toLocaleString("he-IL", {
                                         weekday: "short",
@@ -1079,17 +1082,17 @@ export default function DashboardPage() {
                                     </p>
                                   )}
                                   {match.subjects.length > 0 && (
-                                    <p className="text-[11px] text-violet-200">
+                                    <p className={`text-[11px] ${isSelected ? "text-neutral-300" : "text-neutral-600"}`}>
                                       {match.subjects.join(" · ")}
                                     </p>
                                   )}
                                   {match.reasons.length > 0 && (
-                                    <p className="text-[11px] text-slate-500">
+                                    <p className={`text-[11px] ${isSelected ? "text-neutral-400" : "text-neutral-500"}`}>
                                       {match.reasons.slice(0, 3).join(" · ")}
                                     </p>
                                   )}
                                 </div>
-                                <span className="text-[10px] font-mono text-slate-500 shrink-0">
+                                <span className={`text-[10px] font-mono shrink-0 ${isSelected ? "text-neutral-400" : "text-neutral-500"}`}>
                                   #{index + 1}
                                 </span>
                               </div>
@@ -1098,28 +1101,29 @@ export default function DashboardPage() {
                         })}
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-400">
-                        אין כרגע מורה מתאים — ודאו שיש מורים מאושרים עם פרופיל מלא.
-                      </p>
+                      <div className={emptyState}>
+                        <p className="text-sm font-medium text-neutral-900">אין כרגע מורה מתאים</p>
+                        <p className="text-xs text-neutral-500">ודאו שיש מורים מאושרים עם פרופיל מלא, או שנו את העדפות הזמן.</p>
+                      </div>
                     )}
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-gradient-to-br from-blue-600/20 to-indigo-600/5 border border-blue-500/30 p-6 rounded-2xl relative overflow-hidden flex flex-col justify-between shadow-xl shadow-blue-500/5">
+                  <div className={`${frostCard} p-6 flex flex-col justify-between`}>
                     <div>
-                      <h3 className="text-sm font-bold text-slate-400 mb-2">יתרת שיעורים בחבילה</h3>
-                      <div className="text-5xl font-black text-white tracking-tight mb-2">
-                        {user.lessonCredits} <span className="text-xl font-medium text-slate-400">שיעורים</span>
+                      <h3 className="text-sm font-medium text-neutral-500 mb-2">יתרת שיעורים בחבילה</h3>
+                      <div className="text-5xl font-semibold text-neutral-900 tracking-tight mb-2">
+                        {user.lessonCredits} <span className="text-xl font-medium text-neutral-500">שיעורים</span>
                       </div>
                     </div>
-                    <p className="text-xs text-slate-400">כל שיעור מחושב לפי 50 דקות עבודה ממוקדות.</p>
+                    <p className="text-xs text-neutral-500">כל שיעור מחושב לפי 50 דקות עבודה ממוקדות.</p>
                   </div>
 
-                  <div className="bg-slate-800/40 border border-slate-800 p-6 rounded-2xl flex flex-col justify-between">
+                  <div className={`${frostCard} p-6 flex flex-col justify-between`}>
                     <div>
-                      <h3 className="text-sm font-bold text-slate-300 mb-2">שיבוץ שעות מול מורה</h3>
-                      <p className="text-xs text-slate-400 leading-relaxed">
+                      <h3 className="text-sm font-semibold text-neutral-900 mb-2">שיבוץ שעות מול מורה</h3>
+                      <p className="text-xs text-neutral-500 leading-relaxed">
                         {recommendedMatch
                           ? recommendedMatch.isSoftRecommendation &&
                             recommendedMatch.openSlotsCount === 0
@@ -1131,19 +1135,19 @@ export default function DashboardPage() {
                     <button
                       onClick={openBookingFlow}
                       disabled={slotsLoading}
-                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-all mt-4 disabled:opacity-50"
+                      className={`${primaryCta} w-full mt-4`}
                     >
-                      {slotsLoading ? "מעדכן לוח..." : "🔄 רענון שעות פנויות בלוח"}
+                      {slotsLoading ? "מעדכן לוח..." : "רענון שעות פנויות בלוח"}
                     </button>
                   </div>
 
-                  <div className="bg-slate-800/40 border border-slate-800 p-6 rounded-2xl flex flex-col justify-between">
+                  <div className={`${frostCard} p-6 flex flex-col justify-between`}>
                     <div>
-                      <h3 className="text-sm font-bold text-green-400 mb-2">💬 חדר בקרה - WhatsApp</h3>
-                      <p className="text-xs text-slate-400 leading-relaxed">צוות הניהול מקים כעת קבוצה ייעודית מבוקרת הכוללת את המורה הפרטי, הסטודנט וההורה לצורך מעקב רציף.</p>
+                      <h3 className="text-sm font-semibold text-neutral-900 mb-2">חדר בקרה - WhatsApp</h3>
+                      <p className="text-xs text-neutral-500 leading-relaxed">צוות הניהול מקים כעת קבוצה ייעודית מבוקרת הכוללת את המורה הפרטי, הסטודנט וההורה לצורך מעקב רציף.</p>
                     </div>
-                    <div className="text-center text-xs text-slate-500 border border-slate-800 bg-slate-900/40 py-2 rounded-xl mt-4 font-mono">
-                      סנכרון פעיל ✅
+                    <div className="text-center text-xs text-neutral-600 border border-neutral-200 bg-neutral-50 py-2 rounded-xl mt-4 font-mono">
+                      סנכרון פעיל
                     </div>
                   </div>
                 </div>
@@ -1183,9 +1187,9 @@ export default function DashboardPage() {
                   }}
                 />
 
-                {myLessons.length > 0 && (
-                  <div className="bg-slate-800/20 border border-slate-800 p-6 rounded-2xl space-y-3">
-                    <h2 className="text-sm font-bold text-slate-300">רשימת השיעורים המשובצים</h2>
+                {myLessons.length > 0 ? (
+                  <div className={`${frostCard} p-6 space-y-3`}>
+                    <h2 className="text-sm font-semibold text-neutral-900">רשימת השיעורים המשובצים</h2>
                     <div className="space-y-2">
                       {myLessons.map((lesson) => (
                         <LessonRow
@@ -1200,35 +1204,43 @@ export default function DashboardPage() {
                       ))}
                     </div>
                   </div>
+                ) : (
+                  <div className={emptyState}>
+                    <p className="text-sm font-medium text-neutral-900">אין שיעורים משובצים עדיין</p>
+                    <p className="text-xs text-neutral-500">בחרו מורה ושיבצו שעה פנויה בלוח השעות.</p>
+                    <button type="button" onClick={openBookingFlow} className={`${primaryCta} inline-block`}>
+                      רענון שעות פנויות
+                    </button>
+                  </div>
                 )}
 
                 {/* חלון רכישת חבילות וסימולציית סליקה מאובטחת */}
-                <div className="bg-slate-800/20 border border-slate-800 p-6 rounded-2xl">
-                  <h2 className="text-sm font-bold text-slate-300 mb-4">💳 רכישת חבילת שיעורים פרימיום (סליקה מאובטחת)</h2>
+                <div className={`${frostCard} p-6`}>
+                  <h2 className="text-sm font-semibold text-neutral-900 mb-4">רכישת חבילת שיעורים פרימיום (סליקה מאובטחת)</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <button disabled={purchaseLoading} onClick={() => handlePurchase("SINGLE")} className="bg-slate-900/60 hover:bg-slate-950/80 border border-slate-800 hover:border-blue-500/40 p-5 rounded-xl text-right transition-all disabled:opacity-50 group flex flex-col justify-between h-32">
+                    <button disabled={purchaseLoading} onClick={() => handlePurchase("SINGLE")} className="bg-neutral-50 hover:bg-white border border-neutral-200 hover:border-neutral-400 p-5 rounded-xl text-start transition-all disabled:opacity-50 group flex flex-col justify-between h-32">
                       <div>
-                        <div className="text-xs font-bold text-slate-400 group-hover:text-blue-400">חבילת יסוד</div>
-                        <div className="text-xl font-black text-white mt-1">שיעור בודד</div>
+                        <div className="text-xs font-medium text-neutral-500 group-hover:text-neutral-700">חבילת יסוד</div>
+                        <div className="text-xl font-semibold text-neutral-900 mt-1">שיעור בודד</div>
                       </div>
-                      <div className="text-xs text-blue-400 font-mono font-bold bg-blue-500/5 border border-blue-500/10 px-2 py-1 rounded-md w-fit">180 ₪</div>
+                      <div className="text-xs text-neutral-700 font-mono font-medium bg-neutral-100 border border-neutral-200 px-2 py-1 rounded-md w-fit">180 ₪</div>
                     </button>
 
-                    <button disabled={purchaseLoading} onClick={() => handlePurchase("TRIO")} className="bg-slate-900/60 hover:bg-slate-950/80 border border-slate-800 hover:border-blue-500/40 p-5 rounded-xl text-right transition-all disabled:opacity-50 group flex flex-col justify-between h-32 relative overflow-hidden">
-                      <div className="absolute top-0 left-0 bg-blue-600 text-[10px] font-black px-2 py-0.5 rounded-br-lg text-white">פופולרי</div>
+                    <button disabled={purchaseLoading} onClick={() => handlePurchase("TRIO")} className="bg-neutral-50 hover:bg-white border border-neutral-200 hover:border-neutral-400 p-5 rounded-xl text-start transition-all disabled:opacity-50 group flex flex-col justify-between h-32 relative overflow-hidden">
+                      <div className="absolute top-0 start-0 bg-neutral-900 text-[10px] font-semibold px-2 py-0.5 rounded-ee-lg text-white">פופולרי</div>
                       <div>
-                        <div className="text-xs font-bold text-slate-400 group-hover:text-blue-400">חבילת תגבור מקיפה</div>
-                        <div className="text-xl font-black text-white mt-1">שלשה (3 שיעורים)</div>
+                        <div className="text-xs font-medium text-neutral-500 group-hover:text-neutral-700">חבילת תגבור מקיפה</div>
+                        <div className="text-xl font-semibold text-neutral-900 mt-1">שלשה (3 שיעורים)</div>
                       </div>
-                      <div className="text-xs text-blue-400 font-mono font-bold bg-blue-500/5 border border-blue-500/10 px-2 py-1 rounded-md w-fit">510 ₪</div>
+                      <div className="text-xs text-neutral-700 font-mono font-medium bg-neutral-100 border border-neutral-200 px-2 py-1 rounded-md w-fit">510 ₪</div>
                     </button>
 
-                    <button disabled={purchaseLoading} onClick={() => handlePurchase("MULTI")} className="bg-slate-900/60 hover:bg-slate-950/80 border border-slate-800 hover:border-blue-500/40 p-5 rounded-xl text-right transition-all disabled:opacity-50 group flex flex-col justify-between h-32">
+                    <button disabled={purchaseLoading} onClick={() => handlePurchase("MULTI")} className="bg-neutral-50 hover:bg-white border border-neutral-200 hover:border-neutral-400 p-5 rounded-xl text-start transition-all disabled:opacity-50 group flex flex-col justify-between h-32">
                       <div>
-                        <div className="text-xs font-bold text-slate-400 group-hover:text-blue-400">חבילת מרתון פרימיום</div>
-                        <div className="text-xl font-black text-white mt-1">חמישייה (5 שיעורים)</div>
+                        <div className="text-xs font-medium text-neutral-500 group-hover:text-neutral-700">חבילת מרתון פרימיום</div>
+                        <div className="text-xl font-semibold text-neutral-900 mt-1">חמישייה (5 שיעורים)</div>
                       </div>
-                      <div className="text-xs text-blue-400 font-mono font-bold bg-blue-500/5 border border-blue-500/10 px-2 py-1 rounded-md w-fit">800 ₪</div>
+                      <div className="text-xs text-neutral-700 font-mono font-medium bg-neutral-100 border border-neutral-200 px-2 py-1 rounded-md w-fit">800 ₪</div>
                     </button>
                   </div>
                 </div>
@@ -1237,32 +1249,32 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ======================= 👨‍🏫 חלק ב': תצוגת מורה (נשאר ללא שינוי בכלל!) ======================= */}
+        {/* ======================= חלק ב': תצוגת מורה ======================= */}
         {user.role === "TEACHER" && user.isApproved && (
           <div className="space-y-6">
-            <div className="bg-slate-800/20 border border-slate-800 p-6 rounded-2xl space-y-4 text-right">
+            <div className={`${frostCard} p-6 space-y-4 text-start`}>
               <div>
-                <h2 className="text-lg font-black text-white">פרופיל מורה</h2>
-                <p className="text-xs text-slate-400">
+                <h2 className="text-lg font-semibold text-neutral-900">פרופיל מורה</h2>
+                <p className="text-xs text-neutral-500">
                   תחומי התמחות וקבוצות גיל משמשים להתאמה לפי אבחון התלמיד ולחלוקה שוויונית.
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3">
-                  <div className="text-[10px] text-slate-500 font-bold">הפניות</div>
-                  <div className="text-xl font-black text-white">
+                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
+                  <div className="text-[10px] text-neutral-500 font-medium">הפניות</div>
+                  <div className="text-xl font-semibold text-neutral-900">
                     {teacherProfileForm.referralCount}
                   </div>
                 </div>
-                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3">
-                  <div className="text-[10px] text-slate-500 font-bold">תלמידים פעילים</div>
-                  <div className="text-xl font-black text-white">
+                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
+                  <div className="text-[10px] text-neutral-500 font-medium">תלמידים פעילים</div>
+                  <div className="text-xl font-semibold text-neutral-900">
                     {teacherProfileForm.activeStudentsCount}
                   </div>
                 </div>
-                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3">
-                  <div className="text-[10px] text-slate-500 font-bold">הפניה אחרונה</div>
-                  <div className="text-xs font-bold text-slate-300 mt-1">
+                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
+                  <div className="text-[10px] text-neutral-500 font-medium">הפניה אחרונה</div>
+                  <div className="text-xs font-medium text-neutral-700 mt-1">
                     {teacherProfileForm.lastReferralAt
                       ? new Date(teacherProfileForm.lastReferralAt).toLocaleDateString("he-IL")
                       : "—"}
@@ -1270,7 +1282,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-400">
+                <label className="text-[11px] font-medium text-neutral-500">
                   תחומי התמחות (מופרדים בפסיק)
                 </label>
                 <input
@@ -1280,12 +1292,12 @@ export default function DashboardPage() {
                     setTeacherProfileForm((p) => ({ ...p, subjectsText: e.target.value }))
                   }
                   placeholder="מתמטיקה, פיזיקה, אינפי 1"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                  className={fieldClass}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-slate-400">קבוצות גיל</label>
-                <div className="flex flex-wrap gap-2 justify-end">
+                <label className="text-[11px] font-medium text-neutral-500">קבוצות גיל</label>
+                <div className="flex flex-wrap gap-2 justify-start">
                   {AGE_GROUP_OPTIONS.map((group) => (
                     <button
                       key={group}
@@ -1298,10 +1310,10 @@ export default function DashboardPage() {
                             : [...p.ageGroups, group],
                         }))
                       }
-                      className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                      className={`text-[11px] font-medium px-3 py-1.5 rounded-full border transition-all ${
                         teacherProfileForm.ageGroups.includes(group)
-                          ? "bg-blue-600 border-blue-500 text-white"
-                          : "bg-slate-900 border-slate-800 text-slate-400"
+                          ? "bg-neutral-900 border-neutral-900 text-white"
+                          : "bg-white border-neutral-200 text-neutral-600"
                       }`}
                     >
                       {group}
@@ -1310,18 +1322,18 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-400">אודות</label>
+                <label className="text-[11px] font-medium text-neutral-500">אודות</label>
                 <textarea
                   value={teacherProfileForm.bio}
                   onChange={(e) =>
                     setTeacherProfileForm((p) => ({ ...p, bio: e.target.value }))
                   }
                   rows={3}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 resize-y"
+                  className={`${fieldClass} resize-y`}
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-400">קישור לתמונה (אופציונלי)</label>
+                <label className="text-[11px] font-medium text-neutral-500">קישור לתמונה (אופציונלי)</label>
                 <input
                   type="url"
                   dir="ltr"
@@ -1329,20 +1341,20 @@ export default function DashboardPage() {
                   onChange={(e) =>
                     setTeacherProfileForm((p) => ({ ...p, profileImageUrl: e.target.value }))
                   }
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                  className={fieldClass}
                 />
               </div>
 
-              <div className="border-t border-slate-800 pt-4 space-y-3">
+              <div className="border-t border-neutral-200 pt-4 space-y-3">
                 <div>
-                  <h3 className="text-sm font-black text-white">פרטי בנק לתשלומים</h3>
-                  <p className="text-[11px] text-slate-500">
+                  <h3 className="text-sm font-semibold text-neutral-900">פרטי בנק לתשלומים</h3>
+                  <p className="text-[11px] text-neutral-500">
                     נדרשים לסגירת תשלומים ידנית על ידי המנהל. הפרטים נשמרים בפרופיל בלבד.
                   </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-slate-400">שם הבנק</label>
+                    <label className="text-[11px] font-medium text-neutral-500">שם הבנק</label>
                     <input
                       type="text"
                       value={teacherProfileForm.bankName}
@@ -1350,11 +1362,11 @@ export default function DashboardPage() {
                         setTeacherProfileForm((p) => ({ ...p, bankName: e.target.value }))
                       }
                       placeholder="לדוגמה: לאומי"
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      className={fieldClass}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-slate-400">סניף</label>
+                    <label className="text-[11px] font-medium text-neutral-500">סניף</label>
                     <input
                       type="text"
                       value={teacherProfileForm.bankBranch}
@@ -1362,11 +1374,11 @@ export default function DashboardPage() {
                         setTeacherProfileForm((p) => ({ ...p, bankBranch: e.target.value }))
                       }
                       placeholder="מספר / שם סניף"
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      className={fieldClass}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-slate-400">מספר חשבון</label>
+                    <label className="text-[11px] font-medium text-neutral-500">מספר חשבון</label>
                     <input
                       type="text"
                       dir="ltr"
@@ -1374,11 +1386,11 @@ export default function DashboardPage() {
                       onChange={(e) =>
                         setTeacherProfileForm((p) => ({ ...p, accountNumber: e.target.value }))
                       }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      className={fieldClass}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-slate-400">שם בעל החשבון</label>
+                    <label className="text-[11px] font-medium text-neutral-500">שם בעל החשבון</label>
                     <input
                       type="text"
                       value={teacherProfileForm.accountHolderName}
@@ -1388,7 +1400,7 @@ export default function DashboardPage() {
                           accountHolderName: e.target.value,
                         }))
                       }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      className={fieldClass}
                     />
                   </div>
                 </div>
@@ -1398,7 +1410,7 @@ export default function DashboardPage() {
                 type="button"
                 disabled={profileSaving}
                 onClick={saveOwnTeacherProfile}
-                className="text-xs font-bold py-2.5 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
+                className={primaryCta}
               >
                 {profileSaving ? "שומר..." : "שמור פרופיל מורה"}
               </button>
@@ -1419,9 +1431,9 @@ export default function DashboardPage() {
             }}
           />
 
-          {myLessons.length > 0 && (
-            <div className="bg-slate-800/20 border border-slate-800 p-6 rounded-2xl space-y-3">
-              <h2 className="text-sm font-bold text-slate-300">רשימת השיעורים המשובצים</h2>
+          {myLessons.length > 0 ? (
+            <div className={`${frostCard} p-6 space-y-3`}>
+              <h2 className="text-sm font-semibold text-neutral-900">רשימת השיעורים המשובצים</h2>
               <div className="space-y-2">
                 {myLessons.map((lesson) => (
                   <LessonRow
@@ -1435,6 +1447,11 @@ export default function DashboardPage() {
                   />
                 ))}
               </div>
+            </div>
+          ) : (
+            <div className={emptyState}>
+              <p className="text-sm font-medium text-neutral-900">אין שיעורים משובצים עדיין</p>
+              <p className="text-xs text-neutral-500">פתחו שעות פנויות ביומן כדי לקבל שיבוצים מתלמידים.</p>
             </div>
           )}
           </div>

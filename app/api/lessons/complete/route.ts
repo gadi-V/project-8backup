@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
-import { requireAuth } from "../../../../lib/api-auth";
+import { requireAuthOrMonitor } from "../../../../lib/api-auth";
 import { writeAuditLog } from "../../../../lib/audit";
 import { uploadLessonPdf } from "../../../../lib/storage";
 import { sendLessonSummaryNotification } from "../../../../lib/whatsapp";
@@ -43,28 +43,105 @@ function formatLessonDate(date: Date): string {
   }).format(date);
 }
 
+type CompletePayload = {
+  lessonId: string;
+  feedback: string | null;
+  masteredTopics: string[];
+  pdfFile: File | null;
+  pdfUrlFromClient: string | null;
+};
+
+/**
+ * Accept both FastMCP `application/json` and browser `multipart/form-data`.
+ * Parses lessonId, feedback, masteredTopics consistently across content types.
+ */
+async function parseCompletePayload(request: Request): Promise<CompletePayload | { error: string }> {
+  const contentType = request.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    const body = (await request.json()) as {
+      lessonId?: unknown;
+      feedback?: unknown;
+      masteredTopics?: unknown;
+      pdfUrl?: unknown;
+    };
+    const lessonId = typeof body.lessonId === "string" ? body.lessonId.trim() : "";
+    if (!lessonId) return { error: "lessonId is required" };
+
+    const feedback =
+      typeof body.feedback === "string" && body.feedback.trim()
+        ? body.feedback.trim()
+        : null;
+    const masteredTopics = Array.isArray(body.masteredTopics)
+      ? body.masteredTopics.filter((t): t is string => typeof t === "string" && t.trim() !== "")
+      : [];
+    const pdfUrlFromClient =
+      typeof body.pdfUrl === "string" && body.pdfUrl.trim() ? body.pdfUrl.trim() : null;
+
+    return { lessonId, feedback, masteredTopics, pdfFile: null, pdfUrlFromClient };
+  }
+
+  // Default / browser: multipart form-data (and legacy urlencoded).
+  const formData = await request.formData();
+  const lessonId = String(formData.get("lessonId") ?? "").trim();
+  if (!lessonId) return { error: "lessonId is required" };
+
+  const feedbackRaw = formData.get("feedback");
+  const feedback =
+    typeof feedbackRaw === "string" && feedbackRaw.trim() ? feedbackRaw.trim() : null;
+
+  const masteredRaw = formData.get("masteredTopics");
+  let masteredTopics: string[] = [];
+  if (typeof masteredRaw === "string" && masteredRaw.trim()) {
+    try {
+      const parsed = JSON.parse(masteredRaw) as unknown;
+      if (Array.isArray(parsed)) {
+        masteredTopics = parsed.filter((t): t is string => typeof t === "string" && t.trim() !== "");
+      } else {
+        masteredTopics = masteredRaw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+    } catch {
+      masteredTopics = masteredRaw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+  }
+
+  const pdfFile = formData.get("pdfFile");
+  const pdfUrlRaw = formData.get("pdfUrl");
+  return {
+    lessonId,
+    feedback,
+    masteredTopics,
+    pdfFile: pdfFile instanceof File ? pdfFile : null,
+    pdfUrlFromClient:
+      typeof pdfUrlRaw === "string" && pdfUrlRaw.trim() ? pdfUrlRaw.trim() : null,
+  };
+}
+
 export async function POST(request: Request) {
   try {
-    const auth = await requireAuth(["TEACHER", "MANAGER", "ADMIN"]);
+    const auth = await requireAuthOrMonitor(request, ["TEACHER", "MANAGER", "ADMIN"]);
     if (auth.error) return auth.error;
 
-    const formData = await request.formData();
-    const lessonId = formData.get("lessonId") as string;
-    // pdfUrl: pre-uploaded URL from /api/excalidraw/export (preferred).
-    // pdfFile: raw PDF blob fallback (when storage is not configured).
-    // videoRecordingUrl is intentionally ignored — it comes from the Daily webhook only.
-    const pdfFile = formData.get("pdfFile") as File | null;
-    const pdfUrlFromClient = formData.get("pdfUrl") as string | null;
-
-    if (!lessonId) {
-      return NextResponse.json({ error: "lessonId is required" }, { status: 400 });
+    const parsed = await parseCompletePayload(request);
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+
+    const { lessonId, feedback, masteredTopics, pdfFile, pdfUrlFromClient } = parsed;
 
     const lesson = await prisma.lesson.findUnique({
       where: { id: lessonId },
       select: {
         id: true,
         teacherId: true,
+        studentId: true,
+        packageId: true,
         status: true,
         scheduledAt: true,
         durationMinutes: true,
@@ -72,10 +149,27 @@ export async function POST(request: Request) {
     });
 
     if (!lesson) {
+      // FastMCP connectivity probes use reserved dry-run ids — auth/path OK, no DB writes.
+      if (
+        auth.via === "m2m" &&
+        (lessonId.startsWith("dry-run") || lessonId === "connectivity-probe")
+      ) {
+        return NextResponse.json({
+          success: true,
+          dryRun: true,
+          data: {
+            message: "M2M connectivity OK — lesson complete endpoint reachable (no settle)",
+            lessonId,
+          },
+        });
+      }
       return NextResponse.json({ error: "השיעור לא נמצא" }, { status: 404 });
     }
 
-    const isPrivileged = auth.user.role === "MANAGER" || auth.user.role === "ADMIN";
+    const isPrivileged =
+      auth.via === "m2m" ||
+      auth.user.role === "MANAGER" ||
+      auth.user.role === "ADMIN";
     const isLessonTeacher =
       auth.user.role === "TEACHER" && lesson.teacherId === auth.user.id;
 
@@ -151,8 +245,29 @@ export async function POST(request: Request) {
             status: "COMPLETED",
             endTime: completedAt,
             ...(uploadedPdfUrl ? { excalidrawPdfUrl: uploadedPdfUrl } : {}),
+            ...(feedback ? { pedagogicalBrief: feedback } : {}),
           },
         });
+
+        // masteredTopics → remove matched gaps from the package diagnostic (Hive / teacher).
+        if (masteredTopics.length > 0 && lesson.packageId) {
+          const quizzes = await tx.diagnosticQuiz.findMany({
+            where: { packageId: lesson.packageId },
+            select: { id: true, identifiedGaps: true },
+          });
+          for (const quiz of quizzes) {
+            if (!quiz.identifiedGaps?.length) continue;
+            const updatedGaps = quiz.identifiedGaps.filter(
+              (gap) => !masteredTopics.includes(gap)
+            );
+            if (updatedGaps.length !== quiz.identifiedGaps.length) {
+              await tx.diagnosticQuiz.update({
+                where: { id: quiz.id },
+                data: { identifiedGaps: updatedGaps },
+              });
+            }
+          }
+        }
 
         const payout = await schedulePayoutInTransaction(tx, {
           teacherId: lesson.teacherId,
@@ -164,8 +279,10 @@ export async function POST(request: Request) {
           metadata: {
             type: "LESSON_COMPLETION",
             completedAt: completedAt.toISOString(),
-            completedById: auth.user.id,
+            completedById: auth.actorId ?? auth.user.id,
+            via: auth.via,
             feeSplit: { lessonValue: LESSON_VALUE_ILS, platformFee, tutorPayout },
+            masteredTopics,
           },
         });
 
@@ -183,7 +300,7 @@ export async function POST(request: Request) {
 
         await tx.auditLog.create({
           data: {
-            actorId: auth.user.id,
+            actorId: auth.actorId,
             action: "LESSON_COMPLETED",
             entityType: "Lesson",
             entityId: lessonId,
@@ -193,6 +310,9 @@ export async function POST(request: Request) {
               payoutAmount: tutorPayout,
               platformFee,
               completedAt: completedAt.toISOString(),
+              via: auth.via,
+              masteredTopics,
+              hasFeedback: Boolean(feedback),
             },
           },
         });
@@ -214,11 +334,11 @@ export async function POST(request: Request) {
 
     // ── Best-effort audit outside transaction (non-blocking) ──────────────────
     void writeAuditLog({
-      actorId: auth.user.id,
+      actorId: auth.actorId,
       action: "LESSON_COMPLETED_POST",
       entityType: "Lesson",
       entityId: lessonId,
-      metadata: { payoutId: finalized.payoutId },
+      metadata: { payoutId: finalized.payoutId, via: auth.via },
     }).catch((e: unknown) => console.error("[complete] Audit log failed:", e));
 
     const completedLesson = await prisma.lesson.findUnique({

@@ -1,6 +1,7 @@
 "use client";
 
 import { ACTIVITY_HOUR_SLOTS } from "../lib/matching";
+import { frostCard, secondaryCta } from "../lib/ui";
 
 const DAY_OPTIONS = [
   { value: 0, label: "א'" },
@@ -94,11 +95,11 @@ export default function StudentTimePreferenceBar({
   };
 
   return (
-    <div className="bg-slate-800/40 border border-slate-700 rounded-2xl p-5 space-y-4 text-right">
+    <div className={`${frostCard} p-5 space-y-4 text-start`}>
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-black text-white">מתי נוח לך ללמוד?</h3>
-          <p className="text-[11px] text-slate-400 mt-1">
+          <h3 className="text-sm font-semibold text-neutral-900">מתי נוח לך ללמוד?</h3>
+          <p className="text-[11px] text-neutral-500 mt-1">
             בחירה מרובה של ימים ומשבצות שעה (08:00–22:00) — סינון לפי הצלבות Day×Hour ודירוג Fair
             Dispatch.
           </p>
@@ -108,7 +109,7 @@ export default function StudentTimePreferenceBar({
             type="button"
             disabled={busy}
             onClick={onClear}
-            className="text-xs font-bold py-2 px-3 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 disabled:opacity-50 self-start"
+            className={`${secondaryCta} self-start text-xs py-2 px-3`}
           >
             נקה הכל
           </button>
@@ -117,17 +118,17 @@ export default function StudentTimePreferenceBar({
 
       <div className="space-y-1.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <label className="text-[11px] font-bold text-slate-400">ימים (בחירה מרובה)</label>
+          <label className="text-[11px] font-medium text-neutral-500">ימים (בחירה מרובה)</label>
           <button
             type="button"
             disabled={busy}
             onClick={selectAllDays}
-            className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white disabled:opacity-50"
+            className="text-[10px] font-medium px-2.5 py-1 rounded-full border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
           >
             {allDaysSelected ? "בטל הכל" : "בחר הכל"}
           </button>
         </div>
-        <div className="flex flex-wrap gap-1.5 justify-end">
+        <div className="flex flex-wrap gap-1.5 justify-start">
           {DAY_OPTIONS.map((day) => {
             const active = value.requestedDays.includes(day.value);
             return (
@@ -137,10 +138,10 @@ export default function StudentTimePreferenceBar({
                 disabled={busy}
                 aria-pressed={active}
                 onClick={() => toggleDay(day.value)}
-                className={`text-[11px] font-bold px-3 py-1.5 rounded-full border transition-all disabled:opacity-50 ${
+                className={`text-[11px] font-medium px-3 py-1.5 rounded-full border transition-all disabled:opacity-50 ${
                   active
-                    ? "bg-blue-600 border-blue-500 text-white shadow-sm shadow-blue-600/20"
-                    : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-600"
+                    ? "bg-neutral-900 border-neutral-900 text-white"
+                    : "bg-white border-neutral-200 text-neutral-600 hover:border-neutral-400"
                 }`}
               >
                 {day.label}
@@ -152,14 +153,14 @@ export default function StudentTimePreferenceBar({
 
       <div className="space-y-1.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <label className="text-[11px] font-bold text-slate-400">
+          <label className="text-[11px] font-medium text-neutral-500">
             משבצות שעה (60 דק׳, 08:00–22:00)
           </label>
           <button
             type="button"
             disabled={busy}
             onClick={selectAllHours}
-            className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white disabled:opacity-50"
+            className="text-[10px] font-medium px-2.5 py-1 rounded-full border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
           >
             {allSlotsSelected ? "בטל הכל" : "בחר הכל"}
           </button>
@@ -174,10 +175,10 @@ export default function StudentTimePreferenceBar({
                 disabled={busy}
                 aria-pressed={active}
                 onClick={() => toggleHour(hour)}
-                className={`text-[10px] sm:text-[11px] font-mono font-bold px-2 py-2 rounded-xl border transition-all disabled:opacity-50 ${
+                className={`text-[10px] sm:text-[11px] font-mono font-medium px-2 py-2 rounded-xl border transition-all disabled:opacity-50 ${
                   active
-                    ? "bg-blue-600 border-blue-500 text-white shadow-sm shadow-blue-600/20"
-                    : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-600"
+                    ? "bg-neutral-900 border-neutral-900 text-white"
+                    : "bg-neutral-50 border-neutral-200 text-neutral-600 hover:border-neutral-400"
                 }`}
               >
                 {formatHourSlotLabel(hour)}
@@ -188,7 +189,7 @@ export default function StudentTimePreferenceBar({
       </div>
 
       {busy && (
-        <p className="text-[11px] text-slate-500 text-left">מעדכן מורים פנויים...</p>
+        <p className="text-[11px] text-neutral-500 text-start">מעדכן מורים פנויים...</p>
       )}
     </div>
   );

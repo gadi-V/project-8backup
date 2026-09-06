@@ -71,25 +71,25 @@ export default function DiagnosticQuizRunPage({
 
   if (resultData) {
     return (
-      <div className="min-h-screen bg-slate-50 py-10 px-4 font-sans text-slate-900 flex items-center justify-center" dir="rtl">
-        <div className="max-w-lg w-full rounded-2xl bg-white p-8 shadow-sm border border-slate-200 text-center space-y-6">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 text-2xl font-bold">
+      <div className="min-h-screen bg-stone-50 py-10 px-4 font-sans text-neutral-900 flex items-center justify-center" dir="rtl">
+        <div className="max-w-lg w-full rounded-2xl bg-white/80 backdrop-blur-md p-8 shadow-sm border border-neutral-200/80 text-center space-y-6">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 text-neutral-900 text-2xl font-bold border border-neutral-200">
             {resultData.percentage}%
           </div>
           <div className="space-y-1">
-            <h1 className="text-xl font-bold text-slate-900">Diagnostic quiz summary</h1>
-            <p className="text-xs text-slate-500">
+            <h1 className="text-xl font-bold text-neutral-900">Diagnostic quiz summary</h1>
+            <p className="text-xs text-neutral-500">
               You answered {resultData.score} out of {resultData.totalQuestions} questions correctly.
             </p>
           </div>
 
           {resultData.identifiedGaps.length > 0 && (
-            <div className="rounded-xl bg-rose-50 p-4 border border-rose-100 text-right space-y-2">
-              <span className="text-xs font-bold text-rose-800">Knowledge gaps identified for the lesson:</span>
+            <div className="rounded-2xl bg-amber-50 p-4 border border-amber-100 text-start space-y-2">
+              <span className="text-xs font-bold text-amber-900">Knowledge gaps identified for the lesson:</span>
               <div className="flex flex-wrap gap-1.5">
                 {resultData.identifiedGaps.map((gap, i) => (
-                  <span key={i} className="rounded bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 border border-rose-200">
-                    {"\u26A0\uFE0F"} {gap}
+                  <span key={i} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 border border-amber-100">
+                    {gap}
                   </span>
                 ))}
               </div>
@@ -98,7 +98,7 @@ export default function DiagnosticQuizRunPage({
 
           <button
             onClick={() => router.push(`/packages/${packageId}/report`)}
-            className="w-full rounded-xl bg-slate-900 py-3 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 transition"
+            className="w-full rounded-full bg-neutral-900 py-3 text-xs font-semibold text-white hover:bg-neutral-800 transition"
           >
             Go to the updated pedagogical report
           </button>
@@ -108,25 +108,25 @@ export default function DiagnosticQuizRunPage({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 font-sans text-slate-900" dir="rtl">
+    <div className="min-h-screen bg-stone-50 py-10 px-4 font-sans text-neutral-900" dir="rtl">
       <div className="mx-auto max-w-2xl space-y-6">
-        <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-200 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="rounded-2xl bg-white/80 backdrop-blur-md p-6 shadow-sm border border-neutral-200/80 space-y-4">
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
             <div>
-              <h1 className="text-base font-bold text-slate-900">Quick diagnostic math quiz</h1>
-              <p className="text-xs text-slate-500">Question {currentStep + 1} of {questions.length}</p>
+              <h1 className="text-base font-bold text-neutral-900">Quick diagnostic math quiz</h1>
+              <p className="text-xs text-neutral-500">Question {currentStep + 1} of {questions.length}</p>
             </div>
-            <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
+            <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-900 border border-amber-100">
               {currentQ?.topic}
             </span>
           </div>
 
           <div className="py-2 space-y-2">
-            <div className="text-sm font-semibold text-slate-800">
+            <div className="text-sm font-semibold text-neutral-800">
               {currentQ?.questionText}
             </div>
             {currentQ?.questionLatex && (
-              <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 overflow-x-auto">
+              <div className="rounded-xl bg-neutral-50 border border-neutral-200 px-3 py-2 overflow-x-auto">
                 <MathFormula math={currentQ.questionLatex} block className="text-sm" />
               </div>
             )}
@@ -140,10 +140,10 @@ export default function DiagnosticQuizRunPage({
                   key={opt.id}
                   type="button"
                   onClick={() => handleSelectOption(opt.id)}
-                  className={`w-full text-right p-3 rounded-xl border text-xs font-medium transition ${
+                  className={`w-full text-start p-3 rounded-xl border text-xs font-medium transition ${
                     isSelected
-                      ? "border-indigo-600 bg-indigo-50 text-indigo-900 font-bold"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      ? "border-neutral-900 bg-neutral-900 text-white font-bold"
+                      : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
                   }`}
                 >
                   {opt.textLatex ? (
@@ -159,12 +159,12 @@ export default function DiagnosticQuizRunPage({
             })}
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-between pt-4 border-t border-neutral-100">
             <button
               type="button"
               onClick={handlePrev}
               disabled={currentStep === 0}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-30"
+              className="rounded-full border border-neutral-200 px-4 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-50 disabled:opacity-30"
             >
               Prev
             </button>
@@ -174,7 +174,7 @@ export default function DiagnosticQuizRunPage({
                 type="button"
                 onClick={handleSubmitQuiz}
                 disabled={submitting || !answers[currentQ?.id]}
-                className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded-full bg-neutral-900 px-5 py-2 text-xs font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
               >
                 {submitting ? "Evaluating..." : "Submit quiz and compute gaps"}
               </button>
@@ -183,7 +183,7 @@ export default function DiagnosticQuizRunPage({
                 type="button"
                 onClick={handleNext}
                 disabled={!answers[currentQ?.id]}
-                className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-30"
+                className="rounded-full bg-neutral-900 px-5 py-2 text-xs font-semibold text-white hover:bg-neutral-800 disabled:opacity-30"
               >
                 Next
               </button>

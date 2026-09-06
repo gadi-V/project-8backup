@@ -40,6 +40,10 @@ export function streamChannelIdForLesson(lessonId: string): string {
   return `lesson_${lessonId}`;
 }
 
+export function streamChannelIdForPackage(packageId: string): string {
+  return `package-${packageId}`;
+}
+
 /** Standard user JWT for connecting the browser SDK. */
 export function generateStreamToken(userId: string): string {
   return getStreamServerClient().createToken(userId);
@@ -111,24 +115,21 @@ export async function ensureStreamPrivacyModeration(): Promise<void> {
 }
 
 /**
- * Create a private messaging channel limited to the given members
- * (lesson student, teacher, and manager(s) only).
+ * Upsert a private messaging channel with the given Stream channel id
+ * and member set (student, teacher, managers — no PII on user records).
  */
-export async function createStreamChannel(
-  lessonId: string,
+export async function ensureStreamMessagingChannel(
+  channelId: string,
   memberIds: string[]
 ): Promise<string> {
   const uniqueMembers = [...new Set(memberIds.filter(Boolean))];
   if (uniqueMembers.length < 2) {
-    throw new Error("createStreamChannel requires at least two member ids");
+    throw new Error("ensureStreamMessagingChannel requires at least two member ids");
   }
 
   const client = getStreamServerClient();
   await ensureStreamPrivacyModeration();
 
-  const channelId = streamChannelIdForLesson(lessonId);
-
-  // Upsert members without PII (no email / phone — privacy rule)
   await client.upsertUsers(
     uniqueMembers.map((id) => ({
       id,
@@ -147,7 +148,6 @@ export async function createStreamChannel(
     // Channel may already exist (retry / re-seed) — ensure membership is correct
     const message = error instanceof Error ? error.message : String(error);
     if (!/already exists|duplicate/i.test(message)) {
-      // Still try addMembers; if create failed for another reason, rethrow after
       try {
         await channel.addMembers(uniqueMembers);
       } catch {
@@ -159,5 +159,33 @@ export async function createStreamChannel(
   }
 
   return channelId;
+}
+
+/**
+ * Create a private messaging channel limited to the given members
+ * (lesson student, teacher, and manager(s) only).
+ */
+export async function createStreamChannel(
+  lessonId: string,
+  memberIds: string[]
+): Promise<string> {
+  return ensureStreamMessagingChannel(
+    streamChannelIdForLesson(lessonId),
+    memberIds
+  );
+}
+
+/**
+ * Create / ensure a package-scoped Stream channel so chat history
+ * persists across all lessons in the package.
+ */
+export async function createPackageStreamChannel(
+  packageId: string,
+  memberIds: string[]
+): Promise<string> {
+  return ensureStreamMessagingChannel(
+    streamChannelIdForPackage(packageId),
+    memberIds
+  );
 }
 

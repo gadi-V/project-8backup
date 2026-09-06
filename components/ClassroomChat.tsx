@@ -31,6 +31,8 @@ export type ClassroomChatProps = {
   userId: string;
   firstName: string;
   channelId: string;
+  /** Optional: unified package channel label. */
+  packageId?: string | null;
   /** Optional: expose the watched Stream channel for whiteboard live sync. */
   onChannelReady?: (channel: StreamChannelType | null) => void;
 };
@@ -41,11 +43,14 @@ export default function ClassroomChat({
   userId,
   firstName,
   channelId,
+  packageId,
   onChannelReady,
 }: ClassroomChatProps) {
   const [client, setClient] = useState<StreamChat | null>(null);
   const [channel, setChannel] = useState<StreamChannelType | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const chatTitle = packageId ? "צ'אט כיתה · חומרי חבילה" : "צ'אט כיתה חכם";
 
   useEffect(() => {
     let isMounted = true;
@@ -106,16 +111,16 @@ export default function ClassroomChat({
 
   if (error) {
     return (
-      <div className="flex h-full min-h-[200px] items-center justify-center bg-slate-50 border border-slate-200 rounded-xl px-4">
-        <span className="text-red-500 font-bold text-sm text-center">{error}</span>
+      <div className="flex h-full min-h-[200px] items-center justify-center bg-white/80 backdrop-blur-md border border-neutral-200/80 rounded-2xl px-4">
+        <span className="text-red-600 font-medium text-sm text-center">{error}</span>
       </div>
     );
   }
 
   if (!client || !channel) {
     return (
-      <div className="flex h-full min-h-[200px] items-center justify-center bg-slate-50 border border-slate-200 rounded-xl">
-        <span className="text-slate-500 font-bold text-sm animate-pulse">
+      <div className="flex h-full min-h-[200px] items-center justify-center bg-white/80 backdrop-blur-md border border-neutral-200/80 rounded-2xl">
+        <span className="text-neutral-500 font-medium text-sm animate-pulse">
           מתחבר לערוץ התקשורת המאובטח...
         </span>
       </div>
@@ -123,7 +128,7 @@ export default function ClassroomChat({
   }
 
   return (
-    <div className="h-full min-h-[200px] w-full border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+    <div className="h-full min-h-[200px] w-full border border-neutral-200/80 rounded-2xl overflow-hidden shadow-sm bg-white/80 backdrop-blur-md">
       <Chat client={client} theme="messaging light">
         <Channel
           channel={channel}
@@ -136,7 +141,7 @@ export default function ClassroomChat({
           }}
         >
           <Window>
-            <ChannelHeader title="צ'אט כיתה חכם" />
+            <ChannelHeader title={chatTitle} />
             <MessageList />
             <MessageComposer focus />
           </Window>

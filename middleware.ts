@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySession } from "./lib/auth";
+import { isHiveMonitorBearer } from "./lib/hive-m2m-auth";
 import { rateLimitForPath } from "./lib/rate-limit";
 
 const PUBLIC_API_ROUTES = new Set([
@@ -17,7 +18,17 @@ const PUBLIC_API_ROUTES = new Set([
   "/api/admin/audit/risk-events",
 ]);
 
+/** Prefixes open to unauthenticated guests (route handlers may still enforce auth). */
+const PUBLIC_API_PREFIXES = ["/api/diagnostic"] as const;
+
 const AUTH_PAGES = new Set(["/login", "/register", "/forgot-password"]);
+
+function isPublicApiPath(pathname: string): boolean {
+  if (PUBLIC_API_ROUTES.has(pathname)) return true;
+  return PUBLIC_API_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -71,7 +82,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith("/api/")) {
-    if (PUBLIC_API_ROUTES.has(pathname)) {
+    if (isPublicApiPath(pathname)) {
+      return NextResponse.next();
+    }
+    // FastMCP / cron M2M: valid Bearer HIVE_MONITOR_SECRET bypasses cookie auth.
+    // Route handlers still re-verify via requireAuthOrMonitor.
+    if (isHiveMonitorBearer(request)) {
       return NextResponse.next();
     }
     if (!session) {

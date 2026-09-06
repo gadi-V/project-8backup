@@ -12,92 +12,120 @@ export interface DiagnosticQuestion {
   }[];
 }
 
+/**
+ * High-rigor Bagrut 581 bank — multi-step calculus, vectors, and complex numbers.
+ * Used by onboarding challenge suite via bankToOnboardingQuestions.
+ */
 export const DIAGNOSTIC_MATH_BANK: Record<string, DiagnosticQuestion[]> = {
   math_581: [
     {
-      id: "q1_diff",
-      topic: "Differential calculus",
-      questionText: "What is the derivative of the function below?",
-      questionLatex: "f(x) = x \\cdot \\sin(x)",
+      id: "q1_calc_chain_extrema",
+      topic: "חדו״א — נגזרת מורכבת ואופטימיזציה",
+      questionText:
+        "נתונה f(x) = e^{sin(x)} · cos(x). מהו f'(0)?",
+      questionLatex:
+        "f(x)=e^{\\sin x}\\cos x,\\quad f'(0)=?",
       options: [
         {
           id: "a",
-          text: "Sum rule + product",
-          textLatex: "f'(x) = \\sin(x) + x\\cos(x)",
+          text: "1",
+          textLatex: "1",
           isCorrect: true,
         },
         {
           id: "b",
-          text: "Cosine only",
-          textLatex: "f'(x) = \\cos(x)",
+          text: "0",
+          textLatex: "0",
           isCorrect: false,
-          gapIndication: "Product rule ignored",
+          gapIndication: "שכחת כלל מכפלה — רק נגזרת הגורם המעריכי",
         },
         {
           id: "c",
-          text: "Sign error",
-          textLatex: "f'(x) = \\sin(x) - x\\cos(x)",
+          text: "-1",
+          textLatex: "-1",
           isCorrect: false,
-          gapIndication: "Sign error in trig derivatives",
+          gapIndication: "סימן שגוי בנגזרת cos",
         },
         {
           id: "d",
-          text: "Second term only",
-          textLatex: "f'(x) = x\\cos(x)",
+          text: "e",
+          textLatex: "e",
           isCorrect: false,
-          gapIndication: "Partial differentiation, missing first term",
+          gapIndication: "בלבול בין f(0) ל-f'(0)",
         },
       ],
     },
     {
-      id: "q2_geom",
-      topic: "Geometry and proportion",
-      questionText: "In a right triangle the hypotenuse is 10 and one angle is 30 degrees. What is the length of the opposite leg?",
+      id: "q2_vectors_plane",
+      topic: "וקטורים — מישור ומכפלה וקטורית",
+      questionText:
+        "נתונים הנקודות A(1,0,2), B(2,1,3), C(0,−1,1). מהו וקטור נורמל למישור ABC?",
+      questionLatex:
+        "\\overrightarrow{AB}=(1,1,1),\\; \\overrightarrow{AC}=(-1,-1,-1).\\quad \\vec{n}=\\overrightarrow{AB}\\times\\overrightarrow{AC}=?",
       options: [
-        { id: "a", text: "5", textLatex: "5", isCorrect: true },
+        {
+          id: "a",
+          text: "n = (0,0,0) — הנקודות על ישר אחד",
+          textLatex: "\\vec{n}=(0,0,0)\\;(\\text{collinear})",
+          isCorrect: true,
+        },
         {
           id: "b",
-          text: "5*sqrt(3)",
-          textLatex: "5\\sqrt{3}",
+          text: "n = (1,−1,0)",
+          textLatex: "\\vec{n}=(1,-1,0)",
           isCorrect: false,
-          gapIndication: "Confusion between opposite and adjacent leg in 30-60-90",
+          gapIndication: "חישוב שגוי של מכפלה וקטורית / התעלמות מתלות לינארית",
         },
         {
           id: "c",
-          text: "10*sqrt(3)",
-          textLatex: "10\\sqrt{3}",
+          text: "n = (1,1,1)",
+          textLatex: "\\vec{n}=(1,1,1)",
           isCorrect: false,
-          gapIndication: "No mastery of the 30-60-90 theorem",
-        },
-        { id: "d", text: "2.5", textLatex: "2.5", isCorrect: false, gapIndication: "Basic calculation error in trigonometry" },
-      ],
-    },
-    {
-      id: "q3_seq",
-      topic: "Sequences",
-      questionText: "In an arithmetic sequence the first term is 3 and the common difference is 4. What is the 10th term a10?",
-      options: [
-        { id: "a", text: "39", textLatex: "39", isCorrect: true },
-        {
-          id: "b",
-          text: "43",
-          textLatex: "43",
-          isCorrect: false,
-          gapIndication: "Used n instead of (n-1) in the general term formula",
-        },
-        {
-          id: "c",
-          text: "40",
-          textLatex: "40",
-          isCorrect: false,
-          gapIndication: "No mastery of the an formula in arithmetic sequences",
+          gapIndication: "ערבוב בין וקטור כיוון לנורמל",
         },
         {
           id: "d",
-          text: "36",
-          textLatex: "36",
+          text: "n = (−1,1,0)",
+          textLatex: "\\vec{n}=(-1,1,0)",
           isCorrect: false,
-          gapIndication: "Omitted the first term a1",
+          gapIndication: "סימנים שגויים במכפלה הוקטורית",
+        },
+      ],
+    },
+    {
+      id: "q3_complex_de_moivre",
+      topic: "מספרים מרוכבים — דה-מואבר ושורשים",
+      questionText:
+        "נתון z = 2·cis(120°). מהו הסכום של כל שורשי הריבוע של z (במישור גאוס)?",
+      questionLatex:
+        "z = 2\\,\\mathrm{cis}(120^\\circ),\\quad w^2 = z.\\quad \\sum_{k=0}^{1} w_k = ?",
+      options: [
+        {
+          id: "a",
+          text: "0",
+          textLatex: "0",
+          isCorrect: true,
+        },
+        {
+          id: "b",
+          text: "2·cis(60°)",
+          textLatex: "2\\,\\mathrm{cis}(60^\\circ)",
+          isCorrect: false,
+          gapIndication: "סכמת שורש אחד במקום סכום כל השורשים",
+        },
+        {
+          id: "c",
+          text: "√2 · cis(60°)",
+          textLatex: "\\sqrt{2}\\,\\mathrm{cis}(60^\\circ)",
+          isCorrect: false,
+          gapIndication: "רדיוס שגוי + שכחת ששורשי היחידה מסתכמים לאפס",
+        },
+        {
+          id: "d",
+          text: "2",
+          textLatex: "2",
+          isCorrect: false,
+          gapIndication: "בלבול בין מודולוס לסכום הווקטורים במישור",
         },
       ],
     },

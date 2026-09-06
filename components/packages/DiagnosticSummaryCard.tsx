@@ -95,13 +95,16 @@ export default function DiagnosticSummaryCard({
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm font-sans" dir="rtl">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+    <div
+      className="liquid-glass rounded-3xl p-5 font-sans"
+      dir="rtl"
+    >
+      <div className="flex items-center justify-between border-b border-neutral-100 pb-3 mb-4">
         <div>
-          <h3 className="text-sm font-bold text-slate-900">
+          <h3 className="text-sm font-bold text-neutral-900">
             Knowledge gap mapping and diagnostic quizzes
           </h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">
+          <p className="text-[11px] text-neutral-500 mt-0.5">
             {isTeacher
               ? "Topics to strengthen and mastery levels identified in the student's pre-lesson quizzes"
               : "Quiz results and recommended topics to practice with your teacher"}
@@ -112,7 +115,7 @@ export default function DiagnosticSummaryCard({
           <button
             type="button"
             onClick={() => setShowAddModal(!showAddModal)}
-            className="rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-100 transition"
+            className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition"
           >
             {showAddModal ? "Close" : "+ New quiz"}
           </button>
@@ -120,8 +123,11 @@ export default function DiagnosticSummaryCard({
       </div>
 
       {showAddModal && (
-        <form onSubmit={handleAddQuiz} className="mb-4 rounded-lg bg-slate-50 p-3.5 border border-slate-200 space-y-3">
-          <div className="text-xs font-bold text-slate-800">Enter a short quiz result:</div>
+        <form
+          onSubmit={handleAddQuiz}
+          className="mb-4 rounded-xl bg-neutral-50 p-3.5 border border-neutral-200/80 space-y-3"
+        >
+          <div className="text-xs font-bold text-neutral-800">Enter a short quiz result:</div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <input
               type="text"
@@ -129,7 +135,7 @@ export default function DiagnosticSummaryCard({
               placeholder="Topic (e.g. trigonometric derivative)"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              className="sm:col-span-2 rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-800 outline-none focus:border-indigo-500"
+              className="sm:col-span-2 rounded-xl border border-neutral-200 bg-white p-2 text-xs text-neutral-800 outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400"
             />
             <div className="flex gap-1">
               <input
@@ -139,7 +145,7 @@ export default function DiagnosticSummaryCard({
                 placeholder="Correct"
                 value={score}
                 onChange={(e) => setScore(e.target.value)}
-                className="w-1/2 rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-800 outline-none focus:border-indigo-500"
+                className="w-1/2 rounded-xl border border-neutral-200 bg-white p-2 text-xs text-neutral-800 outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400"
               />
               <input
                 type="number"
@@ -148,7 +154,7 @@ export default function DiagnosticSummaryCard({
                 placeholder="Of"
                 value={totalQuestions}
                 onChange={(e) => setTotalQuestions(e.target.value)}
-                className="w-1/2 rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-800 outline-none focus:border-indigo-500"
+                className="w-1/2 rounded-xl border border-neutral-200 bg-white p-2 text-xs text-neutral-800 outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400"
               />
             </div>
           </div>
@@ -157,13 +163,13 @@ export default function DiagnosticSummaryCard({
             placeholder="Identified gaps (comma separated)"
             value={gapInput}
             onChange={(e) => setGapInput(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-800 outline-none focus:border-indigo-500"
+            className="w-full rounded-xl border border-neutral-200 bg-white p-2 text-xs text-neutral-800 outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400"
           />
           <div className="flex justify-end">
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-full bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
             >
               {submitting ? "Saving..." : "Save quiz"}
             </button>
@@ -172,24 +178,24 @@ export default function DiagnosticSummaryCard({
       )}
 
       {loading ? (
-        <div className="py-4 text-center text-xs text-slate-400">Loading quiz data...</div>
+        <div className="py-4 text-center text-xs text-neutral-400">Loading quiz data...</div>
       ) : !data || data.totalQuizzes === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-200 py-5 text-center text-xs text-slate-400">
+        <div className="rounded-xl border border-dashed border-neutral-200 py-5 text-center text-xs text-neutral-400">
           No diagnostic quizzes yet for this package
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
-            <span className="text-xs font-medium text-slate-700">
+          <div className="flex items-center justify-between rounded-xl bg-neutral-50 p-3 border border-neutral-100">
+            <span className="text-xs font-medium text-neutral-700">
               Average mastery score ({data.totalQuizzes} quizzes):
             </span>
             <span
               className={`rounded-full px-3 py-0.5 text-xs font-bold ${
                 data.averageScore >= 80
-                  ? "bg-emerald-100 text-emerald-800"
+                  ? "bg-emerald-50 text-emerald-800"
                   : data.averageScore >= 60
-                  ? "bg-amber-100 text-amber-800"
-                  : "bg-rose-100 text-rose-800"
+                  ? "bg-amber-50 text-amber-800"
+                  : "bg-red-50 text-red-800"
               }`}
             >
               {data.averageScore}%
@@ -198,16 +204,16 @@ export default function DiagnosticSummaryCard({
 
           {data.identifiedGaps.length > 0 && (
             <div>
-              <div className="text-[11px] font-bold text-slate-700 mb-1.5">
+              <div className="text-[11px] font-bold text-neutral-700 mb-1.5">
                 Focus areas and topics to strengthen:
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2 justify-start">
                 {data.identifiedGaps.map((gap, idx) => (
                   <span
                     key={idx}
-                    className="inline-flex items-center rounded-md bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700 border border-rose-100"
+                    className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-900 border border-amber-100"
                   >
-                    {"\u26A0\uFE0F"} {gap}
+                    {gap}
                   </span>
                 ))}
               </div>

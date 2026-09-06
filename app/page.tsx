@@ -44,10 +44,10 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fbfbfd] text-[#1d1d1f] font-sans antialiased" dir="rtl">
+    <div className="min-h-screen text-[#1d1d1f] font-sans antialiased" dir="rtl">
       
       {/* 1. חלק הגיבור (Hero Section) - כותרת עבה וממוקדת פלטפורמה */}
-      <section className="max-w-5xl mx-auto px-6 pt-24 pb-16 grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
+      <section id="hero" className="max-w-5xl mx-auto px-6 pt-24 pb-16 grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
         <div className="md:col-span-7 space-y-6 text-right">
           <span className="text-xs font-black tracking-widest text-[#0071e3] uppercase block">סוף לחיפוש מורים</span>
           <h1 className="text-4xl sm:text-6xl font-black text-[#1d1d1f] tracking-tight leading-none">
@@ -62,7 +62,7 @@ export default function HomePage() {
             <Link href="/register" className="inline-block text-center bg-[#1d1d1f] hover:bg-[#2d2d2f] text-white font-black text-xs py-3.5 px-8 rounded-full transition-all shadow-md">
               הרשמה לפלטפורמה
             </Link>
-            <Link href="/onboarding/diagnostic" className="inline-block text-center bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] font-black text-xs py-3.5 px-8 rounded-full transition-all border border-[#e5e5e7]">
+            <Link href="/onboarding/diagnostic" className="inline-block text-center bg-white/50 backdrop-blur-md hover:bg-white/70 text-[#1d1d1f] font-black text-xs py-3.5 px-8 rounded-full transition-all border border-white/80">
               אבחון לתלמיד
             </Link>
           </div>
@@ -70,7 +70,7 @@ export default function HomePage() {
         
         {/* מדיה ומכשיר אינטראקטיבי */}
         <div className="md:col-span-5 flex justify-center">
-          <div className="w-[280px] aspect-[9/18] bg-white rounded-[48px] p-3 border border-slate-200 shadow-xl relative overflow-hidden">
+          <div className="w-[280px] aspect-[9/18] liquid-glass rounded-[48px] p-3 relative overflow-hidden">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-4 bg-slate-200 rounded-b-2xl z-20" />
             <div className="w-full h-full rounded-[36px] overflow-hidden bg-slate-100">
               <video className="w-full h-full object-cover" src="https://haformula.co.il/wp-content/uploads/2026/02/תדמית-לדף-נחיתה-1-1-1.mp4" autoPlay loop muted playsInline />
@@ -81,7 +81,7 @@ export default function HomePage() {
 
       {/* 2. גריד היתרונות הטכנולוגיים (Platform Capabilities Grid) */}
       {/* 2. גריד היתרונות הטכנולוגיים במבנה Bento של Apple */}
-      <section id="features" className="bg-[#f5f5f7] py-24 border-t border-b border-[#e5e5e7]">
+      <section id="challenge" className="py-24 border-t border-b border-[#e5e5e7]/70">
         <div className="max-w-5xl mx-auto px-6 space-y-16">
           
           <div className="text-right space-y-3">
@@ -93,7 +93,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 text-right">
             
             {/* קוביה 1: גדולה ומרכזית (רוחב 7 מתוך 12) - משלבת טקסט וצילום ממשק */}
-            <div className="md:col-span-7 bg-white rounded-3xl border border-[#e5e5e7] overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md transition-all group">
+            <div className="md:col-span-7 liquid-glass rounded-3xl overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group">
               <div className="p-8 space-y-2">
                 <span className="text-[11px] font-black text-[#0071e3] tracking-wider uppercase">המערכת האדפטיבית</span>
                 <h4 className="text-xl font-black text-[#1d1d1f]">בגרות ואקדמיה תחת קורת גג אחת</h4>
@@ -102,7 +102,7 @@ export default function HomePage() {
                 </p>
               </div>
               {/* מקום לצילום באיכות גבוהה / UI גראפי של הפלטפורמה */}
-              <div className="px-8 bg-slate-50 border-t border-slate-100 aspect-[16/7] flex items-center justify-center overflow-hidden">
+              <div className="px-8 bg-slate-50/60 border-t border-slate-100 aspect-[16/7] flex items-center justify-center overflow-hidden">
                 <div className="w-full h-full bg-[#1d1d1f] rounded-t-xl mt-4 p-4 shadow-2xl transition-transform group-hover:scale-[1.02] duration-300">
                   {/* כאן תשתול תמונת מסך מלוטשת של לוח הניהול הכהה שלך */}
                   <div className="text-[10px] font-mono text-slate-500">// צילום מסך: חלון שיבוץ השיעורים הדינמי באזור האישי</div>
@@ -111,7 +111,7 @@ export default function HomePage() {
             </div>
 
             {/* קוביה 2: צרה וגבוהה (רוחב 5 מתוך 12) - ממוקדת לו"ז */}
-            <div className="md:col-span-5 bg-white rounded-3xl border border-[#e5e5e7] p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all">
+            <div className="md:col-span-5 liquid-glass rounded-3xl p-8 flex flex-col justify-between hover:shadow-md transition-all">
               <div className="space-y-2">
                 <span className="text-[11px] font-black text-[#0071e3] tracking-wider uppercase">מטריצת שעות חיה</span>
                 <h4 className="text-xl font-black text-[#1d1d1f]">גישה ישירה ללו"ז המורה</h4>
@@ -122,7 +122,7 @@ export default function HomePage() {
               {/* אלמנט ויזואלי מינימליסטי - הדמיית קלנדר של אפל */}
               <div className="mt-6 grid grid-cols-4 gap-2 opacity-60">
                 {[8, 10, 12, 14].map((hour) => (
-                  <div key={hour} className="border border-slate-200 p-3 rounded-xl text-center font-mono text-xs font-black text-[#6e6e73] bg-[#fbfbfd]">
+                  <div key={hour} className="liquid-glass p-3 rounded-xl text-center font-mono text-xs font-black text-[#6e6e73]">
                     {hour}:00
                   </div>
                 ))}
@@ -130,7 +130,7 @@ export default function HomePage() {
             </div>
 
             {/* קוביה 3: צרה (רוחב 5 מתוך 12) - קבוצות ווטסאפ */}
-            <div className="md:col-span-5 bg-white rounded-3xl border border-[#e5e5e7] p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all">
+            <div className="md:col-span-5 liquid-glass rounded-3xl p-8 flex flex-col justify-between hover:shadow-md transition-all">
               <div className="space-y-2">
                 <span className="text-[11px] font-black text-[#0071e3] tracking-wider uppercase">בקרת איכות עליונה</span>
                 <h4 className="text-xl font-black text-[#1d1d1f]">קבוצות ווטסאפ משולשות</h4>
@@ -144,7 +144,7 @@ export default function HomePage() {
             </div>
 
             {/* קוביה 4: רחבה (רוחב 7 מתוך 12) - ממוקדת בנבחרת המורים המנוסה */}
-            <div className="md:col-span-7 bg-white rounded-3xl border border-[#e5e5e7] overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md transition-all group">
+            <div className="md:col-span-7 liquid-glass rounded-3xl overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group">
               <div className="p-8 space-y-2">
                 <span className="text-[11px] font-black text-[#0071e3] tracking-wider uppercase">הון אנושי עילית</span>
                 <h4 className="text-xl font-black text-[#1d1d1f]">כל המורים עברו תהליך הכשרה פדגוגי קשיח</h4>
@@ -153,7 +153,7 @@ export default function HomePage() {
                 </p>
               </div>
               {/* הדמיית צילום מקרו ברזולוציה גבוהה */}
-              <div className="h-32 bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs relative overflow-hidden">
+              <div className="h-32 bg-slate-100/70 flex items-center justify-center text-slate-400 font-bold text-xs relative overflow-hidden">
                 {/* כאן תבוא תמונת קלוז-אפ איכותית (למשל עט דיגיטלי כותב על מסך אייפד בתוכנת GoodNotes) */}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-200/50 to-transparent" />
                 <span className="z-10 text-[10px] text-slate-500 font-mono">// צילום מאקרו: כתיבה פדגוגית חכמה על טאבלט דיגיטלי</span>
@@ -188,7 +188,7 @@ export default function HomePage() {
               <div className="relative w-full h-full duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)] shadow-sm hover:shadow-md transition-all rounded-2xl">
                 
                 {/* צד קדמי */}
-                <div className="absolute inset-0 w-full h-full bg-[#ffffff] border border-[#e5e5e7] rounded-2xl p-6 flex flex-col justify-between [backface-visibility:hidden]">
+                <div className="absolute inset-0 w-full h-full liquid-glass rounded-2xl p-6 flex flex-col justify-between [backface-visibility:hidden]">
                   <span className="text-5xl font-black text-[#e5e5e7] font-mono block text-right">{item.step}</span>
                   <h4 className="font-extrabold text-sm text-[#1d1d1f] leading-snug">{item.title}</h4>
                 </div>
@@ -203,17 +203,30 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* הבלטת שיטת הכרטיסיות הגלויה באתר לפי בקשתך */}
-        <div className="text-center pt-6">
-          <p className="text-xs font-bold text-[#6e6e73]">
-            * רכישת החבילות מתבצעת ככרטיסיית מפגשים דיגיטלית שקופה. ניכוי שעות מבוצע אך ורק לאחר קיום המפגש בפועל. 
+      </section>
+
+      {/* 3b. מחירון / כרטיסיות — scroll target for nav + ambient violet/gold */}
+      <section id="pricing" className="max-w-5xl mx-auto px-6 py-24 min-h-[70vh] flex flex-col justify-center space-y-6">
+        <div className="text-center space-y-3">
+          <span className="text-xs font-black tracking-widest text-[#6e6e73] uppercase block">מחירון שקוף</span>
+          <h2 className="text-3xl sm:text-4xl font-black text-[#1d1d1f] tracking-tight">כרטיסיית מפגשים. בלי אותיות קטנות.</h2>
+          <p className="text-xs font-bold text-[#6e6e73] max-w-xl mx-auto leading-relaxed">
+            רכישת החבילות מתבצעת ככרטיסיית מפגשים דיגיטלית שקופה. ניכוי שעות מבוצע אך ורק לאחר קיום המפגש בפועל.
             <span className="text-[#0071e3] block sm:inline sm:mr-1 font-black">קיימות אופציות ומסלולי ליווי מורחבים בהתאמה אישית.</span>
           </p>
+          <div className="pt-2">
+            <Link
+              href="/pricing"
+              className="inline-block text-center bg-[#1d1d1f] hover:bg-[#2d2d2f] text-white font-black text-xs py-3 px-8 rounded-full transition-all shadow-md"
+            >
+              למחירון המלא
+            </Link>
+          </div>
         </div>
       </section>
 
       {/* 4. שאלות נפוצות (FAQ) - מעודכן לשאלות שקיפות וכרטיסיות */}
-      <section id="faq" className="bg-[#f5f5f7] py-24 border-t border-b border-[#e5e5e7]">
+      <section id="faq" className="py-24 border-t border-b border-[#e5e5e7]/70">
         <div className="max-w-3xl mx-auto px-6 space-y-12">
           <h2 className="text-3xl font-black text-[#1d1d1f] tracking-tight text-center">נעים להכיר, בגובה העיניים</h2>
           
@@ -239,7 +252,7 @@ export default function HomePage() {
 
       {/* 5. טופס פרימיום מהיר להשארת פרטים */}
       <section id="contact" className="max-w-md mx-auto px-6 py-24">
-        <div className="bg-white border border-[#e5e5e7] p-8 rounded-3xl space-y-6 shadow-md">
+        <div className="liquid-glass p-8 rounded-3xl space-y-6">
           <div className="text-center space-y-2">
             <h3 className="text-2xl font-black text-[#1d1d1f] tracking-tight">מתחילים לשפר את הציונים</h3>
             <p className="text-xs font-bold text-[#6e6e73]">השאירו פרטים ונציג לימודי יחזור אליכם להתאמה מיידית.</p>
@@ -257,7 +270,7 @@ export default function HomePage() {
                 value={leadForm.name}
                 onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
                 placeholder="שם מלא"
-                className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none transition-all"
+                className="w-full bg-[#f5f5f7]/90 border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none transition-all"
               />
               <input
                 type="tel"
@@ -265,14 +278,14 @@ export default function HomePage() {
                 value={leadForm.phone}
                 onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
                 placeholder="מספר טלפון"
-                className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none text-right"
+                className="w-full bg-[#f5f5f7]/90 border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none text-right"
               />
               <input
                 type="text"
                 value={leadForm.grade}
                 onChange={(e) => setLeadForm({ ...leadForm, grade: e.target.value })}
                 placeholder="מה המקצוע או הקורס שבו נדרש עזרה?"
-                className="w-full bg-[#f5f5f7] border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none"
+                className="w-full bg-[#f5f5f7]/90 border border-slate-200 rounded-xl p-3.5 text-xs font-bold text-[#1d1d1f] focus:bg-white focus:border-blue-500 focus:outline-none"
               />
               <button
                 type="submit"

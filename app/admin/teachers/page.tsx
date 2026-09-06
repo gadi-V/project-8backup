@@ -3,6 +3,19 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { VettingStatus } from "@prisma/client";
+import {
+  pageCanvas,
+  frostCard,
+  frostPanel,
+  primaryCta,
+  secondaryCta,
+  fieldClass,
+  badgeSuccess,
+  badgeWarning,
+  badgeDanger,
+  emptyState,
+  eyebrow,
+} from "../../../lib/ui";
 
 interface TeacherItem {
   id: string;
@@ -64,14 +77,24 @@ export default function AdminTeachersListPage() {
     fetchTeachers();
   };
 
+  const statusBadge = (status: VettingStatus) => {
+    if (status === VettingStatus.APPROVED) return badgeSuccess;
+    if (status === VettingStatus.REJECTED) return badgeDanger;
+    return badgeWarning;
+  };
+
   return (
-    <div className="min-h-screen bg-slate-100 p-8 font-sans text-slate-900" dir="rtl">
+    <div className={`${pageCanvas} p-8`} dir="rtl">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Teacher vetting queue</h1>
-            <p className="text-xs text-slate-500 mt-1">
-              Manage candidates, track the 6 pedagogical screening steps, and approve teaching profiles.
+            <p className={eyebrow}>Admin · Teachers</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-900">
+              Teacher vetting queue
+            </h1>
+            <p className="mt-1 text-xs text-neutral-500">
+              Manage candidates, track the 6 pedagogical screening steps, and approve teaching
+              profiles.
             </p>
           </div>
           <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
@@ -80,26 +103,24 @@ export default function AdminTeachersListPage() {
               placeholder="Search by name, email, or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 w-64 shadow-sm"
+              className={`${fieldClass} w-64`}
             />
-            <button
-              type="submit"
-              className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 transition"
-            >
+            <button type="submit" className={primaryCta}>
               Search
             </button>
           </form>
         </div>
 
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
+        <div className={`${frostPanel} flex flex-wrap gap-2 p-2`}>
           {TABS.map((tab) => (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setSelectedTab(tab.id)}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
+              className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
                 selectedTab === tab.id
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                  ? "bg-neutral-900 text-white"
+                  : "bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50"
               }`}
             >
               {tab.label}
@@ -107,70 +128,72 @@ export default function AdminTeachersListPage() {
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className={`${frostCard} overflow-hidden`}>
           {loading ? (
-            <div className="py-12 text-center text-xs text-slate-500">Loading...</div>
+            <div className="py-12 text-center text-sm text-neutral-500">Loading...</div>
           ) : errorMsg ? (
-            <div className="py-12 text-center text-xs text-rose-500">{errorMsg}</div>
+            <div className="py-12 text-center text-sm text-red-700">{errorMsg}</div>
           ) : teachers.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-400">No teachers in this view</div>
+            <div className={`${emptyState} m-6`}>
+              <p className="text-sm text-neutral-600">No teachers in this view</p>
+              <Link href="/admin" className={`inline-flex ${secondaryCta}`}>
+                Back to admin
+              </Link>
+            </div>
           ) : (
-            <table className="w-full text-right text-xs">
-              <thead className="border-b border-slate-100 bg-slate-50 text-slate-600">
+            <table className="w-full text-start text-xs">
+              <thead className="border-b border-neutral-100 bg-neutral-50/80 text-neutral-500">
                 <tr>
-                  <th className="p-4 font-bold">Teacher</th>
-                  <th className="p-4 font-bold">Contact</th>
-                  <th className="p-4 font-bold">Screening progress</th>
-                  <th className="p-4 font-bold">Funnel status</th>
-                  <th className="p-4 font-bold">Payout</th>
-                  <th className="p-4 font-bold">Submitted</th>
-                  <th className="p-4 font-bold">Actions</th>
+                  <th className="px-5 py-4 font-medium">Teacher</th>
+                  <th className="px-5 py-4 font-medium">Contact</th>
+                  <th className="px-5 py-4 font-medium">Screening progress</th>
+                  <th className="px-5 py-4 font-medium">Funnel status</th>
+                  <th className="px-5 py-4 font-medium">Payout</th>
+                  <th className="px-5 py-4 font-medium">Submitted</th>
+                  <th className="px-5 py-4 font-medium">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {teachers.map((teacher) => (
-                  <tr key={teacher.id} className="hover:bg-slate-50/70 transition">
-                    <td className="p-4 font-bold text-slate-800">{teacher.name}</td>
-                    <td className="p-4 text-slate-600 space-y-0.5">
+                  <tr
+                    key={teacher.id}
+                    className="border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50/80 transition-colors"
+                  >
+                    <td className="px-5 py-4 font-medium text-neutral-900">{teacher.name}</td>
+                    <td className="px-5 py-4 text-neutral-600 space-y-0.5">
                       <div>{teacher.email}</div>
-                      <div className="text-[11px] text-slate-400">{teacher.phone}</div>
+                      <div className="text-[11px] text-neutral-400" dir="ltr">
+                        {teacher.phone}
+                      </div>
                     </td>
-                    <td className="p-4">
+                    <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
-                        <div className="h-2 w-20 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+                        <div className="h-2 w-20 overflow-hidden rounded-full bg-neutral-100 border border-neutral-200">
                           <div
-                            className="h-full bg-indigo-600 transition-all duration-300"
+                            className="h-full bg-neutral-900 transition-all duration-300"
                             style={{
                               width: `${(teacher.passedStepsCount / teacher.totalSteps) * 100}%`,
                             }}
                           />
                         </div>
-                        <span className="text-[11px] font-semibold text-slate-700">
+                        <span className="text-[11px] font-medium text-neutral-700">
                           {teacher.passedStepsCount}/{teacher.totalSteps}
                         </span>
                       </div>
                     </td>
-                    <td className="p-4">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                          teacher.vettingStatus === VettingStatus.APPROVED
-                            ? "bg-emerald-100 text-emerald-800"
-                            : teacher.vettingStatus === VettingStatus.REJECTED
-                            ? "bg-rose-100 text-rose-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
+                    <td className="px-5 py-4">
+                      <span className={statusBadge(teacher.vettingStatus)}>
                         {teacher.vettingStatus}
                       </span>
                     </td>
-                    <td className="p-4 text-slate-600">{teacher.payoutType}</td>
-                    <td className="p-4 text-slate-500 text-[11px]">
+                    <td className="px-5 py-4 text-neutral-600">{teacher.payoutType}</td>
+                    <td className="px-5 py-4 text-neutral-500 text-[11px]">
                       {new Date(teacher.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="p-4">
+                    <td className="px-5 py-4">
                       <Link
                         href={`/admin/teachers/${teacher.id}/vetting`}
-                        className="inline-flex items-center rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-100 transition"
+                        className={secondaryCta}
                       >
                         Manage screening
                       </Link>

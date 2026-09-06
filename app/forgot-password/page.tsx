@@ -3,8 +3,45 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
+import {
+  fieldClass,
+  frostCard,
+  pageCanvas,
+  primaryCta,
+  secondaryCta,
+} from "../../lib/ui";
 
 type Step = "phone" | "otp" | "password";
+
+/** RTL back: arrow points right (visual →) */
+function BackArrow({ className = "ms-1.5 inline-block h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M5 12h14M13 6l6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** RTL forward: arrow points left (visual ←) */
+function ForwardArrow({ className = "me-1.5 inline-block h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M19 12H5M11 6l-6 6 6 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -106,31 +143,29 @@ export default function ForgotPasswordPage() {
 
   return (
     <div
-      className="min-h-screen bg-slate-900 text-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+      className={`${pageCanvas} flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8`}
       dir="rtl"
     >
-      <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-blue-600/10 blur-[100px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-indigo-600/10 blur-[100px] rounded-full pointer-events-none" />
-
-      <div className="max-w-md w-full space-y-6 bg-slate-800/40 border border-slate-800 p-8 rounded-2xl backdrop-blur-md relative z-10">
+      <div className={`max-w-md w-full space-y-6 ${frostCard} p-8`}>
         <div className="text-center space-y-2">
           <Link
             href="/login"
-            className="text-xs text-slate-400 hover:text-white transition-colors"
+            className="inline-flex items-center text-xs text-neutral-500 hover:text-neutral-800 transition-colors"
           >
-            ← חזרה להתחברות
+            חזרה להתחברות
+            <BackArrow />
           </Link>
-          <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
             שחזור סיסמה
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-neutral-500">
             שלב {stepIndex} מתוך 3 — אימות באמצעות קוד SMS (Mock)
           </p>
         </div>
 
-        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+        <div className="w-full bg-neutral-100 h-1.5 rounded-full overflow-hidden">
           <div
-            className="bg-blue-500 h-full transition-all duration-300"
+            className="bg-neutral-900 h-full transition-all duration-300 rounded-full"
             style={{ width: `${(stepIndex / 3) * 100}%` }}
           />
         </div>
@@ -138,25 +173,21 @@ export default function ForgotPasswordPage() {
         {step === "phone" && (
           <form onSubmit={handleSendOtp} className="space-y-5">
             <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1 px-1">
+              <label className="text-xs font-semibold text-neutral-600 block mb-1.5 text-start">
                 מספר הטלפון הרשום במערכת
               </label>
               <input
                 type="tel"
                 required
                 disabled={loading}
-                dir="ltr"
-                className="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 text-left disabled:opacity-50"
+                dir="rtl"
+                className={fieldClass}
                 placeholder="0501234567"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
             </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading} className={`w-full ${primaryCta}`}>
               {loading ? "שולח..." : "שלח קוד"}
             </button>
           </form>
@@ -164,15 +195,15 @@ export default function ForgotPasswordPage() {
 
         {step === "otp" && (
           <form onSubmit={handleVerifyStep} className="space-y-5">
-            <p className="text-xs text-slate-400 text-right leading-relaxed">
+            <p className="text-xs text-neutral-500 text-start leading-relaxed">
               הזינו את קוד ה־6 ספרות שנשלח ל־
-              <span className="text-blue-300 font-mono" dir="ltr">
+              <span className="text-neutral-800 font-mono" dir="ltr">
                 {phone}
               </span>
               . בבדיקה מקומית הקוד מופיע בטרמינל השרת.
             </p>
             <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1 px-1">
+              <label className="text-xs font-semibold text-neutral-600 block mb-1.5 text-start">
                 קוד אימות
               </label>
               <input
@@ -183,7 +214,7 @@ export default function ForgotPasswordPage() {
                 required
                 disabled={loading}
                 dir="ltr"
-                className="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white tracking-[0.4em] text-center font-mono focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                className={`${fieldClass} tracking-[0.4em] text-center font-mono`}
                 placeholder="••••••"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -194,15 +225,17 @@ export default function ForgotPasswordPage() {
                 type="button"
                 disabled={loading}
                 onClick={() => setStep("phone")}
-                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl text-xs border border-slate-700"
+                className={`flex-1 inline-flex items-center justify-center ${secondaryCta} text-xs`}
               >
                 חזור אחורה
+                <BackArrow />
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-50"
+                className={`flex-1 inline-flex items-center justify-center ${primaryCta}`}
               >
+                <ForwardArrow />
                 המשך
               </button>
             </div>
@@ -210,7 +243,7 @@ export default function ForgotPasswordPage() {
               type="button"
               disabled={loading}
               onClick={() => void sendOtp()}
-              className="w-full text-xs text-blue-400 hover:text-blue-300"
+              className="w-full text-xs text-neutral-500 hover:text-neutral-800"
             >
               שלח קוד מחדש
             </button>
@@ -220,7 +253,7 @@ export default function ForgotPasswordPage() {
         {step === "password" && (
           <form onSubmit={handleResetPassword} className="space-y-5">
             <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1 px-1">
+              <label className="text-xs font-semibold text-neutral-600 block mb-1.5 text-start">
                 סיסמה חדשה
               </label>
               <input
@@ -228,14 +261,15 @@ export default function ForgotPasswordPage() {
                 required
                 disabled={loading}
                 minLength={6}
-                className="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                dir="rtl"
+                className={fieldClass}
                 placeholder="לפחות 6 תווים"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1 px-1">
+              <label className="text-xs font-semibold text-neutral-600 block mb-1.5 text-start">
                 אימות סיסמה חדשה
               </label>
               <input
@@ -243,7 +277,8 @@ export default function ForgotPasswordPage() {
                 required
                 disabled={loading}
                 minLength={6}
-                className="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                dir="rtl"
+                className={fieldClass}
                 placeholder="הקלידו שוב"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -254,14 +289,15 @@ export default function ForgotPasswordPage() {
                 type="button"
                 disabled={loading}
                 onClick={() => setStep("otp")}
-                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl text-xs border border-slate-700"
+                className={`flex-1 inline-flex items-center justify-center ${secondaryCta} text-xs`}
               >
                 חזור אחורה
+                <BackArrow />
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-50"
+                className={`flex-1 ${primaryCta}`}
               >
                 {loading ? "שומר..." : "שמור סיסמה חדשה"}
               </button>

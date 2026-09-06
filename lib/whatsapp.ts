@@ -283,13 +283,115 @@ export async function sendQuadGroupInvite({
   const greeting = recipientName?.trim() ? `שלום ${recipientName.trim()}` : "שלום";
   const message =
     `${greeting},\n` +
-    `ברוכים הבאים ל-Quad Ecosystem של Project8! 🎓\n` +
+    `ברוכים הבאים ל-Quad Ecosystem של Project8!\n` +
     `פתחנו עבורכם קבוצת ליווי ייעודית ב-WhatsApp המאגדת את התלמיד (${studentName}), המורה המומחה (${teacherName}), ההורים והמנהל הפדגוגי.\n\n` +
     `להצטרפות לקבוצה וקבלת סיכומי שיעור שוטפים:\n` +
     `${groupUrl}\n\n` +
     `${BRAND_SIGNATURE}`;
 
   await sendWhatsAppText(recipientPhone, message);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quad-group creation (WhatsApp Cloud API scaffold)
+// Members: Admin (pedagogical manager) + Teacher + Student + Parent
+// SINGLE lessons never call this — transactional 1-on-1 only.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type QuadGroupMemberRole = "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+
+export type QuadGroupMember = {
+  role: QuadGroupMemberRole;
+  phone: string;
+  name?: string | null;
+};
+
+export type CreateQuadGroupInput = {
+  /** Stable id used for mock/deterministic invite tokens. */
+  studentId: string;
+  studentName: string;
+  members: QuadGroupMember[];
+  subject?: string | null;
+  teacherName?: string | null;
+};
+
+export type CreateQuadGroupResult = {
+  inviteUrl: string;
+  groupId: string | null;
+  mocked: boolean;
+};
+
+/**
+ * Scaffolds WhatsApp Cloud API quad-group creation.
+ * Guards all external HTTP behind WHATSAPP_API_KEY — without it, returns a
+ * deterministic mock invite URL (dev-safe, no network).
+ */
+export async function createWhatsAppQuadGroup(
+  input: CreateQuadGroupInput
+): Promise<CreateQuadGroupResult> {
+  const members = input.members
+    .filter((m) => m.phone?.trim())
+    .map((m) => ({
+      role: m.role,
+      phone: normalizeWhatsAppPhone(m.phone),
+      name: m.name?.trim() || null,
+    }));
+
+  const mockInviteUrl = `https://chat.whatsapp.com/mock-quad-${input.studentId.slice(0, 8)}`;
+
+  if (!process.env.WHATSAPP_API_KEY) {
+    console.log("[MOCK] Quad Group created with members:", members);
+    return { inviteUrl: mockInviteUrl, groupId: null, mocked: true };
+  }
+
+  const config = getWhatsAppConfig();
+  if (!config) {
+    console.log("[MOCK] Quad Group created with members:", members);
+    return { inviteUrl: mockInviteUrl, groupId: null, mocked: true };
+  }
+
+  // WhatsApp Cloud / BSP group-create scaffold (provider-specific path).
+  const subjectLabel = input.subject?.trim() || "ליווי פדגוגי";
+  const groupSubject = `Project8 · ${input.studentName} · ${subjectLabel}`;
+
+  const response = await fetch(`${config.apiUrl}/groups`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      subject: groupSubject,
+      description:
+        `קבוצת ליווי מרובעת (מנהל פדגוגי + מורה + תלמיד + הורה) עבור ${input.studentName}` +
+        (input.teacherName ? ` · מורה: ${input.teacherName}` : ""),
+      participants: members.map((m) => ({
+        phone: m.phone,
+        role: m.role,
+        name: m.name,
+      })),
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => response.statusText);
+    throw new Error(`WhatsApp create group failed (${response.status}): ${detail}`);
+  }
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    inviteUrl?: string;
+    invite_link?: string;
+    groupId?: string;
+    id?: string;
+  };
+
+  const inviteUrl =
+    payload.inviteUrl ||
+    payload.invite_link ||
+    mockInviteUrl;
+  const groupId = payload.groupId || payload.id || null;
+
+  return { inviteUrl, groupId, mocked: false };
 }
 
 export type QuadLessonSummaryInput = {
@@ -618,10 +720,35 @@ export async function dispatchWhatsAppCloser(
 
   try {
     if (!quadGroupUrl) {
-      // Deterministic placeholder — production wiring would mint a real
-      // WhatsApp Business group URL here.
-      const groupToken = `quad-${recipientPhone.replace(/\D/g, "").slice(-8)}-${Date.now().toString(36)}`;
-      quadGroupUrl = `https://chat.whatsapp.com/${groupToken}`;
+      const created = await createWhatsAppQuadGroup({
+        studentId: input.studentId || recipientPhone.replace(/\D/g, "").slice(-8) || "unknown",
+        studentName,
+        subject: trackName,
+        teacherName: teacherName || "מורה מומחה (ישובץ בהמשך)",
+        members: [
+          {
+            role: "ADMIN",
+            phone: process.env.WHATSAPP_ADMIN_PHONE || "0000000000",
+            name: "מנהל פדגוגי",
+          },
+          {
+            role: "TEACHER",
+            phone: process.env.WHATSAPP_TEACHER_PLACEHOLDER_PHONE || "0000000001",
+            name: teacherName || "מורה מומחה (ישובץ בהמשך)",
+          },
+          {
+            role: "STUDENT",
+            phone: studentPhone || recipientPhone,
+            name: studentName,
+          },
+          {
+            role: "PARENT",
+            phone: parentPhone || recipientPhone,
+            name: recipientName || studentName,
+          },
+        ],
+      });
+      quadGroupUrl = created.inviteUrl;
       isGroupOpened = true;
     }
 

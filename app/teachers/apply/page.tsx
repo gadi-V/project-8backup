@@ -146,7 +146,7 @@ export default function TeacherApplyPage() {
                       key={topic.id}
                       type="button"
                       onClick={() => toggleTopic(topic.id)}
-                      className={`flex items-center gap-2 rounded-xl border p-3 text-right text-xs font-medium transition ${
+                      className={`flex items-center gap-2 rounded-xl border p-3 text-end text-xs font-medium transition ${
                         isChecked
                           ? "border-indigo-600 bg-indigo-50/60 text-indigo-900"
                           : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"

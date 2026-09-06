@@ -387,6 +387,12 @@ async function station3_purchase(ctx2: Awaited<ReturnType<typeof station1_diagno
   });
   charges.forEach((c) => ctx.ledger.push(c.id));
 
+  const payment = await prisma.payment.findFirst({
+    where: { studentId: ctx2.studentId },
+    orderBy: { createdAt: "desc" },
+  });
+  if (payment) ctx.payments.push(payment.id);
+
   const dbOk =
     student?.lessonCredits === 3 &&
     charges.length >= 1 &&

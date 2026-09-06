@@ -4,6 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
+import {
+  pageCanvas,
+  frostCard,
+  primaryCta,
+  secondaryCta,
+  dangerCta,
+  fieldClass,
+  badgeSuccess,
+  badgeNeutral,
+  badgeWarning,
+  emptyState,
+} from "../../../lib/ui";
 
 type GradeLevel = "ELEMENTARY" | "MIDDLE_SCHOOL" | "HIGH_SCHOOL" | "ACADEMIC";
 
@@ -170,45 +182,39 @@ export default function AdminCurriculumPage() {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const groupKey = (g: ExplorerGroup) => `${g.subject}::${g.gradeLevel}`;
-
-function topicKey(group: ExplorerGroup) {
-  return `${group.subject}::${group.gradeLevel}`;
-}
+  function topicKey(group: ExplorerGroup) {
+    return `${group.subject}::${group.gradeLevel}`;
+  }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white" dir="rtl">
+    <main className={pageCanvas} dir="rtl">
       <div className="max-w-6xl mx-auto p-4 sm:p-8 space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className={`${frostCard} p-6 flex flex-wrap items-center justify-between gap-4`}>
           <div>
             <Link
               href="/admin"
-              className="text-xs font-bold text-slate-400 hover:text-white transition-colors"
+              className="text-xs font-medium text-neutral-500 hover:text-neutral-900 transition-colors"
             >
-              ← חזרה ללוח הניהול
+              חזרה ללוח הניהול
             </Link>
-            <h1 className="text-2xl sm:text-3xl font-black text-white mt-2">
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-neutral-900 mt-2">
               עץ תכנית לימודים ונושאים
             </h1>
-            <p className="text-sm text-slate-400 font-bold mt-1">
+            <p className="text-sm text-neutral-500 mt-1">
               מערכת הזרקת תכניות לימודים לסילונים, מיקודי בגרות ותוכניות מתקדמות
             </p>
           </div>
-          <span className="bg-violet-600 text-white text-xs font-black px-3 py-1.5 rounded-full">
-            ADMIN / MANAGER
-          </span>
+          <span className={badgeNeutral}>ADMIN / MANAGER</span>
         </div>
 
         <div className="grid lg:grid-cols-5 gap-6">
-          {/* Ingest panel */}
-          <section className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <section className={`lg:col-span-2 ${frostCard} p-5 space-y-4`}>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black text-white">הזרקת תכנית מארק־דאון</h2>
+              <h2 className="text-lg font-semibold text-neutral-900">הזרקת תכנית מארק־דאון</h2>
               <button
                 type="button"
                 onClick={() => setRawText(SAMPLE_SYLLABUS)}
-                className="text-xs font-bold text-violet-300 hover:text-violet-200"
+                className="text-xs font-medium text-neutral-600 hover:text-neutral-900"
               >
                 הדבק דוגמה
               </button>
@@ -220,52 +226,66 @@ function topicKey(group: ExplorerGroup) {
               placeholder={
                 "הדביקו כאן טקסט של סילבוס / מיקור / פירוט בחינה…\n\nלדוגמה:\nמתמטיקה 5 יַח״ל שאר 582:\n- וקטורים (אלגבריים וגיאומטריים)\n- גאומטריה אניטית…"
               }
-              className="w-full min-h-[200px] bg-slate-950 text-sm text-slate-100 border border-slate-700 rounded-xl p-3 font-mono leading-relaxed placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className={`${fieldClass} min-h-[200px] font-mono leading-relaxed`}
             />
 
             <button
               type="button"
               disabled={parsing || rawText.trim().length < 10}
               onClick={handleParse}
-              className="w-full bg-violet-600 hover:bg-violet-500 text-white font-black py-3 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className={`w-full ${primaryCta} justify-center flex items-center gap-2`}
             >
               {parsing ? (
                 <span className="flex items-center gap-2">
                   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    />
                   </svg>
                   טוען את ה‑Agent Hive…
                 </span>
               ) : (
-                "Parse with AI Hive ⚡"
+                "Parse with AI Hive"
               )}
             </button>
 
             {preview && preview.length > 0 && (
-              <div className="border-t border-slate-800 pt-4 space-y-4">
+              <div className="border-t border-neutral-100 pt-4 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-slate-200">
+                  <h3 className="text-sm font-semibold text-neutral-800">
                     תצוגת עץ (לפני שמירה)
                   </h3>
-                  <span className="text-xs font-bold text-slate-500">
+                  <span className="text-xs font-medium text-neutral-500">
                     {preview.length} נושאים
                   </span>
                 </div>
 
                 <ul className="space-y-3">
                   {preview.map((t, idx) => (
-                    <li key={idx} className="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                    <li
+                      key={idx}
+                      className="bg-neutral-50 border border-neutral-200 rounded-xl p-3"
+                    >
                       <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <span className="text-sm font-black text-white block truncate">
+                        <div className="min-w-0 text-start">
+                          <span className="text-sm font-semibold text-neutral-900 block truncate">
                             {t.topicName}
                           </span>
-                          <span className="text-[11px] font-bold text-slate-500">
+                          <span className="text-[11px] font-medium text-neutral-500">
                             {t.subject} · {GRADE_LABELS[t.gradeLevel]}
                           </span>
                         </div>
-                        <span className="shrink-0 text-[11px] font-black bg-violet-900/60 text-violet-200 px-2 py-0.5 rounded-lg">
+                        <span className={badgeWarning}>
                           {Math.round(t.weightInExam * 100)}% במבחן
                         </span>
                       </div>
@@ -273,10 +293,7 @@ function topicKey(group: ExplorerGroup) {
                       {t.subTopics.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {t.subTopics.map((s, i) => (
-                            <span
-                              key={i}
-                              className="text-[11px] font-bold bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full"
-                            >
+                            <span key={i} className={badgeNeutral}>
                               {s}
                             </span>
                           ))}
@@ -290,36 +307,37 @@ function topicKey(group: ExplorerGroup) {
                   type="button"
                   disabled={committing}
                   onClick={handleCommit}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-xl transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                  className="w-full rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-medium py-2.5 text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
                 >
-                  {committing ? "משמר ל‑Database…" : "אישור והזרקת הנושאים ✓"}
+                  {committing ? "משמר ל‑Database…" : "אישור והזרקת הנושאים"}
                 </button>
               </div>
             )}
           </section>
 
-          {/* Explorer */}
-          <section className="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <section className={`lg:col-span-3 ${frostCard} p-5 space-y-4`}>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black text-white">סייר הנושאים</h2>
+              <h2 className="text-lg font-semibold text-neutral-900">סייר הנושאים</h2>
               <button
                 type="button"
                 onClick={loadTree}
-                className="text-xs font-bold text-slate-400 hover:text-white transition-colors"
+                className="text-xs font-medium text-neutral-500 hover:text-neutral-900 transition-colors"
               >
-                refresh ↗
+                רענון
               </button>
             </div>
 
             {loadingTree ? (
               <div className="animate-pulse space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-12 bg-slate-800 rounded-xl" />
+                  <div key={i} className="h-12 bg-neutral-100 rounded-xl" />
                 ))}
               </div>
             ) : groups.length === 0 ? (
-              <div className="text-center text-sm font-bold text-slate-500 py-12">
-                עדיין אין נושאים — התחילו בהדבקת סילובס משמאל.
+              <div className={emptyState}>
+                <p className="text-sm text-neutral-600">
+                  עדיין אין נושאים — התחילו בהדבקת סילובס משמאל.
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -327,42 +345,57 @@ function topicKey(group: ExplorerGroup) {
                   const key = topicKey(group);
                   const isOpen = expanded[key] ?? false;
                   return (
-                    <div key={key} className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
+                    <div
+                      key={key}
+                      className="bg-neutral-50/80 border border-neutral-200 rounded-xl overflow-hidden"
+                    >
                       <button
                         type="button"
                         onClick={() => toggleGroup(key)}
-                        className="w-full flex items-center justify-between px-4 py-3 text-right hover:bg-slate-900 transition-colors"
+                        className="w-full flex items-center justify-between px-5 py-4 text-start hover:bg-neutral-50/80 transition-colors"
                       >
                         <div>
-                          <span className="text-sm font-black text-white">{group.subject}</span>
-                          <span className="mr-2 text-[11px] font-bold text-slate-500">
+                          <span className="text-sm font-semibold text-neutral-900">
+                            {group.subject}
+                          </span>
+                          <span className="ms-2 text-[11px] font-medium text-neutral-500">
                             {GRADE_LABELS[group.gradeLevel as GradeLevel] ?? group.gradeLevel}
                           </span>
                         </div>
                         <span className="flex items-center gap-2">
-                          <span className="text-[11px] font-bold text-violet-300 bg-violet-900/40 px-2 py-0.5 rounded-full">
-                            {group.topics.length} נושאים
-                          </span>
+                          <span className={badgeNeutral}>{group.topics.length} נושאים</span>
                           <svg
-                            className={`w-4 h-4 text-slate-500 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
+                            className={`w-4 h-4 text-neutral-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth="2"
                           >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19 9l-7 7-7-7"
+                            />
                           </svg>
                         </span>
                       </button>
 
                       {isOpen && (
-                        <div className="border-t border-slate-800 divide-y divide-slate-800/60">
+                        <div className="border-t border-neutral-100">
                           {group.topics.map((topic) => (
-                            <div key={topic.id} className="px-4 py-3 space-y-2">
+                            <div
+                              key={topic.id}
+                              className="px-5 py-4 space-y-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50/80 transition-colors"
+                            >
                               <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="text-sm font-black text-slate-100">{topic.topicName}</p>
+                                <div className="min-w-0 text-start">
+                                  <p className="text-sm font-semibold text-neutral-900">
+                                    {topic.topicName}
+                                  </p>
                                   {topic.subTopics.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-1.5">
                                       {topic.subTopics.map((s, i) => (
-                                        <span key={i} className="text-[10px] font-bold bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-full">
+                                        <span key={i} className={badgeNeutral}>
                                           {s}
                                         </span>
                                       ))}
@@ -370,24 +403,24 @@ function topicKey(group: ExplorerGroup) {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className="text-[10px] font-black text-emerald-300 bg-emerald-900/40 px-2 py-1 rounded-lg">
+                                  <span className={badgeSuccess}>
                                     {topic.teacherCount} מורים
                                   </span>
                                   <button
                                     type="button"
                                     onClick={() => handleEdit(topic)}
-                                    className="text-[10px] font-black text-slate-300 hover:text-white bg-slate-800 px-2 py-1 rounded-lg transition-colors"
+                                    className={secondaryCta}
                                     title="עריכת משקל / תתי-נושאים"
                                   >
-                                    עריכ
+                                    עריכה
                                   </button>
                                   <button
                                     type="button"
                                     disabled={deletingId === topic.id}
                                     onClick={() => handleDelete(topic.id)}
-                                    className="text-[10px] font-black text-red-400 hover:text-red-300 bg-slate-800 px-2 py-1 rounded-lg transition-colors disabled:opacity-40"
+                                    className={dangerCta}
                                   >
-                                    {deletingId === topic.id ? "…" : "✕"}
+                                    {deletingId === topic.id ? "…" : "מחק"}
                                   </button>
                                 </div>
                               </div>
@@ -395,12 +428,12 @@ function topicKey(group: ExplorerGroup) {
                               {topic.teacherNames.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5">
                                   {topic.teacherNames.slice(0, 6).map((n, i) => (
-                                    <span key={i} className="text-[10px] font-bold bg-indigo-900/50 text-indigo-300 px-2 py-0.5 rounded-full">
-                                      👨‍🏫 {n}
+                                    <span key={i} className={badgeNeutral}>
+                                      {n}
                                     </span>
                                   ))}
                                   {topic.teacherNames.length > 6 && (
-                                    <span className="text-[10px] font-bold text-slate-500">
+                                    <span className="text-[10px] font-medium text-neutral-500">
                                       +{topic.teacherNames.length - 6} נוספים
                                     </span>
                                   )}
@@ -418,12 +451,11 @@ function topicKey(group: ExplorerGroup) {
           </section>
         </div>
 
-        {/* Edit modal */}
         {editingTopic && (
           <EditTopicModal
             topic={editingTopic}
             onClose={() => setEditingTopic(null)}
-            onSaved={(updated) => {
+            onSaved={() => {
               setEditingTopic(null);
               loadTree();
               toast.success("הנושא עודכן");
@@ -473,36 +505,46 @@ function EditTopicModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" dir="rtl">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 w-full max-w-md space-y-4">
-        <h3 className="text-lg font-black text-white">עריכת נושא</h3>
+    <div
+      className="fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-sm flex items-center justify-center p-4"
+      dir="rtl"
+    >
+      <div className={`${frostCard} p-5 w-full max-w-md space-y-4`}>
+        <h3 className="text-lg font-semibold text-neutral-900">עריכת נושא</h3>
 
-        <label className="block text-xs font-bold text-slate-400" htmlFor="ed-topic">
+        <label className="block text-xs font-medium text-neutral-500" htmlFor="ed-topic">
           שם הנושא
         </label>
         <input
           id="ed-topic"
           value={form.topicName}
           onChange={(e) => update({ topicName: e.target.value })}
-          className="w-full bg-slate-950 text-sm text-slate-100 border border-slate-700 rounded-xl px-3 py-2"
+          className={fieldClass}
         />
 
-        <label className="block text-xs font-bold text-slate-400">תת־נושאים (מופרדים בפסיק)</label>
+        <label className="block text-xs font-medium text-neutral-500">
+          תת־נושאים (מופרדים בפסיק)
+        </label>
         <input
           value={form.subTopics.join(", ")}
           onChange={(e) =>
-            update({ subTopics: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })
+            update({
+              subTopics: e.target.value
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean),
+            })
           }
-          className="w-full bg-slate-950 text-sm text-slate-100 border border-slate-700 rounded-xl px-3 py-2"
+          className={fieldClass}
         />
 
         <div className="grid grid-cols-2 gap-3">
-          <label className="block text-xs font-bold text-slate-400">
+          <label className="block text-xs font-medium text-neutral-500">
             רמת לימוד
             <select
               value={form.gradeLevel}
               onChange={(e) => update({ gradeLevel: e.target.value as GradeLevel })}
-              className="w-full bg-slate-950 text-sm text-slate-100 border border-slate-700 rounded-xl px-2 py-2 mt-1"
+              className={`${fieldClass} mt-1`}
             >
               <option value="ELEMENTARY">יסודי</option>
               <option value="MIDDLE_SCHOOL">חטיבת ביניים</option>
@@ -510,7 +552,7 @@ function EditTopicModal({
               <option value="ACADEMIC">אקדמיה</option>
             </select>
           </label>
-          <label className="block text-xs font-bold text-slate-400">
+          <label className="block text-xs font-medium text-neutral-500">
             משקל במבחן
             <input
               type="number"
@@ -519,7 +561,7 @@ function EditTopicModal({
               step={0.05}
               value={form.weightInExam}
               onChange={(e) => update({ weightInExam: Number(e.target.value) })}
-              className="w-full bg-slate-950 text-sm text-slate-100 border border-slate-700 rounded-xl px-2 py-2 mt-1"
+              className={`${fieldClass} mt-1`}
             />
           </label>
         </div>
@@ -529,15 +571,11 @@ function EditTopicModal({
             type="button"
             disabled={saving}
             onClick={handleSave}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 rounded-xl disabled:opacity-40"
+            className={`flex-1 ${primaryCta}`}
           >
             {saving ? "מששר..." : "שמירה"}
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl"
-          >
+          <button type="button" onClick={onClose} className={`flex-1 ${secondaryCta}`}>
             ביטול
           </button>
         </div>

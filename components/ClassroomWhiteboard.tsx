@@ -17,7 +17,7 @@ import type { Channel } from "stream-chat";
 const PAGE_W = 794;
 const PAGE_H = 1123;
 const PAGE_GAP = 32;
-const DESK_BG = "#0f172a";
+const DESK_BG = "#f5f5f4";
 const HANDLE_R = 6;
 const ROT_HANDLE_OFFSET = 32;
 const BOARD_EVENT = "board_sync";
@@ -281,6 +281,18 @@ type BoardRole = "STUDENT" | "TEACHER" | "ADMIN" | "MANAGER";
 type ClassroomWhiteboardProps = {
   role: BoardRole;
   streamChannel?: Channel | null;
+  /** When set, load PreLessonAsset items for insert-to-canvas. */
+  packageId?: string | null;
+  lessonId?: string | null;
+};
+
+type PreLessonAssetPanelItem = {
+  id: string;
+  assetType: "IMAGE" | "PDF" | "TEXT_NOTE" | string;
+  assetUrl: string | null;
+  textContent: string | null;
+  lessonId: string | null;
+  createdAt: string;
 };
 
 type ExportFrame = {
@@ -906,6 +918,43 @@ function cloneEl(el: DrawEl, pageIndex: number, offset: number): DrawEl {
   return { ...el, id, pageIndex, x: el.x + offset, y: el.y + offset };
 }
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("FileReader failed"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function wrapCanvasText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string[] {
+  const paragraphs = text.split(/\n/);
+  const lines: string[] = [];
+  for (const paragraph of paragraphs) {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      lines.push("");
+      continue;
+    }
+    let current = words[0];
+    for (let i = 1; i < words.length; i++) {
+      const trial = `${current} ${words[i]}`;
+      if (ctx.measureText(trial).width <= maxWidth) {
+        current = trial;
+      } else {
+        lines.push(current);
+        current = words[i];
+      }
+    }
+    lines.push(current);
+  }
+  return lines;
+}
+
 function toSyncEl(el: DrawEl): SyncEl | null {
   if (el.kind === "stroke")
     return {
@@ -1431,7 +1480,10 @@ const STROKE_STYLES: { value: StrokeStyle; label: string; preview: string }[] = 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboardProps>(
-  function ClassroomWhiteboard({ role: _role, streamChannel = null }, ref) {
+  function ClassroomWhiteboard(
+    { role: _role, streamChannel = null, packageId = null, lessonId = null },
+    ref,
+  ) {
     const [pages, setPages] = useState<PageInfo[]>(() => [{ id: nanoid(), pageNumber: 1 }]);
     const [elements, setElements] = useState<DrawEl[]>([]);
     const [tool, setTool] = useState<DrawTool>("pen");
@@ -1467,6 +1519,10 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
     const [aiHint, setAiHint] = useState<string | null>(null);
     const [syncStatus, setSyncStatus] = useState<"idle" | "live" | "error">("idle");
     const [activePageIndex, setActivePageIndex] = useState(0);
+    const [preLessonAssets, setPreLessonAssets] = useState<PreLessonAssetPanelItem[]>([]);
+    const [assetsPanelOpen, setAssetsPanelOpen] = useState(false);
+    const [assetsLoading, setAssetsLoading] = useState(false);
+    const [insertingAssetId, setInsertingAssetId] = useState<string | null>(null);
 
     const canvasMap = useRef<Map<string, HTMLCanvasElement>>(new Map());
     const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -2434,6 +2490,52 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
       return () => document.removeEventListener("pointerdown", onDocPointerDown);
     }, [editText]);
 
+    const insertImageElement = useCallback(
+      async (imageId: string, url: string): Promise<boolean> => {
+        return new Promise<boolean>((resolve) => {
+          const img = new Image();
+          // data: URLs and same-origin mock paths don't need CORS; remote may.
+          if (!url.startsWith("data:") && !url.startsWith("/")) {
+            img.crossOrigin = "anonymous";
+          }
+          img.onerror = () => {
+            console.error("[whiteboard] failed to load image for canvas:", url.slice(0, 80));
+            resolve(false);
+          };
+          img.onload = () => {
+            const maxW = PAGE_W - 80;
+            const maxH = PAGE_H - 160;
+            const sc = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+            const w = Math.floor(img.naturalWidth * sc);
+            const h = Math.floor(img.naturalHeight * sc);
+            const el: ImageEl = {
+              kind: "image",
+              id: imageId,
+              url,
+              x: PAGE_W / 2 - w / 2,
+              y: 80,
+              w,
+              h,
+              rotation: 0,
+              crop: null,
+              pageIndex: activePageIndex,
+            };
+            imgCache.current.set(el.id, img);
+            pushHistory({ id: nanoid(), removed: [], added: [el], updated: [] });
+            setElements((prev) => [...prev, el]);
+            const sync = toSyncEl(el);
+            if (sync) {
+              const json = JSON.stringify({ type: BOARD_EVENT, v: PROTO_V, add: sync });
+              if (json.length <= STREAM_LIMIT) broadcastElement({ add: sync });
+            }
+            resolve(true);
+          };
+          img.src = url;
+        });
+      },
+      [activePageIndex, broadcastElement, pushHistory],
+    );
+
     const handleImageFile = useCallback(
       async (file: File): Promise<void> => {
         try {
@@ -2445,46 +2547,156 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
             return;
           }
           const data = (await res.json()) as { id: string; url: string };
-          await new Promise<void>((resolve) => {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.onerror = () => resolve();
-            img.onload = () => {
-              const maxW = PAGE_W - 80;
-              const maxH = PAGE_H - 160;
-              const sc = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
-              const w = Math.floor(img.naturalWidth * sc);
-              const h = Math.floor(img.naturalHeight * sc);
-              const el: ImageEl = {
-                kind: "image",
-                id: data.id,
-                url: data.url,
-                x: PAGE_W / 2 - w / 2,
-                y: 80,
-                w,
-                h,
-                rotation: 0,
-                crop: null,
-                pageIndex: activePageIndex,
-              };
-              imgCache.current.set(el.id, img);
-              pushHistory({ id: nanoid(), removed: [], added: [el], updated: [] });
-              setElements((prev) => [...prev, el]);
-              const sync = toSyncEl(el);
-              if (sync) {
-                const json = JSON.stringify({ type: BOARD_EVENT, v: PROTO_V, add: sync });
-                if (json.length <= STREAM_LIMIT) broadcastElement({ add: sync });
-              }
-              resolve();
-            };
-            img.src = data.url;
-          });
+          await insertImageElement(data.id, data.url);
         } catch (err) {
           console.error("[whiteboard] image error:", err);
         }
       },
-      [activePageIndex, broadcastElement, pushHistory],
+      [insertImageElement],
     );
+
+    /** Resolve asset URL → canvas-ready source (remote URL, mock path, or DataURL). */
+    const resolveAssetImageSrc = useCallback(
+      async (asset: PreLessonAssetPanelItem): Promise<string | null> => {
+        if (asset.assetType === "TEXT_NOTE") {
+          const text = (asset.textContent ?? "").trim() || "הערה לפני שיעור";
+          const canvas = document.createElement("canvas");
+          const pad = 24;
+          const maxWidth = 520;
+          canvas.width = maxWidth + pad * 2;
+          canvas.height = 280;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return null;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.strokeStyle = "#c7d2fe";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+          ctx.fillStyle = "#312e81";
+          ctx.font = "bold 18px system-ui, sans-serif";
+          ctx.textAlign = "right";
+          ctx.fillText("הערת טקסט לפני שיעור", canvas.width - pad, pad + 18);
+          ctx.fillStyle = "#1e293b";
+          ctx.font = "15px system-ui, sans-serif";
+          const lines = wrapCanvasText(ctx, text, maxWidth);
+          let y = pad + 52;
+          for (const line of lines.slice(0, 10)) {
+            ctx.fillText(line, canvas.width - pad, y);
+            y += 22;
+          }
+          return canvas.toDataURL("image/png");
+        }
+
+        if (asset.assetType === "PDF" && asset.assetUrl) {
+          const canvas = document.createElement("canvas");
+          canvas.width = 480;
+          canvas.height = 200;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return asset.assetUrl;
+          ctx.fillStyle = "#f8fafc";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.strokeStyle = "#e2e8f0";
+          ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+          ctx.fillStyle = "#0f172a";
+          ctx.font = "bold 20px system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("מסמך PDF", canvas.width / 2, 70);
+          ctx.font = "13px system-ui, sans-serif";
+          ctx.fillStyle = "#475569";
+          const label =
+            asset.assetUrl.length > 60
+              ? `${asset.assetUrl.slice(0, 57)}…`
+              : asset.assetUrl;
+          ctx.fillText(label, canvas.width / 2, 110);
+          ctx.fillStyle = "#4f46e5";
+          ctx.fillText("הוכנס מהחומרים לפני השיעור", canvas.width / 2, 150);
+          return canvas.toDataURL("image/png");
+        }
+
+        const url = asset.assetUrl?.trim();
+        if (!url) return null;
+
+        // Already a DataURL or local mock storage path — use directly.
+        if (url.startsWith("data:") || url.startsWith("/uploads/")) {
+          return url;
+        }
+
+        // Prefer remote URL; if load will fail CORS, try fetch→DataURL fallback.
+        try {
+          const res = await fetch(url, { mode: "cors" });
+          if (res.ok) {
+            const blob = await res.blob();
+            if (blob.type.startsWith("image/")) {
+              return await blobToDataUrl(blob);
+            }
+          }
+        } catch {
+          // Cloud storage may be unavailable — fall through to raw URL / mock.
+        }
+
+        return url;
+      },
+      [],
+    );
+
+    const insertPreLessonAsset = useCallback(
+      async (asset: PreLessonAssetPanelItem): Promise<void> => {
+        setInsertingAssetId(asset.id);
+        try {
+          const src = await resolveAssetImageSrc(asset);
+          if (!src) {
+            setAiHint("לא ניתן להזריק את הנכס ללוח — חסר URL או תוכן");
+            return;
+          }
+          const ok = await insertImageElement(`asset_${asset.id}_${nanoid(6)}`, src);
+          setAiHint(
+            ok
+              ? "החומר לפני השיעור הוזרק ללוח A4"
+              : "הזרקה ללוח נכשלה — בדוק את קישור הקובץ",
+          );
+        } catch (err) {
+          console.error("[whiteboard] insert PreLessonAsset:", err);
+          setAiHint("שגיאה בהזרקת החומר ללוח");
+        } finally {
+          setInsertingAssetId(null);
+        }
+      },
+      [insertImageElement, resolveAssetImageSrc],
+    );
+
+    useEffect(() => {
+      if (!packageId) {
+        setPreLessonAssets([]);
+        return;
+      }
+      let cancelled = false;
+      setAssetsLoading(true);
+      fetch(`/api/packages/${packageId}/assets`)
+        .then(async (res) => {
+          if (!res.ok) throw new Error("assets fetch failed");
+          const data = (await res.json()) as {
+            assets?: PreLessonAssetPanelItem[];
+          };
+          if (cancelled) return;
+          const all = data.assets ?? [];
+          // Prefer assets bound to this lesson, then package-wide (no lessonId).
+          const filtered = lessonId
+            ? all.filter((a) => !a.lessonId || a.lessonId === lessonId)
+            : all;
+          setPreLessonAssets(filtered);
+          if (filtered.length > 0) setAssetsPanelOpen(true);
+        })
+        .catch((err: unknown) => {
+          console.error("[whiteboard] PreLessonAsset load:", err);
+          if (!cancelled) setPreLessonAssets([]);
+        })
+        .finally(() => {
+          if (!cancelled) setAssetsLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [packageId, lessonId]);
 
     const commitCrop = useCallback((): void => {
       if (!cropState) return;
@@ -3133,10 +3345,10 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
         onClick={onClick}
         className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-sm transition-all ${
           variant === "danger"
-            ? "text-red-400 hover:bg-red-500/25"
+            ? "text-red-600 hover:bg-red-50"
             : variant === "active"
-              ? "bg-white/20 text-white ring-1 ring-white/30"
-              : "text-slate-200 hover:bg-white/15"
+              ? "bg-neutral-900 text-white ring-1 ring-neutral-900"
+              : "text-neutral-600 hover:bg-neutral-100"
         }`}
       >
         {children}
@@ -3159,10 +3371,10 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
       >
         <span
           aria-hidden
-          className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-slate-900/95 border-l border-t border-slate-700/60"
+          className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-white/95 border-s border-t border-neutral-200/80"
         />
         <div
-          className="relative bg-slate-900/95 border border-slate-700/60 backdrop-blur shadow-2xl rounded-2xl p-2 flex flex-col gap-2"
+          className="relative bg-white/95 border border-neutral-200/80 backdrop-blur-md shadow-sm rounded-2xl p-2 flex flex-col gap-2"
           style={width ? { width } : undefined}
         >
           {children}
@@ -3186,15 +3398,15 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                 onClick={() => setMm(wp.mm)}
                 className={`w-full h-8 rounded-xl flex items-center justify-center gap-2 transition-all ${
                   currentMm === wp.mm
-                    ? "bg-white/15 ring-1 ring-white/30"
-                    : "hover:bg-white/10"
+                    ? "bg-neutral-100 ring-1 ring-neutral-300"
+                    : "hover:bg-neutral-50"
                 }`}
               >
                 <span
-                  className="block rounded-full bg-white"
+                  className="block rounded-full bg-neutral-800"
                   style={{ width: [5, 8, 12][i], height: [5, 8, 12][i] }}
                 />
-                <span className="text-[10px] text-slate-300">{wp.label}</span>
+                <span className="text-[10px] text-neutral-600">{wp.label}</span>
               </button>
             ))}
           </div>
@@ -3209,7 +3421,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
               onChange={(e) => setMm(parseFloat(e.target.value))}
               className={`flex-1 cursor-pointer ${isHl ? "accent-yellow-400" : "accent-emerald-400"}`}
             />
-            <span className="text-[10px] text-white w-10 text-left">
+            <span className="text-[10px] text-neutral-700 w-10 text-start">
               {currentMm.toFixed(isHl ? 1 : 2)}
             </span>
           </div>
@@ -3223,8 +3435,8 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                 onClick={() => setStrokeStyle(ss.value)}
                 className={`flex-1 h-8 rounded-lg flex items-center justify-center text-xs transition-all ${
                   strokeStyle === ss.value
-                    ? "bg-white/15 text-white ring-1 ring-white/30"
-                    : "text-slate-400 hover:text-white hover:bg-white/10"
+                    ? "bg-neutral-900 text-white ring-1 ring-neutral-900"
+                    : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
                 }`}
               >
                 {ss.preview}
@@ -3240,13 +3452,13 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setColor(c.hex)}
                 className={`w-5 h-5 rounded-full border-2 transition-all hover:scale-110 ${
-                  color === c.hex ? "border-white scale-110" : "border-transparent opacity-80"
+                  color === c.hex ? "border-neutral-900 scale-110" : "border-transparent opacity-80"
                 }`}
                 style={{ background: c.hex }}
               />
             ))}
             <label
-              className="relative w-5 h-5 rounded-full overflow-hidden cursor-pointer border border-white/20"
+              className="relative w-5 h-5 rounded-full overflow-hidden cursor-pointer border border-neutral-300"
               title="צבע מותאם"
             >
               <span
@@ -3278,8 +3490,8 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
               onClick={() => setEraserDiameter(preset.diameter)}
               className={`h-8 px-2 rounded-lg flex items-center gap-2 transition-all ${
                 eraserDiameter === preset.diameter
-                  ? "bg-white/15 ring-1 ring-white/30"
-                  : "hover:bg-white/10"
+                  ? "bg-neutral-100 ring-1 ring-neutral-300"
+                  : "hover:bg-neutral-50"
               }`}
             >
               <span
@@ -3289,12 +3501,12 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                   height: Math.max(4, preset.diameter / 2.2),
                 }}
               />
-              <span className="text-[11px] text-slate-200">{preset.label}</span>
-              <span className="text-[9px] text-slate-500 ms-auto">{preset.diameter}px</span>
+              <span className="text-[11px] text-neutral-700">{preset.label}</span>
+              <span className="text-[9px] text-neutral-400 ms-auto">{preset.diameter}px</span>
             </button>
           ))}
         </div>
-        <div className="h-px bg-slate-700/60" />
+        <div className="h-px bg-neutral-200" />
         <div className="flex flex-col gap-1">
           {(["stroke", "pixel"] as EraserMode[]).map((m) => (
             <button
@@ -3302,10 +3514,10 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => setEraserMode(m)}
-              className={`h-8 px-2 rounded-lg text-[11px] font-bold text-right transition-all ${
+              className={`h-8 px-2 rounded-lg text-[11px] font-bold text-start transition-all ${
                 eraserMode === m
-                  ? "bg-white/15 text-white ring-1 ring-white/30"
-                  : "text-slate-400 hover:text-white hover:bg-white/10"
+                  ? "bg-neutral-900 text-white ring-1 ring-neutral-900"
+                  : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
               }`}
             >
               {m === "stroke" ? "מחיקת משיכה שלמה" : "מחיקת פיקסל מדויקת"}
@@ -3331,8 +3543,8 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
               onClick={() => setLassoStyle(ls.value)}
               className={`h-8 px-2 rounded-lg flex items-center gap-2 text-[11px] font-bold transition-all ${
                 lassoStyle === ls.value
-                  ? "bg-white/15 text-white ring-1 ring-white/30"
-                  : "text-slate-400 hover:text-white hover:bg-white/10"
+                  ? "bg-neutral-900 text-white ring-1 ring-neutral-900"
+                  : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
               }`}
             >
               <span className="text-sm">{ls.icon}</span>
@@ -3359,8 +3571,8 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
               }}
               className={`w-10 h-9 rounded-lg flex items-center justify-center text-base transition-all ${
                 shapeKind === s.kind && tool === "shapes"
-                  ? "bg-white text-slate-900"
-                  : "text-slate-300 hover:text-white hover:bg-white/10"
+                  ? "bg-neutral-900 text-white"
+                  : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
               }`}
             >
               {s.icon}
@@ -3405,7 +3617,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
         <Draggable nodeRef={toolbarRef} handle=".toolbar-drag-handle" bounds="parent">
           <div
             ref={toolbarRef}
-            className="pointer-events-auto flex justify-between items-center px-6 py-2.5 rounded-2xl border border-slate-700/60 shadow-2xl select-none bg-slate-900/90 backdrop-blur"
+            className="pointer-events-auto flex justify-between items-center px-6 py-2.5 rounded-2xl border border-neutral-200/80 shadow-sm select-none bg-white/80 backdrop-blur-md"
             style={{ width: PAGE_W, maxWidth: "100%" }}
             dir="rtl"
           >
@@ -3413,7 +3625,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                className="toolbar-drag-handle w-5 h-9 flex items-center justify-center text-slate-500 hover:text-white cursor-grab active:cursor-grabbing text-xs shrink-0"
+                className="toolbar-drag-handle w-5 h-9 flex items-center justify-center text-neutral-400 hover:text-neutral-700 cursor-grab active:cursor-grabbing text-xs shrink-0"
                 title="גרור סרגל"
               >
                 ⠿
@@ -3436,10 +3648,10 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                       onClick={() => handleToolClick(t)}
                       className={`w-9 h-9 rounded-xl flex items-center justify-center text-base transition-all ${
                         tool === t
-                          ? "bg-white text-slate-900 shadow-md scale-105"
+                          ? "bg-neutral-900 text-white shadow-md scale-105"
                           : menuOpen
-                            ? "bg-white/15 text-white ring-1 ring-white/30"
-                            : "text-slate-300 hover:text-white hover:bg-white/10"
+                            ? "bg-neutral-100 text-neutral-900 ring-1 ring-neutral-300"
+                            : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
                       }`}
                     >
                       {TOOL_META[t].icon}
@@ -3461,7 +3673,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                 title="Undo (Cmd+Z)"
                 disabled={undoStack.length === 0}
                 onClick={performUndo}
-                className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-base text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-base text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 disabled:opacity-30 disabled:pointer-events-none transition-all"
               >
                 ↩
               </button>
@@ -3470,7 +3682,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                 title="Redo (Cmd+Shift+Z)"
                 disabled={redoStack.length === 0}
                 onClick={performRedo}
-                className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-base text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-base text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 disabled:opacity-30 disabled:pointer-events-none transition-all"
               >
                 ↪
               </button>
@@ -3488,15 +3700,14 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                 <span className="text-[11px] font-semibold">A4</span>
               </button>
 
-              <div className="h-4 w-px bg-slate-700/80 mx-0.5" />
+              <div className="h-4 w-px bg-neutral-200 mx-0.5" />
 
               <button
                 type="button"
                 title="ייצוא כל העמודים לקובץ PDF"
                 onClick={exportPdfDirect}
-                className="h-8 px-2.5 shrink-0 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700/70 text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                className="h-8 px-2.5 shrink-0 rounded-full bg-white hover:bg-neutral-50 text-neutral-700 border border-neutral-200 text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
               >
-                <span className="text-xs">📄</span>
                 <span className="text-[11px]">PDF</span>
               </button>
 
@@ -3504,9 +3715,8 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                 type="button"
                 title="ייצוא העמוד הנוכחי לתמונת PNG"
                 onClick={exportPngDirect}
-                className="h-8 px-2.5 shrink-0 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700/70 text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                className="h-8 px-2.5 shrink-0 rounded-full bg-white hover:bg-neutral-50 text-neutral-700 border border-neutral-200 text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
               >
-                <span className="text-xs">🖼️</span>
                 <span className="text-[11px]">PNG</span>
               </button>
 
@@ -3517,7 +3727,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                       ? "bg-emerald-400 animate-pulse"
                       : syncStatus === "error"
                         ? "bg-red-400"
-                        : "bg-slate-500"
+                        : "bg-neutral-400"
                   }`}
                 />
               </span>
@@ -3549,7 +3759,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
             {pages.map((page, idx) => (
               <div key={page.id} className="flex flex-col items-center">
                 <div
-                  className="relative rounded-lg shadow-2xl overflow-hidden ring-1 ring-slate-800/80 border border-slate-700/40"
+                  className="relative rounded-lg shadow-sm overflow-hidden border border-neutral-200"
                   style={{ width: PAGE_W, height: PAGE_H, ...GRID_CSS }}
                   onContextMenu={(e) => e.preventDefault()}
                 >
@@ -3609,10 +3819,10 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                         onPointerDown={(e) => e.stopPropagation()}
                       >
                         <div
-                          className="flex items-center gap-0.5 px-2.5 py-1.5 rounded-full border border-white/15 shadow-2xl"
+                          className="flex items-center gap-0.5 px-2.5 py-1.5 rounded-full border border-neutral-200/80 shadow-sm"
                           style={{
-                            background: "rgba(2,6,23,0.94)",
-                            backdropFilter: "blur(20px)",
+                            background: "rgba(255,255,255,0.92)",
+                            backdropFilter: "blur(12px)",
                           }}
                           dir="rtl"
                         >
@@ -3639,7 +3849,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                           >
                             📐
                           </ActionChip>
-                          <span aria-hidden className="w-px h-5 bg-white/15 mx-0.5" />
+                          <span aria-hidden className="w-px h-5 bg-neutral-200 mx-0.5" />
                           <ActionChip title="גזירה (Cmd+X)" onClick={cutSelection}>
                             ✂️
                           </ActionChip>
@@ -3662,8 +3872,8 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                         </div>
                         {showRecolorPicker && (
                           <div
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/15 shadow-xl"
-                            style={{ background: "rgba(2,6,23,0.96)", backdropFilter: "blur(16px)" }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-neutral-200/80 shadow-sm"
+                            style={{ background: "rgba(255,255,255,0.95)", backdropFilter: "blur(12px)" }}
                             dir="rtl"
                           >
                             {PALETTE.map((c) => (
@@ -3673,12 +3883,12 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                                 title={c.label}
                                 onMouseDown={(e) => e.preventDefault()}
                                 onClick={() => recolorSelection(c.hex)}
-                                className="w-6 h-6 rounded-full border-2 border-white/20 hover:scale-110 transition-all"
+                                className="w-6 h-6 rounded-full border-2 border-neutral-200 hover:scale-110 transition-all"
                                 style={{ background: c.hex }}
                               />
                             ))}
                             <label
-                              className="relative w-6 h-6 rounded-full overflow-hidden cursor-pointer border border-white/20"
+                              className="relative w-6 h-6 rounded-full overflow-hidden cursor-pointer border border-neutral-300"
                               title="צבע מותאם"
                             >
                               <span
@@ -3698,13 +3908,13 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                         )}
                         {showLassoMore && (
                           <div
-                            className="flex flex-col gap-0.5 px-2 py-1.5 rounded-xl border border-white/15 shadow-xl min-w-[140px]"
-                            style={{ background: "rgba(2,6,23,0.96)", backdropFilter: "blur(16px)" }}
+                            className="flex flex-col gap-0.5 px-2 py-1.5 rounded-xl border border-neutral-200/80 shadow-sm min-w-[140px] bg-white/95"
+                            style={{ background: "rgba(255,255,255,0.95)", backdropFilter: "blur(12px)" }}
                             dir="rtl"
                           >
                             <button
                               type="button"
-                              className="px-2 py-1.5 text-[11px] text-slate-200 hover:bg-white/10 rounded-lg text-right"
+                              className="px-2 py-1.5 text-[11px] text-neutral-700 hover:bg-neutral-100 rounded-lg text-start"
                               onMouseDown={(e) => e.preventDefault()}
                               onClick={bringSelectionToFront}
                             >
@@ -3712,7 +3922,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                             </button>
                             <button
                               type="button"
-                              className="px-2 py-1.5 text-[11px] text-slate-200 hover:bg-white/10 rounded-lg text-right"
+                              className="px-2 py-1.5 text-[11px] text-neutral-700 hover:bg-neutral-100 rounded-lg text-start"
                               onMouseDown={(e) => e.preventDefault()}
                               onClick={sendSelectionToBack}
                             >
@@ -3722,7 +3932,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                               <>
                                 <button
                                   type="button"
-                                  className="px-2 py-1.5 text-[11px] text-slate-200 hover:bg-white/10 rounded-lg text-right flex items-center justify-between"
+                                  className="px-2 py-1.5 text-[11px] text-neutral-700 hover:bg-neutral-100 rounded-lg text-start flex items-center justify-between"
                                   onMouseDown={(e) => e.preventDefault()}
                                   onClick={() => rotateSelectedImage(Math.PI / 2)}
                                 >
@@ -3730,7 +3940,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                                 </button>
                                 <button
                                   type="button"
-                                  className="px-2 py-1.5 text-[11px] text-slate-200 hover:bg-white/10 rounded-lg text-right"
+                                  className="px-2 py-1.5 text-[11px] text-neutral-700 hover:bg-neutral-100 rounded-lg text-start"
                                   onMouseDown={(e) => e.preventDefault()}
                                   onClick={toggleCropMode}
                                 >
@@ -3740,7 +3950,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                             )}
                             <button
                               type="button"
-                              className="px-2 py-1.5 text-[11px] text-slate-200 hover:bg-white/10 rounded-lg text-right"
+                              className="px-2 py-1.5 text-[11px] text-neutral-700 hover:bg-neutral-100 rounded-lg text-start"
                               onMouseDown={(e) => e.preventDefault()}
                               onClick={copySelection}
                             >
@@ -3756,12 +3966,12 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                   {editText?.pageIndex === idx && editTextBounds && (
                     <>
                       <div
-                        className="text-format-bar absolute z-30 flex items-center gap-0.5 px-1.5 py-1 rounded-full border border-slate-700/60 shadow-2xl"
+                        className="text-format-bar absolute z-30 flex items-center gap-0.5 px-1.5 py-1 rounded-full border border-neutral-200/80 shadow-sm"
                         style={{
                           left: Math.max(4, Math.min(editText.x, PAGE_W - 220)),
                           top: Math.max(4, editText.y - 44),
-                          background: "rgba(2,6,23,0.94)",
-                          backdropFilter: "blur(16px)",
+                          background: "rgba(255,255,255,0.92)",
+                          backdropFilter: "blur(12px)",
                         }}
                         dir="rtl"
                         onMouseDown={(e) => e.preventDefault()}
@@ -3775,8 +3985,8 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                             onClick={() => setTextMenu((p) => (p === "size" ? null : "size"))}
                             className={`h-7 px-2 rounded-full flex items-center gap-0.5 text-[11px] font-bold transition-all ${
                               textMenu === "size"
-                                ? "bg-white/15 text-white ring-1 ring-white/30"
-                                : "text-slate-300 hover:text-white hover:bg-white/10"
+                                ? "bg-neutral-900 text-white ring-1 ring-neutral-900"
+                                : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
                             }`}
                           >
                             {editText.fontSize}
@@ -3796,8 +4006,8 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                                     }}
                                     className={`h-7 rounded-lg text-[11px] font-bold transition-all ${
                                       editText.fontSize === sz
-                                        ? "bg-white/15 text-white ring-1 ring-white/30"
-                                        : "text-slate-300 hover:text-white hover:bg-white/10"
+                                        ? "bg-neutral-900 text-white ring-1 ring-neutral-900"
+                                        : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
                                     }`}
                                   >
                                     {sz}
@@ -3816,8 +4026,8 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                             onClick={() => setTextMenu((p) => (p === "align" ? null : "align"))}
                             className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] transition-all ${
                               textMenu === "align"
-                                ? "bg-white/15 text-white ring-1 ring-white/30"
-                                : "text-slate-300 hover:text-white hover:bg-white/10"
+                                ? "bg-neutral-900 text-white ring-1 ring-neutral-900"
+                                : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
                             }`}
                           >
                             {editText.align === "right" ? "⇥" : editText.align === "center" ? "☰" : "⇤"}
@@ -3842,8 +4052,8 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                                     }}
                                     className={`h-7 px-2 rounded-lg flex items-center gap-2 text-[11px] transition-all ${
                                       editText.align === align
-                                        ? "bg-white/15 text-white ring-1 ring-white/30"
-                                        : "text-slate-300 hover:text-white hover:bg-white/10"
+                                        ? "bg-neutral-900 text-white ring-1 ring-neutral-900"
+                                        : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
                                     }`}
                                   >
                                     <span>{icon}</span>
@@ -3861,7 +4071,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => setEditText((p) => (p ? { ...p, bold: !p.bold } : null))}
                           className={`w-7 h-7 rounded-full text-xs font-black transition-all ${
-                            editText.bold ? "bg-white/15 text-white ring-1 ring-white/30" : "text-slate-300 hover:text-white hover:bg-white/10"
+                            editText.bold ? "bg-neutral-900 text-white ring-1 ring-neutral-900" : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
                           }`}
                         >
                           B
@@ -3874,7 +4084,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                             setEditText((p) => (p ? { ...p, italic: !p.italic } : null))
                           }
                           className={`w-7 h-7 rounded-full text-xs italic transition-all ${
-                            editText.italic ? "bg-white/15 text-white ring-1 ring-white/30" : "text-slate-300 hover:text-white hover:bg-white/10"
+                            editText.italic ? "bg-neutral-900 text-white ring-1 ring-neutral-900" : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
                           }`}
                         >
                           I
@@ -3887,11 +4097,11 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => setTextMenu((p) => (p === "color" ? null : "color"))}
                             className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
-                              textMenu === "color" ? "ring-1 ring-white/40 bg-white/10" : "hover:bg-white/10"
+                              textMenu === "color" ? "ring-1 ring-neutral-300 bg-neutral-100" : "hover:bg-neutral-100"
                             }`}
                           >
                             <span
-                              className="w-4 h-4 rounded-full border border-white/40"
+                              className="w-4 h-4 rounded-full border border-neutral-300"
                               style={{ background: editText.color }}
                             />
                           </button>
@@ -3909,13 +4119,13 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                                       setTextMenu(null);
                                     }}
                                     className={`w-5 h-5 rounded-full border-2 transition-all hover:scale-110 ${
-                                      editText.color === c.hex ? "border-white scale-110" : "border-transparent"
+                                      editText.color === c.hex ? "border-neutral-900 scale-110" : "border-transparent"
                                     }`}
                                     style={{ background: c.hex }}
                                   />
                                 ))}
                                 <label
-                                  className="relative w-5 h-5 rounded-full overflow-hidden cursor-pointer border border-white/20"
+                                  className="relative w-5 h-5 rounded-full overflow-hidden cursor-pointer border border-neutral-300"
                                   title="צבע מותאם"
                                 >
                                   <span
@@ -3938,7 +4148,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
                           )}
                         </div>
 
-                        <span className="w-px h-4 bg-white/20" />
+                        <span className="w-px h-4 bg-neutral-200" />
                         <ActionChip title="גזור" onClick={cutEditText}>
                           ✂️
                         </ActionChip>
@@ -4051,7 +4261,7 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
 
                 <p
                   className="mt-2 text-[11px] font-bold select-none pointer-events-none"
-                  style={{ color: "rgba(148,163,184,0.55)" }}
+                  style={{ color: "rgba(115,115,115,0.75)" }}
                 >
                   עמוד {page.pageNumber}
                 </p>
@@ -4067,11 +4277,83 @@ const ClassroomWhiteboard = forwardRef<ClassroomWhiteboardRef, ClassroomWhiteboa
 
         {aiHint && (
           <div
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[60] max-w-md px-4 py-2.5 rounded-full border border-white/15 shadow-2xl text-sm text-slate-100 text-center pointer-events-none"
-            style={{ background: "rgba(2,6,23,0.92)", backdropFilter: "blur(16px)" }}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[60] max-w-md px-4 py-2.5 rounded-full border border-neutral-200/80 shadow-sm text-sm text-neutral-800 text-center pointer-events-none bg-white/90 backdrop-blur-md"
             dir="rtl"
           >
-            🤖 {aiHint}
+            {aiHint}
+          </div>
+        )}
+
+        {packageId && (
+          <div
+            className="absolute start-3 top-16 z-[55] flex flex-col items-stretch gap-2"
+            dir="rtl"
+          >
+            <button
+              type="button"
+              onClick={() => setAssetsPanelOpen((o) => !o)}
+              className="self-start rounded-full border border-neutral-200/80 bg-white/80 px-3 py-2 text-xs font-bold text-neutral-800 shadow-sm backdrop-blur-md hover:bg-neutral-50"
+            >
+              {assetsPanelOpen ? "סגור חומרים" : "חומרים לפני שיעור"}
+              {!assetsLoading && preLessonAssets.length > 0
+                ? ` (${preLessonAssets.length})`
+                : ""}
+            </button>
+
+            {assetsPanelOpen && (
+              <div className="w-72 max-h-[min(420px,50vh)] overflow-y-auto rounded-2xl border border-neutral-200/80 bg-white/90 p-3 shadow-sm backdrop-blur-md">
+                <div className="mb-2 text-[11px] font-semibold text-neutral-500">
+                  הזנק ללוח A4 · PreLessonAsset
+                </div>
+                {assetsLoading ? (
+                  <div className="py-6 text-center text-xs text-neutral-500 animate-pulse">
+                    טוען חומרים...
+                  </div>
+                ) : preLessonAssets.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-neutral-300 py-6 text-center text-xs text-neutral-500">
+                    אין חומרים שהועלו לחבילה זו
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {preLessonAssets.map((asset) => (
+                      <li
+                        key={asset.id}
+                        className="rounded-xl border border-neutral-200/80 bg-neutral-50 p-2.5"
+                      >
+                        <div className="mb-1.5 flex items-center gap-2">
+                          <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-100">
+                            {asset.assetType}
+                          </span>
+                          <span className="text-[10px] text-neutral-500">
+                            {new Date(asset.createdAt).toLocaleDateString("he-IL")}
+                          </span>
+                        </div>
+                        {asset.textContent && (
+                          <p className="mb-2 line-clamp-2 text-[11px] text-neutral-700">
+                            {asset.textContent}
+                          </p>
+                        )}
+                        {asset.assetUrl && asset.assetType !== "TEXT_NOTE" && (
+                          <p className="mb-2 truncate text-[10px] text-neutral-500" title={asset.assetUrl}>
+                            {asset.assetUrl}
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          disabled={insertingAssetId === asset.id}
+                          onClick={() => void insertPreLessonAsset(asset)}
+                          className="w-full rounded-full bg-neutral-900 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-neutral-800 disabled:opacity-50"
+                        >
+                          {insertingAssetId === asset.id
+                            ? "מזריק ללוח..."
+                            : "Insert to Canvas"}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         )}
 
