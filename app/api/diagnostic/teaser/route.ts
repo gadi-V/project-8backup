@@ -3,6 +3,12 @@ import type { CurriculumTopic } from "@prisma/client";
 import { prisma } from "../../../../lib/prisma";
 import { getCurrentUser } from "../../../../lib/session";
 import {
+  evaluateChallengeAnswers,
+  getOnboardingChallengeQuestions,
+  parseChallengeAnswerSubmissions,
+  parseChallengeCourseKey,
+} from "../../../../lib/diagnostic-questions";
+import {
   sendParentDiagnosticAlertNotification,
   buildPersonalizedDiagnosticConversion,
   dispatchWhatsAppCloser,
@@ -18,8 +24,8 @@ import {
  * 5. High-difficulty challenge answer
  *
  * Guests (no session) still receive readiness score + masked gap tree + package CTA.
- * Computes an aggressive urgency readiness score (38%–54% when failing challenge)
- * to demonstrate clear pedagogical vulnerability without unpaid curriculum leak.
+ * Scoring is server-authoritative: client may only submit courseKey + selectedOptionIds.
+ * Never trusts client correctCount / isChallengeCorrect / weakDomains.
  */
 export async function POST(request: Request) {
   try {
@@ -55,11 +61,8 @@ export async function POST(request: Request) {
       examTimeframe,
       learningGoal,
       lastGrade,
-      challengeAnswer,
-      isChallengeCorrect,
-      correctCount = 0,
-      totalQuestions = 3,
-      weakDomains = [],
+      courseKey: rawCourseKey,
+      answers: rawAnswers,
     } = body;
 
     if (!ageGroup || !subject) {
@@ -68,6 +71,66 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // Server-authoritative challenge evaluation — never trust client scoring fields.
+    const courseKey =
+      parseChallengeCourseKey(rawCourseKey) ??
+      parseChallengeCourseKey({
+        trackType: trackType ?? "BAGRUT",
+        examCode: examNumber ?? null,
+        subjectId: null,
+        courseId: coreCourse ?? null,
+        mechinaSubject: mechinaTrack ?? null,
+        screeningBattery: examBattery ?? null,
+      });
+
+    if (!courseKey) {
+      return NextResponse.json(
+        { success: false, error: "מפתח מסלול האבחון (courseKey) חסר או לא תקין" },
+        { status: 400 }
+      );
+    }
+
+    const answerSubmissions = parseChallengeAnswerSubmissions(rawAnswers);
+    if (answerSubmissions.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "יש לשלוח תשובות לשאלות האבחון" },
+        { status: 400 }
+      );
+    }
+
+    const canonicalQuestions = getOnboardingChallengeQuestions(courseKey);
+    if (canonicalQuestions.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "לא נמצא מאגר שאלות למסלול שנבחר" },
+        { status: 400 }
+      );
+    }
+
+    // Validate every submitted option against the server bank (reject unknown IDs).
+    for (const submission of answerSubmissions) {
+      const question = canonicalQuestions.find((q) => q.id === submission.questionId);
+      if (!question) {
+        return NextResponse.json(
+          { success: false, error: "מזהה שאלה לא תקין" },
+          { status: 400 }
+        );
+      }
+      const optionExists = question.options.some((o) => o.id === submission.selectedOptionId);
+      if (!optionExists) {
+        return NextResponse.json(
+          { success: false, error: "מזהה תשובה לא תקין" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const evaluation = evaluateChallengeAnswers(canonicalQuestions, answerSubmissions);
+    const numCorrect = evaluation.correctCount;
+    const totalQ = evaluation.totalQuestions > 0 ? evaluation.totalQuestions : 3;
+    const weakDomains = evaluation.weakDomains;
+    const challengeAnswer = evaluation.answerSummaries.join(" | ");
+    const sampleExplanation = evaluation.sampleExplanation;
 
     // Optional session — never 401 for anonymous teaser submission
     const sessionUser = await getCurrentUser();
@@ -154,10 +217,8 @@ export async function POST(request: Request) {
     }
 
     // 5-Step Wake-up Call Scoring Engine (3-Domain Aggregated)
-    // If student fails or struggles on challenge questions, calculate aggressive readiness score (38% - 52%)
+    // Uses server-evaluated numCorrect / totalQ only — client counts are ignored.
     let calculatedScore = 44;
-    const numCorrect = typeof correctCount === "number" ? correctCount : (isChallengeCorrect ? 1 : 0);
-    const totalQ = typeof totalQuestions === "number" && totalQuestions > 0 ? totalQuestions : 3;
     const baseline = typeof lastGrade === "number" ? lastGrade : 65;
 
     if (numCorrect === totalQ) {
@@ -285,6 +346,7 @@ export async function POST(request: Request) {
             weightInExam: t.weightInExam,
             gradeLevel: t.gradeLevel,
           })),
+          sampleExplanation,
           closer: closerAnalysis && closerDispatch
             ? { analysis: closerAnalysis, dispatch: closerDispatch }
             : null,
@@ -301,17 +363,13 @@ export async function POST(request: Request) {
       isLocked: true,
     }));
 
-    // Guest / empty-curriculum fallback: build masked gap tree from weak domains
+    // Guest / empty-curriculum fallback: masked gap tree from server-evaluated weak domains
     if (maskedTopics.length === 0) {
-      const domains: string[] = Array.isArray(weakDomains)
-        ? weakDomains.filter((d: unknown): d is string => typeof d === "string" && d.length > 0)
-        : [];
-      const gapCount = Math.max(1, domains.length || totalQ - numCorrect || 1);
+      const gapCount = Math.max(1, weakDomains.length || totalQ - numCorrect || 1);
       maskedTopics = Array.from({ length: Math.min(5, gapCount) }, (_, index) => ({
         id: `topic-masked-${index + 1}`,
-        maskedName: domains[index]
-          ? `מוקד פער: ${domains[index]}`
-          : `נושא מיקוד ${index + 1}`,
+        // Mask real domain names in the blurred lock section — show index labels only.
+        maskedName: `נושא מיקוד ${index + 1}`,
         weightInExam: Number((1 / Math.min(5, gapCount)).toFixed(2)),
         subTopicsCount: 2,
         isLocked: true,
@@ -339,6 +397,8 @@ export async function POST(request: Request) {
         recommendationSummary: diagnostic.recommendationSummary,
         topicsCount: gapTopicsCount,
         maskedTopics,
+        /** Single teaser explanation only — solutions for the other questions are omitted. */
+        sampleExplanation,
         recommendation,
         closer: closerAnalysis && closerDispatch
           ? { analysis: closerAnalysis, dispatch: closerDispatch }
