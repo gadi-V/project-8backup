@@ -4,9 +4,9 @@ import { useState, useMemo, useEffect, type SVGProps } from "react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import MathFormula from "../../../components/MathFormula";
-import {
-  getOnboardingChallengeQuestions,
-  type DiagnosticQuestion,
+import type {
+  ChallengeCourseKey,
+  SanitizedChallengeQuestion,
 } from "../../../lib/diagnostic-questions";
 import {
   TRACK_OPTIONS,
@@ -27,6 +27,9 @@ import {
   fieldClass,
   eyebrow as eyebrowClass,
 } from "../../../lib/ui";
+
+/** Legacy localStorage key that cached full explanations — must never be written again. */
+const LEGACY_PENDING_REVIEWS_KEY = "pending_diagnostic_question_reviews";
 
 /** RTL back — points right (toward previous in Hebrew reading order) */
 function ArrowRight(props: SVGProps<SVGSVGElement>) {
@@ -94,6 +97,7 @@ type TeaserResult = {
   topicsCount: number;
   maskedTopics?: MaskedTopic[];
   topics?: UnlockedTopic[];
+  sampleExplanation?: string | null;
   quadGroupUrl?: string;
   matchedTeacher?: MatchedTeacherBrief | null;
   paywallNotice?: string;
@@ -192,9 +196,21 @@ export default function OnboardingDiagnosticPage() {
   // Step 5: 3-Domain Question Answers State
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [challengeQuestions, setChallengeQuestions] = useState<SanitizedChallengeQuestion[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
 
   // Teaser & Quad Data
   const [teaserData, setTeaserData] = useState<TeaserResult | null>(null);
+
+  // Clear any legacy cached explanations that previously leaked solution text.
+  useEffect(() => {
+    try {
+      window.localStorage.removeItem(LEGACY_PENDING_REVIEWS_KEY);
+    } catch {
+      // Ignore private-mode / storage failures.
+    }
+  }, []);
 
   // Derived taxonomy options
   const selectedBagrutSubject = useMemo(
@@ -229,17 +245,16 @@ export default function OnboardingDiagnosticPage() {
   const totalFunnelSteps = 5;
   const progressPercent = Math.min(100, Math.round((microStep / totalFunnelSteps) * 100));
 
-  // Track-bound challenge suite (exam/course → parent category → track default)
-  const challengeQuestions: DiagnosticQuestion[] = useMemo(
-    () =>
-      getOnboardingChallengeQuestions({
-        trackType: activeTrack,
-        examCode: activeTrack === "BAGRUT" ? bagrutExamCode : null,
-        subjectId: activeTrack === "BAGRUT" ? bagrutSubjectId : null,
-        courseId: activeTrack === "ACADEMIC" ? selectedCourse : null,
-        mechinaSubject: activeTrack === "MECHINA" ? mechinaSubject : null,
-        screeningBattery: activeTrack === "SCREENING_INST" ? screeningBattery : null,
-      }),
+  // Course key echoed to the teaser API so the server re-resolves the same bank.
+  const courseKey: ChallengeCourseKey = useMemo(
+    () => ({
+      trackType: activeTrack,
+      examCode: activeTrack === "BAGRUT" ? bagrutExamCode : null,
+      subjectId: activeTrack === "BAGRUT" ? bagrutSubjectId : null,
+      courseId: activeTrack === "ACADEMIC" ? selectedCourse : null,
+      mechinaSubject: activeTrack === "MECHINA" ? mechinaSubject : null,
+      screeningBattery: activeTrack === "SCREENING_INST" ? screeningBattery : null,
+    }),
     [
       activeTrack,
       bagrutExamCode,
@@ -250,14 +265,57 @@ export default function OnboardingDiagnosticPage() {
     ]
   );
 
-  const activeQuestion: DiagnosticQuestion | undefined =
-    challengeQuestions[Math.min(currentQuestionIdx, Math.max(0, challengeQuestions.length - 1))];
-
-  // Reset answers/index when the track-bound question bank changes
+  // Fetch sanitized questions from the server — never import answer keys into the client bundle.
   useEffect(() => {
-    setCurrentQuestionIdx(0);
-    setAnswers({});
-  }, [challengeQuestions]);
+    let cancelled = false;
+    const params = new URLSearchParams();
+    params.set("trackType", courseKey.trackType);
+    if (courseKey.examCode) params.set("examCode", courseKey.examCode);
+    if (courseKey.subjectId) params.set("subjectId", courseKey.subjectId);
+    if (courseKey.courseId) params.set("courseId", courseKey.courseId);
+    if (courseKey.mechinaSubject) params.set("mechinaSubject", courseKey.mechinaSubject);
+    if (courseKey.screeningBattery) params.set("screeningBattery", courseKey.screeningBattery);
+
+    setQuestionsLoading(true);
+    setQuestionsError(null);
+
+    fetch(`/api/diagnostic/challenge-questions?${params.toString()}`)
+      .then(async (res) => {
+        const data: unknown = await res.json();
+        if (!res.ok || !data || typeof data !== "object") {
+          throw new Error("שגיאה בטעינת שאלות האבחון");
+        }
+        const payload = data as {
+          success?: boolean;
+          error?: string;
+          data?: { questions?: SanitizedChallengeQuestion[] };
+        };
+        if (!payload.success || !payload.data?.questions) {
+          throw new Error(payload.error || "שגיאה בטעינת שאלות האבחון");
+        }
+        if (!cancelled) {
+          setChallengeQuestions(payload.data.questions);
+          setCurrentQuestionIdx(0);
+          setAnswers({});
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setChallengeQuestions([]);
+          setQuestionsError(err instanceof Error ? err.message : "שגיאה בטעינת שאלות האבחון");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setQuestionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [courseKey]);
+
+  const activeQuestion: SanitizedChallengeQuestion | undefined =
+    challengeQuestions[Math.min(currentQuestionIdx, Math.max(0, challengeQuestions.length - 1))];
 
   const handleSelectOption = (questionId: string, optionId: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
@@ -303,20 +361,21 @@ export default function OnboardingDiagnosticPage() {
       return;
     }
 
-    let correctCount = 0;
-    const answerSummaries: string[] = [];
-    const weakDomains: string[] = [];
+    if (challengeQuestions.length === 0) {
+      toast.error(questionsError || "שאלות האבחון עדיין לא נטענו");
+      return;
+    }
 
-    challengeQuestions.forEach((q) => {
-      const selectedOptId = answers[q.id];
-      const opt = q.options.find((o) => o.id === selectedOptId);
-      if (opt?.isCorrect) {
-        correctCount++;
-      } else {
-        weakDomains.push(q.domain);
-      }
-      answerSummaries.push(`${q.domain}: ${opt?.mathText || opt?.plainText || "לא נענה"}`);
-    });
+    // Client submits selections only — server scores authoritatively.
+    const answerPayload = challengeQuestions.map((q) => ({
+      questionId: q.id,
+      selectedOptionId: answers[q.id],
+    }));
+
+    if (answerPayload.some((a) => !a.selectedOptionId)) {
+      toast.error("יש לענות על כל השאלות לפני חישוב מדד המוכנות");
+      return;
+    }
 
     const timeframeObj = EXAM_TIMEFRAMES.find((t) => t.id === selectedTimeframe);
     const resolvedSubject = getDerivedSubject();
@@ -328,6 +387,13 @@ export default function OnboardingDiagnosticPage() {
 
     setLoading(true);
     try {
+      // Never cache explanations / reviews client-side.
+      try {
+        window.localStorage.removeItem(LEGACY_PENDING_REVIEWS_KEY);
+      } catch {
+        // Ignore storage failures.
+      }
+
       const res = await fetch("/api/diagnostic/teaser", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -361,11 +427,8 @@ export default function OnboardingDiagnosticPage() {
           learningGoal,
           lastGrade,
           challenge: `${learningGoal} - ${resolvedSubject}`,
-          challengeAnswer: answerSummaries.join(" | "),
-          correctCount,
-          totalQuestions: challengeQuestions.length,
-          isChallengeCorrect: correctCount === challengeQuestions.length,
-          weakDomains,
+          courseKey,
+          answers: answerPayload,
           topicIds: [],
         }),
       });
@@ -1056,8 +1119,30 @@ export default function OnboardingDiagnosticPage() {
         )}
 
         {/* MICRO-STEP 5: 3-DOMAIN QUESTIONS */}
-        {microStep === 5 && activeQuestion && (
+        {microStep === 5 && (
           <section className={`${frostCard} p-6 sm:p-8 space-y-6`}>
+            {questionsLoading && (
+              <div className="py-12 text-center text-sm font-medium text-neutral-500">
+                טוען שאלות עומק...
+              </div>
+            )}
+
+            {!questionsLoading && questionsError && (
+              <div className="space-y-4 text-start">
+                <p className="text-sm font-medium text-rose-600">{questionsError}</p>
+                <button
+                  type="button"
+                  onClick={() => setMicroStep(4)}
+                  className={backBtnClass}
+                >
+                  חזרה
+                  <ArrowRight className="ms-2" />
+                </button>
+              </div>
+            )}
+
+            {!questionsLoading && !questionsError && activeQuestion && (
+              <>
             <div className="flex items-center justify-between">
               <span className={`${trackBadge} text-neutral-700`}>
                 שאלת עומק {currentQuestionIdx + 1} מתוך 3: {activeQuestion.domain}
@@ -1151,6 +1236,8 @@ export default function OnboardingDiagnosticPage() {
                 </button>
               )}
             </div>
+              </>
+            )}
           </section>
         )}
 
@@ -1177,6 +1264,15 @@ export default function OnboardingDiagnosticPage() {
                   </div>
                 </div>
               </div>
+
+              {teaserData.sampleExplanation && (
+                <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 text-start space-y-1">
+                  <span className="text-[11px] font-medium text-neutral-500">דוגמת משוב (שאלה אחת)</span>
+                  <p className="text-sm font-medium text-neutral-800 leading-relaxed">
+                    {teaserData.sampleExplanation}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className={`${frostCard} p-6 sm:p-8 space-y-4`}>

@@ -1112,6 +1112,10 @@ function resolveBagrutQuestions(params: ChallengeQuestionParams): DiagnosticQues
  * Resolve the 3-domain onboarding challenge suite for the selected track.
  * Fallback chain: exact sub-topic → parent category → track default.
  * Does NOT force 582 questions when another track/exam was selected.
+ *
+ * Returns the canonical bank (includes isCorrect / explanation).
+ * Prefer {@link getSanitizedOnboardingChallengeQuestions} for any client-facing
+ * payload; only server evaluation paths should use this full form.
  */
 export function getOnboardingChallengeQuestions(
   params: ChallengeQuestionParams
@@ -1135,4 +1139,212 @@ export function getOnboardingChallengeQuestions(
     default:
       return TRACK_DEFAULT_QUESTIONS.BAGRUT;
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Client-safe sanitization & server-authoritative evaluation                  */
+/* -------------------------------------------------------------------------- */
+
+/** Option shape safe to ship to the browser — no answer key or solutions. */
+export type SanitizedChallengeOption = {
+  id: string;
+  mathText?: string;
+  plainText?: string;
+};
+
+/** Question shape safe to ship to the browser — no isCorrect / explanation. */
+export type SanitizedChallengeQuestion = {
+  id: string;
+  domain: string;
+  title: string;
+  context: string;
+  instruction: string;
+  formulaLatex: string;
+  options: SanitizedChallengeOption[];
+};
+
+/** Client → server answer submission (never includes correctness flags). */
+export type ChallengeAnswerSubmission = {
+  questionId: string;
+  selectedOptionId: string;
+};
+
+/**
+ * Stable course / bank selector the client echoes back so the server can
+ * re-resolve the same canonical suite without trusting answer keys.
+ * Alias of {@link ChallengeQuestionParams} for the teaser submit contract.
+ */
+export type ChallengeCourseKey = ChallengeQuestionParams;
+
+export type ChallengeEvaluationResult = {
+  correctCount: number;
+  totalQuestions: number;
+  weakDomains: string[];
+  /** Single teaser explanation only — never a full solution set. */
+  sampleExplanation: string | null;
+  answerSummaries: string[];
+};
+
+export function sanitizeChallengeOption(
+  option: DiagnosticOption
+): SanitizedChallengeOption {
+  const sanitized: SanitizedChallengeOption = { id: option.id };
+  if (option.mathText !== undefined) sanitized.mathText = option.mathText;
+  if (option.plainText !== undefined) sanitized.plainText = option.plainText;
+  return sanitized;
+}
+
+export function sanitizeChallengeQuestion(
+  question: DiagnosticQuestion
+): SanitizedChallengeQuestion {
+  return {
+    id: question.id,
+    domain: question.domain,
+    title: question.title,
+    context: question.context,
+    instruction: question.instruction,
+    formulaLatex: question.formulaLatex,
+    options: question.options.map(sanitizeChallengeOption),
+  };
+}
+
+export function sanitizeChallengeQuestions(
+  questions: DiagnosticQuestion[]
+): SanitizedChallengeQuestion[] {
+  return questions.map(sanitizeChallengeQuestion);
+}
+
+/**
+ * Client-facing onboarding suite: same bank resolution as canonical,
+ * with isCorrect / explanation stripped before any browser use.
+ */
+export function getSanitizedOnboardingChallengeQuestions(
+  params: ChallengeQuestionParams
+): SanitizedChallengeQuestion[] {
+  return sanitizeChallengeQuestions(getOnboardingChallengeQuestions(params));
+}
+
+/**
+ * Resolve academic course label → bank the same way as onboarding selection.
+ * Kept as an explicit export for server teaser evaluation call sites.
+ */
+export function resolveAcademicCourseKey(
+  courseId: string | null | undefined
+): DiagnosticQuestion[] {
+  return resolveAcademicByCourse(courseId);
+}
+
+/**
+ * Score challenge answers against the canonical server bank.
+ * Validates each selectedOptionId; ignores any client-supplied correctness.
+ */
+export function evaluateChallengeAnswers(
+  questions: DiagnosticQuestion[],
+  answers: ChallengeAnswerSubmission[]
+): ChallengeEvaluationResult {
+  const answerByQuestionId = new Map<string, string>();
+  for (const answer of answers) {
+    if (
+      typeof answer?.questionId === "string" &&
+      typeof answer?.selectedOptionId === "string" &&
+      answer.questionId.length > 0 &&
+      answer.selectedOptionId.length > 0
+    ) {
+      answerByQuestionId.set(answer.questionId, answer.selectedOptionId);
+    }
+  }
+
+  let correctCount = 0;
+  const weakDomains: string[] = [];
+  const answerSummaries: string[] = [];
+  let sampleExplanation: string | null = null;
+  let fallbackExplanation: string | null = null;
+
+  for (const question of questions) {
+    const selectedOptionId = answerByQuestionId.get(question.id);
+    const selectedOption = selectedOptionId
+      ? question.options.find((opt) => opt.id === selectedOptionId)
+      : undefined;
+
+    if (selectedOption?.isCorrect) {
+      correctCount++;
+      if (!fallbackExplanation) {
+        fallbackExplanation = selectedOption.explanation;
+      }
+    } else {
+      weakDomains.push(question.domain);
+      if (!sampleExplanation && selectedOption?.explanation) {
+        // Prefer a missed-question explanation as the single teaser sample.
+        sampleExplanation = selectedOption.explanation;
+      }
+    }
+
+    const label =
+      selectedOption?.mathText ||
+      selectedOption?.plainText ||
+      (selectedOptionId ? selectedOptionId : "לא נענה");
+    answerSummaries.push(`${question.domain}: ${label}`);
+  }
+
+  return {
+    correctCount,
+    totalQuestions: questions.length,
+    weakDomains,
+    sampleExplanation: sampleExplanation ?? fallbackExplanation,
+    answerSummaries,
+  };
+}
+
+/**
+ * Parse and validate the courseKey payload from the teaser POST body.
+ */
+export function parseChallengeCourseKey(raw: unknown): ChallengeCourseKey | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const trackType = obj.trackType;
+  const validTracks: DiagnosticTrackType[] = [
+    "BAGRUT",
+    "ACADEMIC",
+    "MECHINA",
+    "PSYCHOMETRIC",
+    "SCREENING_INST",
+  ];
+  if (typeof trackType !== "string" || !validTracks.includes(trackType as DiagnosticTrackType)) {
+    return null;
+  }
+
+  const asOptionalString = (value: unknown): string | null =>
+    typeof value === "string" ? value : value == null ? null : null;
+
+  return {
+    trackType: trackType as DiagnosticTrackType,
+    examCode: asOptionalString(obj.examCode),
+    subjectId: asOptionalString(obj.subjectId),
+    courseId: asOptionalString(obj.courseId),
+    mechinaSubject: asOptionalString(obj.mechinaSubject),
+    screeningBattery: asOptionalString(obj.screeningBattery),
+  };
+}
+
+/**
+ * Parse answer submissions from the teaser POST body.
+ */
+export function parseChallengeAnswerSubmissions(
+  raw: unknown
+): ChallengeAnswerSubmission[] {
+  if (!Array.isArray(raw)) return [];
+  const parsed: ChallengeAnswerSubmission[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    if (typeof row.questionId !== "string" || typeof row.selectedOptionId !== "string") {
+      continue;
+    }
+    if (!row.questionId || !row.selectedOptionId) continue;
+    parsed.push({
+      questionId: row.questionId,
+      selectedOptionId: row.selectedOptionId,
+    });
+  }
+  return parsed;
 }
