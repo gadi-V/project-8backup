@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { LedgerEntryType } from "@prisma/client";
 import { prisma } from "../../../../lib/prisma";
+import { writeLedgerEntryInTransaction } from "../../../../lib/services/LedgerService";
 
 export const runtime = "nodejs";
 
@@ -118,7 +120,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.payment.create({
+    const payment = await tx.payment.create({
       data: {
         studentId: userId,
         packageType,
@@ -132,6 +134,21 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     await tx.user.update({
       where: { id: userId },
       data: { lessonCredits: { increment: credits } },
+    });
+
+    await writeLedgerEntryInTransaction(tx, {
+      userId,
+      entryType: LedgerEntryType.CHARGE,
+      amount: Math.round(amountPaid),
+      currency: "ILS",
+      description: `תשלום Stripe: ${packageType}`,
+      relatedId: payment.id,
+      transactionId,
+      metadata: {
+        packageType,
+        creditsAdded: credits,
+        status: "COMPLETED",
+      },
     });
   });
 }
