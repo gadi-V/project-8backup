@@ -3,15 +3,21 @@ import { SignJWT, jwtVerify } from "jose";
 export const SESSION_COOKIE = "project8_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
+/**
+ * Build-only fallback when AUTH_SECRET is unset (e.g. Vercel preview build
+ * without project secrets). Production and any real session signing MUST set
+ * a strong AUTH_SECRET — this dummy must never be relied on at runtime.
+ */
+const BUILD_FALLBACK_AUTH_SECRET =
+  "build-time-only-auth-secret-not-for-production";
+
 export type SessionPayload = {
   userId: string;
 };
 
 function getSecretKey() {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) {
-    throw new Error("AUTH_SECRET environment variable is not set");
-  }
+  const secret =
+    process.env.AUTH_SECRET?.trim() || BUILD_FALLBACK_AUTH_SECRET;
   return new TextEncoder().encode(secret);
 }
 
