@@ -10,28 +10,33 @@ const PRIVACY_EMAIL_BLOCKLIST = "project8_email_pii";
 let streamClient: StreamChat | null = null;
 let moderationReady: Promise<void> | null = null;
 
-function getStreamApiKey(): string {
-  const key = process.env.STREAM_API_KEY || process.env.NEXT_PUBLIC_STREAM_API_KEY;
-  if (!key) {
-    throw new Error(
-      "STREAM_API_KEY (or NEXT_PUBLIC_STREAM_API_KEY) environment variable is not set"
-    );
-  }
-  return key;
+function getStreamApiKey(): string | null {
+  const key =
+    process.env.STREAM_API_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_STREAM_API_KEY?.trim();
+  return key || null;
 }
 
-function getStreamApiSecret(): string {
-  const secret = process.env.STREAM_API_SECRET;
-  if (!secret) {
-    throw new Error("STREAM_API_SECRET environment variable is not set");
-  }
-  return secret;
+function getStreamApiSecret(): string | null {
+  return process.env.STREAM_API_SECRET?.trim() || null;
+}
+
+/** True when both Stream credentials are configured for live API calls. */
+export function hasStreamCredentials(): boolean {
+  return Boolean(getStreamApiKey() && getStreamApiSecret());
 }
 
 /** Server-side Stream Chat client (API key + secret). Never use the secret in the browser. */
 export function getStreamServerClient(): StreamChat {
+  const key = getStreamApiKey();
+  const secret = getStreamApiSecret();
+  if (!key || !secret) {
+    throw new Error(
+      "STREAM_API_KEY/NEXT_PUBLIC_STREAM_API_KEY and STREAM_API_SECRET must be set for live Stream Chat"
+    );
+  }
   if (!streamClient) {
-    streamClient = StreamChat.getInstance(getStreamApiKey(), getStreamApiSecret());
+    streamClient = StreamChat.getInstance(key, secret);
   }
   return streamClient;
 }
@@ -46,6 +51,9 @@ export function streamChannelIdForPackage(packageId: string): string {
 
 /** Standard user JWT for connecting the browser SDK. */
 export function generateStreamToken(userId: string): string {
+  if (!hasStreamCredentials()) {
+    return `mock-stream-token-${userId}`;
+  }
   return getStreamServerClient().createToken(userId);
 }
 
@@ -72,6 +80,8 @@ async function ensureBlockList(
  * Best-effort: failures are logged and do not block channel creation.
  */
 export async function ensureStreamPrivacyModeration(): Promise<void> {
+  if (!hasStreamCredentials()) return;
+
   if (!moderationReady) {
     moderationReady = (async () => {
       const client = getStreamServerClient();
@@ -117,6 +127,7 @@ export async function ensureStreamPrivacyModeration(): Promise<void> {
 /**
  * Upsert a private messaging channel with the given Stream channel id
  * and member set (student, teacher, managers — no PII on user records).
+ * When Stream credentials are unset, returns a mock channel id so booking can proceed.
  */
 export async function ensureStreamMessagingChannel(
   channelId: string,
@@ -125,6 +136,13 @@ export async function ensureStreamMessagingChannel(
   const uniqueMembers = [...new Set(memberIds.filter(Boolean))];
   if (uniqueMembers.length < 2) {
     throw new Error("ensureStreamMessagingChannel requires at least two member ids");
+  }
+
+  if (!hasStreamCredentials()) {
+    console.warn(
+      `[stream] credentials unset — returning mock channel id ${channelId}`
+    );
+    return channelId.startsWith("mock-") ? channelId : `mock-${channelId}`;
   }
 
   const client = getStreamServerClient();
@@ -188,4 +206,3 @@ export async function createPackageStreamChannel(
     memberIds
   );
 }
-

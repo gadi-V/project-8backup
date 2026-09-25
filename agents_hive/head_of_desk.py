@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, TypedDict
 
+import httpx
 from dotenv import load_dotenv
 
 ENV_PATH = Path(__file__).parent / ".env"

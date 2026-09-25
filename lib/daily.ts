@@ -19,12 +19,20 @@ export type DailyAccessLink = {
   expires: number;
 };
 
-function getDailyApiKey(): string {
-  const key = process.env.DAILY_API_KEY;
-  if (!key) {
-    throw new Error("DAILY_API_KEY environment variable is not set");
-  }
-  return key;
+function getDailyApiKey(): string | null {
+  const key = process.env.DAILY_API_KEY?.trim();
+  return key || null;
+}
+
+/** Dev/build fallback when DAILY_API_KEY is unset — booking continues with a mock room. */
+function mockDailyRoom(lessonId: string): DailyRoom {
+  const name = dailyRoomNameForLesson(lessonId);
+  return {
+    id: `mock-${name}`,
+    name,
+    url: `https://mock.daily.co/${name}`,
+    privacy: "private",
+  };
 }
 
 /** Stable Daily room name derived from our Lesson id (used by webhooks). */
@@ -54,10 +62,14 @@ async function dailyFetch<T>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> {
+  const apiKey = getDailyApiKey();
+  if (!apiKey) {
+    throw new Error("DAILY_API_KEY environment variable is not set");
+  }
   const response = await fetch(`${DAILY_API_BASE}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${getDailyApiKey()}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       ...(init.headers ?? {}),
     },
@@ -103,6 +115,13 @@ export async function createDailyRoom(
     expiresAt?: Date;
   } = {}
 ): Promise<DailyRoom> {
+  if (!getDailyApiKey()) {
+    console.warn(
+      `[daily] DAILY_API_KEY unset — returning mock room for lesson ${lessonId}`
+    );
+    return mockDailyRoom(lessonId);
+  }
+
   const name = dailyRoomNameForLesson(lessonId);
 
   const scheduledAt = options.scheduledAt ?? new Date();
@@ -165,6 +184,10 @@ export async function generateDailyToken(
     durationMinutes?: number;
   } = {}
 ): Promise<string> {
+  if (!getDailyApiKey()) {
+    return `mock-daily-token-${roomName}-${userId}-${isOwner ? "owner" : "guest"}`;
+  }
+
   const DEFAULT_DURATION_MINUTES = 60;
   const durationMinutes = options.durationMinutes ?? DEFAULT_DURATION_MINUTES;
   const bufferMinutes = Math.ceil(durationMinutes * 0.1);
@@ -247,6 +270,10 @@ export function verifyDailyWebhookSignature(
 
 /** Delete a Daily room (compensation when booking fails after room create). */
 export async function deleteDailyRoom(roomName: string): Promise<void> {
+  if (!getDailyApiKey()) {
+    console.warn(`[daily] DAILY_API_KEY unset — skip delete for ${roomName}`);
+    return;
+  }
   await dailyFetch(`/rooms/${encodeURIComponent(roomName)}`, {
     method: "DELETE",
   });
@@ -269,9 +296,7 @@ export async function ensureDailyRoom(
     existingRoomUrl?: string | null;
   } = {}
 ): Promise<string | null> {
-  if (!hasDailyApiKey()) return null;
-
-  // Nothing saved yet — create a fresh room.
+  // Nothing saved yet — create a fresh room (real or mock when key unset).
   if (!options.existingRoomUrl) {
     try {
       const room = await createDailyRoom(lessonId, {
@@ -283,6 +308,11 @@ export async function ensureDailyRoom(
       console.error(`Failed to create Daily room for lesson ${lessonId}:`, error);
       return null;
     }
+  }
+
+  if (!hasDailyApiKey()) {
+    // Keep the stored URL (may itself be a mock from a prior booking).
+    return options.existingRoomUrl;
   }
 
   const roomName = roomNameFromDailyUrl(options.existingRoomUrl);
