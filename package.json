@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "promote-admin": "tsx scripts/promote-admin.ts"
+    "promote-admin": "tsx scripts/promote-admin.ts",
+    "test:diagnostic": "vitest run tests/academic-diagnostic-integrity.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -47,6 +48,7 @@
     "prisma": "^6.19.3",
     "tailwindcss": "^4.3.1",
     "tsx": "^4.23.11",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.1"
   }
 }

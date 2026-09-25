@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import Testimonials from "../../components/Testimonials";
 import {
@@ -64,20 +64,86 @@ const FAQS = [
   },
 ];
 
-export default function PricingPage() {
+const PENDING_DIAGNOSTIC_QUIZ_KEY = "pending_diagnostic_quiz_id";
+
+/** Only allow same-origin relative paths (open-redirect safe). */
+function sanitizeReturnUrl(raw: string | null): string | null {
+  if (!raw) return null;
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    decoded = raw;
+  }
+  if (!decoded.startsWith("/") || decoded.startsWith("//")) return null;
+  if (decoded.startsWith("/login") || decoded.startsWith("/register")) return null;
+  return decoded;
+}
+
+function PricingPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const packageFromUrl = searchParams.get("package");
+  const quizIdFromUrl = searchParams.get("quizId");
+  const returnUrl = useMemo(
+    () => sanitizeReturnUrl(searchParams.get("returnUrl")),
+    [searchParams]
+  );
+
+  const highlightedPackageId = useMemo(() => {
+    if (packageFromUrl && PACKAGES.some((p) => p.id === packageFromUrl)) {
+      return packageFromUrl;
+    }
+    return null;
+  }, [packageFromUrl]);
+
+  const resolvePostPurchaseUrl = (): string => {
+    if (returnUrl) return returnUrl;
+
+    let quizId = quizIdFromUrl;
+    if (!quizId) {
+      try {
+        quizId = localStorage.getItem(PENDING_DIAGNOSTIC_QUIZ_KEY);
+      } catch {
+        quizId = null;
+      }
+    }
+
+    if (quizId) {
+      return `/onboarding/diagnostic?quizId=${encodeURIComponent(quizId)}&unlocked=true`;
+    }
+    return "/dashboard";
+  };
 
   const handlePurchase = async (packageId: string) => {
     setLoading(packageId);
     const purchaseToast = toast.loading("בודק הרשאות ומעביר לתשלום מאובטח...");
 
+    const postPurchaseUrl = resolvePostPurchaseUrl();
+    const pricingResumePath = (() => {
+      const params = new URLSearchParams();
+      params.set("package", packageId);
+      if (quizIdFromUrl) params.set("quizId", quizIdFromUrl);
+      if (returnUrl) params.set("returnUrl", returnUrl);
+      return `/pricing?${params.toString()}`;
+    })();
+
+    if (quizIdFromUrl) {
+      try {
+        localStorage.setItem(PENDING_DIAGNOSTIC_QUIZ_KEY, quizIdFromUrl);
+      } catch {
+        // ignore
+      }
+    }
+
     try {
       const meResponse = await fetch("/api/me");
       if (!meResponse.ok) {
         toast.error("יש להתחבר לפני רכישת חבילה", { id: purchaseToast });
-        router.replace("/login?from=/pricing");
+        router.replace(`/login?from=${encodeURIComponent(pricingResumePath)}`);
         return;
       }
 
@@ -92,7 +158,11 @@ export default function PricingPage() {
       const response = await fetch("/api/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageType: packageId }),
+        body: JSON.stringify({
+          packageType: packageId,
+          successUrl: postPurchaseUrl,
+          cancelUrl: pricingResumePath,
+        }),
       });
 
       const data = (await response.json()) as {
@@ -105,7 +175,7 @@ export default function PricingPage() {
       };
       if (!response.ok) throw new Error(data.error || "הרכישה נכשלה");
 
-      // Local Dev mock: credits already granted server-side — show success and return to dashboard.
+      // Local Dev mock: credits already granted server-side — return to diagnostic unlock.
       if (data.isMock) {
         toast.success("קרדיטים נוספו בהצלחה במצב פיתוח", {
           id: purchaseToast,
@@ -118,8 +188,7 @@ export default function PricingPage() {
             secondary: "#166534",
           },
         });
-        // Full navigation so /dashboard loads fresh /api/me with updated credits.
-        window.location.assign("/dashboard");
+        window.location.assign(postPurchaseUrl);
         return;
       }
 
@@ -147,60 +216,70 @@ export default function PricingPage() {
           <p className="text-lg text-neutral-500">
             מתלמידי חטיבה ותיכון ועד לסטודנטים באקדמיה. חבילות קרדיטים גמישות ללא התחייבות.
           </p>
+          {quizIdFromUrl && (
+            <p className="text-sm font-medium text-neutral-700 bg-white/70 border border-neutral-200 rounded-xl inline-block px-4 py-2">
+              לאחר הרכישה תחזרו אוטומטית לדו״ח האבחון המלא
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch mb-28 pt-4 overflow-visible">
-          {PACKAGES.map((pkg) => (
-            <div
-              key={pkg.id}
-              className={`p-8 flex flex-col justify-between relative overflow-visible ${
-                pkg.popular ? frostCardSelected : frostCard
-              }`}
-            >
-              {pkg.popular && (
-                <span className="absolute top-0 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 bg-neutral-900 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                  מומלץ
-                </span>
-              )}
+          {PACKAGES.map((pkg) => {
+            const isHighlighted = highlightedPackageId
+              ? highlightedPackageId === pkg.id
+              : pkg.popular;
+            return (
+              <div
+                key={pkg.id}
+                className={`p-8 flex flex-col justify-between relative overflow-visible ${
+                  isHighlighted ? frostCardSelected : frostCard
+                }`}
+              >
+                {(pkg.popular || highlightedPackageId === pkg.id) && (
+                  <span className="absolute top-0 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 bg-neutral-900 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                    {highlightedPackageId === pkg.id ? "מומלץ עבורך" : "מומלץ"}
+                  </span>
+                )}
 
-              <div>
-                <h3 className="text-2xl font-semibold text-neutral-900 mb-2 text-start">{pkg.name}</h3>
-                <p className="text-neutral-500 text-sm mb-6 min-h-[40px] text-start">{pkg.description}</p>
+                <div>
+                  <h3 className="text-2xl font-semibold text-neutral-900 mb-2 text-start">{pkg.name}</h3>
+                  <p className="text-neutral-500 text-sm mb-6 min-h-[40px] text-start">{pkg.description}</p>
 
-                <div className="mb-6 border-b border-neutral-200/80 pb-6 text-start space-y-2">
-                  <div className="flex items-baseline gap-1.5 justify-start" dir="ltr">
-                    <span className="text-sm font-medium text-neutral-500">/ חבילה</span>
-                    <span className="text-4xl font-extrabold text-neutral-900 tracking-tight tabular-nums">
-                      ₪{pkg.price}
-                    </span>
+                  <div className="mb-6 border-b border-neutral-200/80 pb-6 text-start space-y-2">
+                    <div className="flex items-baseline gap-1.5 justify-start" dir="ltr">
+                      <span className="text-sm font-medium text-neutral-500">/ חבילה</span>
+                      <span className="text-4xl font-extrabold text-neutral-900 tracking-tight tabular-nums">
+                        ₪{pkg.price}
+                      </span>
+                    </div>
+                    <div className="text-neutral-600 text-sm font-medium tabular-nums">
+                      ({pkg.perLesson} ₪ בלבד למפגש)
+                    </div>
                   </div>
-                  <div className="text-neutral-600 text-sm font-medium tabular-nums">
-                    ({pkg.perLesson} ₪ בלבד למפגש)
-                  </div>
+
+                  <p className="text-[11px] font-semibold tracking-wide text-neutral-500 mb-3 text-start">
+                    סל החבילה
+                  </p>
+                  <ul className="space-y-4 mb-8 text-start">
+                    {pkg.features.map((feature, index) => (
+                      <li key={index} className="flex items-center gap-3 text-neutral-700">
+                        <span className="text-neutral-900 font-semibold">✓</span>
+                        <span className="text-sm">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
 
-                <p className="text-[11px] font-semibold tracking-wide text-neutral-500 mb-3 text-start">
-                  סל החבילה
-                </p>
-                <ul className="space-y-4 mb-8 text-start">
-                  {pkg.features.map((feature, index) => (
-                    <li key={index} className="flex items-center gap-3 text-neutral-700">
-                      <span className="text-neutral-900 font-semibold">✓</span>
-                      <span className="text-sm">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+                <button
+                  onClick={() => handlePurchase(pkg.id)}
+                  disabled={loading !== null}
+                  className={`w-full ${isHighlighted ? primaryCta : secondaryCta}`}
+                >
+                  {loading === pkg.id ? "מעבד..." : "רכישה מאובטחת"}
+                </button>
               </div>
-
-              <button
-                onClick={() => handlePurchase(pkg.id)}
-                disabled={loading !== null}
-                className={`w-full ${pkg.popular ? primaryCta : secondaryCta}`}
-              >
-                {loading === pkg.id ? "מעבד..." : "רכישה מאובטחת"}
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mb-28 border-t border-neutral-200/80 pt-16">
@@ -307,5 +386,21 @@ export default function PricingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className={`${pageCanvas} py-16 px-4`} dir="rtl">
+          <div className="max-w-3xl mx-auto text-center text-neutral-500 text-sm font-medium">
+            טוען חבילות...
+          </div>
+        </div>
+      }
+    >
+      <PricingPageInner />
+    </Suspense>
   );
 }

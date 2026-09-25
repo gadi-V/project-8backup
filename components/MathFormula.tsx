@@ -50,3 +50,48 @@ export default function MathFormula({
     />
   );
 }
+
+/**
+ * Mixed prose + inline/display KaTeX: splits on `$...$` / `$$...$$`.
+ * Prefer `DiagnosticMathText` for diagnostic screens (RTL-safe wrapper).
+ */
+export function renderFormattedText(text?: string) {
+  if (!text) return null;
+
+  const parts = text.split(/(\$\$[\s\S]+?\$\$|\$[^$]+?\$)/g);
+  return (
+    <span dir="rtl">
+      {parts.map((part, index) => {
+        if (!part) return null;
+        const isDisplay = part.startsWith("$$") && part.endsWith("$$");
+        const isInline =
+          !isDisplay && part.startsWith("$") && part.endsWith("$") && part.length > 1;
+        if (isDisplay || isInline) {
+          const math = isDisplay ? part.slice(2, -2) : part.slice(1, -1);
+          try {
+            const html = katex.renderToString(math.trim(), {
+              throwOnError: false,
+              displayMode: isDisplay,
+              strict: false,
+            });
+            return (
+              <span
+                key={index}
+                dir="ltr"
+                className="inline-block align-middle font-sans select-text [unicode-bidi:isolate]"
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            );
+          } catch {
+            return (
+              <span key={index} dir="ltr" className="[unicode-bidi:isolate]">
+                {part}
+              </span>
+            );
+          }
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </span>
+  );
+}

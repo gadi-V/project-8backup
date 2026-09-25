@@ -8,6 +8,102 @@ import {
   dispatchWhatsAppCloser,
 } from "../../../../lib/whatsapp";
 
+type IncomingQuestionReview = {
+  questionId?: string;
+  topicLabel?: string;
+  title?: string;
+  context?: string;
+  instruction?: string;
+  formulaLatex?: string;
+  selectedOptionId?: string;
+  selectedText?: string;
+  isCorrect?: boolean;
+  correctOptionId?: string;
+  correctText?: string;
+  explanation?: string;
+};
+
+type NormalizedQuestionReview = {
+  questionId: string;
+  topicLabel: string;
+  title: string;
+  context: string;
+  instruction: string;
+  formulaLatex?: string;
+  selectedOptionId: string;
+  selectedText: string;
+  isCorrect: boolean;
+  correctOptionId: string;
+  correctText: string;
+  explanation: string;
+};
+
+type ReadinessBadge = {
+  label: string;
+  tone: "green" | "amber" | "red";
+};
+
+/** Reject raw enum-style domain keys (e.g. GEOMETRY_VECTORS). */
+function isTechnicalDomainLeak(label: string): boolean {
+  return /^[A-Z][A-Z0-9_]{2,}$/.test(label.trim());
+}
+
+function normalizePedagogicalLabel(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const label = raw.trim();
+  if (!label || isTechnicalDomainLeak(label)) return null;
+  return label;
+}
+
+function buildReadinessBadge(score: number): ReadinessBadge {
+  if (score >= 80) {
+    return { label: "בסיס אקדמי איתן", tone: "green" };
+  }
+  if (score >= 55) {
+    return { label: "נדרש חידוד ותרגול ממוקד", tone: "amber" };
+  }
+  return { label: "אותרו פערי ליבה קריטיים", tone: "red" };
+}
+
+function normalizeQuestionReviews(raw: unknown): NormalizedQuestionReview[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item): item is IncomingQuestionReview => !!item && typeof item === "object")
+    .map((item, index) => {
+      const topicFromTitle =
+        typeof item.title === "string"
+          ? item.title.split(/\s*[-–—]\s*/).slice(1).join(" - ").trim()
+          : "";
+      const topicLabel =
+        normalizePedagogicalLabel(item.topicLabel) ||
+        normalizePedagogicalLabel(topicFromTitle) ||
+        normalizePedagogicalLabel(item.title) ||
+        `נושא מיקוד ${index + 1}`;
+
+      return {
+        questionId: typeof item.questionId === "string" ? item.questionId : `q-${index + 1}`,
+        topicLabel,
+        title: typeof item.title === "string" ? item.title : topicLabel,
+        context: typeof item.context === "string" ? item.context : "",
+        instruction: typeof item.instruction === "string" ? item.instruction : "",
+        formulaLatex: typeof item.formulaLatex === "string" ? item.formulaLatex : undefined,
+        selectedOptionId: typeof item.selectedOptionId === "string" ? item.selectedOptionId : "",
+        selectedText: typeof item.selectedText === "string" ? item.selectedText : "",
+        isCorrect: !!item.isCorrect,
+        correctOptionId: typeof item.correctOptionId === "string" ? item.correctOptionId : "",
+        correctText: typeof item.correctText === "string" ? item.correctText : "",
+        explanation: typeof item.explanation === "string" ? item.explanation : "",
+      };
+    });
+}
+
+function pickSampleExplanation(
+  reviews: NormalizedQuestionReview[]
+): NormalizedQuestionReview | null {
+  if (reviews.length === 0) return null;
+  return reviews.find((r) => !r.isCorrect) ?? reviews[0];
+}
+
 /**
  * 5-Step Diagnostic & Wake-up Call Funnel Intake.
  * Public endpoint (middleware allows /api/diagnostic/** for guests) that processes:
@@ -60,6 +156,7 @@ export async function POST(request: Request) {
       correctCount = 0,
       totalQuestions = 3,
       weakDomains = [],
+      questionReviews: rawQuestionReviews = [],
     } = body;
 
     if (!ageGroup || !subject) {
@@ -68,6 +165,21 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const questionReviews = normalizeQuestionReviews(rawQuestionReviews);
+    const sampleExplanation = pickSampleExplanation(questionReviews);
+
+    // Pedagogical weak labels: prefer Hebrew topic labels from wrong answers; never leak enums.
+    const pedagogicalWeakTopics = Array.from(
+      new Set(
+        [
+          ...questionReviews.filter((r) => !r.isCorrect).map((r) => r.topicLabel),
+          ...(Array.isArray(weakDomains) ? weakDomains : []),
+        ]
+          .map((label) => normalizePedagogicalLabel(label))
+          .filter((label): label is string => !!label)
+      )
+    );
 
     // Optional session — never 401 for anonymous teaser submission
     const sessionUser = await getCurrentUser();
@@ -171,14 +283,21 @@ export async function POST(request: Request) {
       calculatedScore = Math.min(42, Math.max(34, Math.round(baseline * 0.48)));
     }
 
+    const readinessBadge = buildReadinessBadge(calculatedScore);
+
     const urgencyNote =
       hasUpcomingExam && examTimeframe?.includes("month")
         ? " ⚠️ התראה: בחינה קרובה בטווח של פחות מחודש — סיכון מובהק לפגיעה בציון הבגרות."
         : "";
 
+    const weakTopicHint =
+      pedagogicalWeakTopics.length > 0
+        ? ` מוקדי פער שזוהו: ${pedagogicalWeakTopics.slice(0, 3).join(", ")}.`
+        : "";
+
     const recommendationSummary = numCorrect < totalQ
-      ? `מדד מוכנות למבחן: ${calculatedScore}%. זוהו ${totalQ - numCorrect} פערי ליבה בחשיבה אנליטית, חקירת גבולות ופתרון שאלות ברמת בחינה.${urgencyNote}`
-      : `מדד מוכנות למבחן: ${calculatedScore}%. בסיס סביר, אך נדרש דיוק ומהירות לפתרון מבחן 5 יח״ל בזמן אמת.${urgencyNote}`;
+      ? `מדד מוכנות למבחן: ${calculatedScore}%. זוהו ${totalQ - numCorrect} פערי ליבה בחשיבה אנליטית ופתרון שאלות ברמת בחינה.${weakTopicHint}${urgencyNote}`
+      : `מדד מוכנות למבחן: ${calculatedScore}%. בסיס סביר, אך נדרש דיוק ומהירות לפתרון מבחן בזמן אמת.${urgencyNote}`;
 
     const isStudentPaying = sessionUser ? sessionUser.lessonCredits > 0 : false;
 
@@ -255,7 +374,9 @@ export async function POST(request: Request) {
           trackName: diagnostic.trackType ?? subject,
           identifiedGaps: mappedTopicIds.length > 0
             ? mappedTopicIds
-            : [subject],
+            : pedagogicalWeakTopics.length > 0
+              ? pedagogicalWeakTopics
+              : [subject],
           studentPhone: studentPhone || null,
           parentPhone: parentPhone || null,
           recipientPhone: closerPhone,
@@ -268,7 +389,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // If already paying/unlocked, return full data
+    // If already paying/unlocked, return full data including full exam review
     if (isStudentPaying) {
       return NextResponse.json({
         success: true,
@@ -277,6 +398,9 @@ export async function POST(request: Request) {
           isUnlocked: true,
           estimatedScore: diagnostic.estimatedScore,
           recommendationSummary: diagnostic.recommendationSummary,
+          readinessBadge,
+          sampleExplanation,
+          questionReviews,
           topicsCount: diagnostic.topics.length,
           topics: diagnostic.topics.map((t: CurriculumTopic) => ({
             id: t.id,
@@ -301,16 +425,18 @@ export async function POST(request: Request) {
       isLocked: true,
     }));
 
-    // Guest / empty-curriculum fallback: build masked gap tree from weak domains
+    // Guest / empty-curriculum fallback: pedagogical Hebrew labels only (never raw enums)
     if (maskedTopics.length === 0) {
-      const domains: string[] = Array.isArray(weakDomains)
-        ? weakDomains.filter((d: unknown): d is string => typeof d === "string" && d.length > 0)
-        : [];
-      const gapCount = Math.max(1, domains.length || totalQ - numCorrect || 1);
+      const gapLabels =
+        pedagogicalWeakTopics.length > 0
+          ? pedagogicalWeakTopics
+          : questionReviews.map((r) => r.topicLabel);
+
+      const gapCount = Math.max(1, gapLabels.length || totalQ - numCorrect || 1);
       maskedTopics = Array.from({ length: Math.min(5, gapCount) }, (_, index) => ({
         id: `topic-masked-${index + 1}`,
-        maskedName: domains[index]
-          ? `מוקד פער: ${domains[index]}`
+        maskedName: gapLabels[index]
+          ? `מוקד פער: ${gapLabels[index]}`
           : `נושא מיקוד ${index + 1}`,
         weightInExam: Number((1 / Math.min(5, gapCount)).toFixed(2)),
         subTopicsCount: 2,
@@ -337,6 +463,9 @@ export async function POST(request: Request) {
         isUnlocked: false,
         estimatedScore: diagnostic.estimatedScore,
         recommendationSummary: diagnostic.recommendationSummary,
+        readinessBadge,
+        // One free pedagogical sample; remaining reviews stay locked until unlock
+        sampleExplanation,
         topicsCount: gapTopicsCount,
         maskedTopics,
         recommendation,
@@ -435,6 +564,7 @@ export async function GET(request: Request) {
         packageId: diagnostic.packageId,
         readinessScore,
         summaryText,
+        readinessBadge: buildReadinessBadge(readinessScore),
         isLocked,
         topicsCount: gapTopicsCount,
         gapTree,

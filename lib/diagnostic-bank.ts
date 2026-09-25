@@ -13,7 +13,7 @@ export interface DiagnosticQuestion {
 }
 
 /**
- * High-rigor Bagrut 581 bank — multi-step calculus, vectors, and complex numbers.
+ * High-rigor Bagrut math bank — multi-step calculus, vectors, and complex numbers.
  * Used by onboarding challenge suite via bankToOnboardingQuestions.
  */
 export const DIAGNOSTIC_MATH_BANK: Record<string, DiagnosticQuestion[]> = {

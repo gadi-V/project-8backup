@@ -33,6 +33,17 @@ function appBaseUrl(request: Request): string {
   );
 }
 
+/** Same-origin relative path only — blocks open redirects. */
+function sanitizeAppPath(raw: unknown, fallback: string): string {
+  if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//")) {
+    return fallback;
+  }
+  if (raw.startsWith("/login") || raw.startsWith("/register")) {
+    return fallback;
+  }
+  return raw;
+}
+
 /**
  * Create a Stripe Checkout Session. Credits are granted only via the Stripe webhook
  * after `checkout.session.completed` is verified — never here (except mock/dev mode).
@@ -43,7 +54,7 @@ export async function POST(request: Request) {
     if (auth.error) return auth.error;
 
     const body = await request.json();
-    const { packageType } = body;
+    const { packageType, successUrl, cancelUrl } = body;
 
     if (!packageType || typeof packageType !== "string") {
       return NextResponse.json({ error: "סוג חבילה הוא שדה חובה" }, { status: 400 });
@@ -53,6 +64,9 @@ export async function POST(request: Request) {
     if (!selectedPackage) {
       return NextResponse.json({ error: "סוג חבילה לא תקין" }, { status: 400 });
     }
+
+    const safeSuccessPath = sanitizeAppPath(successUrl, "/dashboard?payment=success");
+    const safeCancelPath = sanitizeAppPath(cancelUrl, "/pricing?payment=cancelled");
 
     // Local / mock Stripe: grant credits immediately instead of Checkout + webhook.
     if (isMockStripeMode()) {
@@ -106,6 +120,7 @@ export async function POST(request: Request) {
         success: true,
         isMock: true,
         newCredits: updatedCredits,
+        redirectUrl: safeSuccessPath,
         message: "תשלום מדומה הושלם בהצלחה",
       });
     }
@@ -128,8 +143,8 @@ export async function POST(request: Request) {
           },
         },
       ],
-      success_url: `${baseUrl}/dashboard?payment=success`,
-      cancel_url: `${baseUrl}/dashboard?payment=cancelled`,
+      success_url: `${baseUrl}${safeSuccessPath}${safeSuccessPath.includes("?") ? "&" : "?"}payment=success`,
+      cancel_url: `${baseUrl}${safeCancelPath}${safeCancelPath.includes("?") ? "&" : "?"}payment=cancelled`,
       metadata: {
         userId: auth.user.id,
         packageType,
