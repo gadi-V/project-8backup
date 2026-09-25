@@ -11,11 +11,11 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 # שם השרת עודכן כדי לשקף את היכולות המורחבות
 mcp = FastMCP("agents-hive-enterprise")
 
-PROJECT_ROOT = "/Users/gaditzumi/project8"
-HIVE_DIR = os.path.join(PROJECT_ROOT, "agents_hive")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+HIVE_DIR = PROJECT_ROOT / "agents_hive"
 
-ENV_PATH = Path(HIVE_DIR) / ".env"
-ROOT_ENV_PATH = Path(PROJECT_ROOT) / ".env"
+ENV_PATH = HIVE_DIR / ".env"
+ROOT_ENV_PATH = PROJECT_ROOT / ".env"
 # Hive-local first, then root .env fills missing keys (HIVE_MONITOR_SECRET, APP_URL).
 load_dotenv(dotenv_path=ENV_PATH)
 load_dotenv(dotenv_path=ROOT_ENV_PATH)
@@ -26,10 +26,10 @@ REASONING_MODEL = os.getenv("MODEL_ARCHITECT", "deepseek/deepseek-r1")
 
 # 🚨 קודש קודשים - אזורים שאסור ל-AI לדרוס בטעות
 PROTECTED_DOMAINS = [
-    "src/lib/ledger",
-    "src/lib/dispatch",
-    "src/app/api/fintech",
-    "src/app/api/cancellations"
+    "lib/ledger",
+    "lib/dispatch",
+    "app/api/fintech",
+    "app/api/cancellations",
 ]
 
 # ── Frozen curriculum schema (see .cursor/rules/09-curriculum-pedagogy.mdc) ──

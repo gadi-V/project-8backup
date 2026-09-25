@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/head-of-desk",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 3 * * *"
     },
     {
       "path": "/api/cron/lesson-reminders",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }
